@@ -3,8 +3,8 @@
 
 Reports secrets and build-machine paths in the bundle's strings, files that should not ship, and
 an iOS app without a privacy manifest. An exported artifact (anything but an .xcarchive) must
-also be validly signed for distribution: not ad hoc, no debugger attachment and no profile
-limited to devices, in the app and in the code nested in it. Exit status: 0 when nothing is found, 1 when something is
+also be validly signed with an Apple-issued certificate, with no debugger attachment and no
+profile limited to devices, in the app and in the code nested in it. Exit status: 0 when nothing is found, 1 when something is
 found, 2 when the artifact cannot be checked.
 """
 
@@ -123,14 +123,15 @@ def signing(app: Path) -> list[str]:
         if result.returncode != 0:
             findings.append(f"署名を読めない: {label(app, bundle)}")
             continue
-        verify = ["codesign", "--verify", "--strict", str(bundle)]
+        verify = ["codesign", "--verify", "--deep", "--strict", str(bundle)]
         if subprocess.run(verify, capture_output=True, check=False).returncode != 0:
             findings.append(f"署名が検証できない（署名後の変更など）: {label(app, bundle)}")
-        details = subprocess.run(
-            ["codesign", "-dv", str(bundle)], capture_output=True, text=True, check=False
-        )
-        if "Signature=adhoc" in details.stderr:
-            findings.append(f"配布用でないad hoc署名: {label(app, bundle)}")
+        # Developer ID and App Store certificates chain to Apple; ad hoc and self-signed do not.
+        issuer = ["codesign", "--verify", "-R=anchor apple generic", str(bundle)]
+        if subprocess.run(issuer, capture_output=True, check=False).returncode != 0:
+            findings.append(
+                f"Appleの証明書による署名でない（ad hoc・自己署名など）: {label(app, bundle)}"
+            )
         entitlements = plistlib.loads(result.stdout) if result.stdout.strip() else {}
         if any(entitlements.get(key) for key in DEBUGGABLE):
             findings.append(f"デバッガの接続を許す署名（get-task-allow）: {label(app, bundle)}")
@@ -173,12 +174,20 @@ def unshippable(tree: Path) -> list[str]:
     return findings
 
 
-def local_paths(app: Path) -> list[str]:
+def local_paths(root: Path, files: list[Path]) -> list[str]:
     """Name the files that embed build-machine paths. The paths themselves are not printed."""
     return [
-        f"手元のパス: {label(app, path)}"
-        for path in bundle_files(app)
-        if LOCAL_PATH.search(text_of(path))
+        f"手元のパス: {label(root, path)}" for path in files if LOCAL_PATH.search(text_of(path))
+    ]
+
+
+def beside_apps(tree: Path, apps: list[Path]) -> list[Path]:
+    """Files of an unpacked archive outside its apps. An .ipa's Symbols/ only goes to Apple."""
+    return [
+        path
+        for path in bundle_files(tree)
+        if not any(path.is_relative_to(app) for app in apps)
+        and path.relative_to(tree).parts[0] != "Symbols"
     ]
 
 
@@ -212,7 +221,11 @@ def main() -> int:
     if len(sys.argv) != 2:
         print("Usage: check-artifact.py <.xcarchive|.ipa|.zip|.app>", file=sys.stderr)
         return 2
-    artifact = Path(sys.argv[1]).resolve()
+    given = Path(sys.argv[1])
+    if given.is_symlink():
+        print(f"check-artifact: 調べられない（{given.name}）: symlinkはたどらない", file=sys.stderr)
+        return 2
+    artifact = given.resolve()
     if shutil.which("gitleaks") is None:
         print("check-artifact: gitleaks が見つからない", file=sys.stderr)
         return 2
@@ -224,7 +237,11 @@ def main() -> int:
         try:
             trees, apps = unpack(artifact, work)
             findings = [
-                finding for tree in trees for finding in unshippable(tree) + secrets(tree, work)
+                finding
+                for tree in trees
+                for finding in unshippable(tree)
+                + local_paths(tree, beside_apps(tree, apps))
+                + secrets(tree, work)
             ]
             if not apps:
                 raise CheckError(f"アプリが見つからない: {artifact.name}")
@@ -233,7 +250,7 @@ def main() -> int:
                 for app in apps
                 for finding in (signing(app) if exported else [])
                 + privacy_manifest(app)
-                + local_paths(app)
+                + local_paths(app, bundle_files(app))
             ]
         except (
             CheckError,

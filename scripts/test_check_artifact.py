@@ -175,6 +175,19 @@ class CheckArtifactTests(unittest.TestCase):
         self.assertIn("config/private.key", result.stdout)
         self.assertIn("notes.txt", result.stdout)
 
+    def test_build_machine_path_beside_the_app_in_a_zip_fails(self) -> None:
+        app = self.signed_mac_app(None)
+        (app.parent / "notes.txt").write_bytes(b"built in /Users/builder/src\n")
+        result = self.run_check(self.zip_of(app.parent))
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("notes.txt", result.stdout)
+
+    def test_input_that_is_a_symlink_fails(self) -> None:
+        app = self.signed_mac_app(None)
+        (self.work / "Link.app").symlink_to(app)
+        result = self.run_check(self.work / "Link.app")
+        self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+
     def test_unsigned_exported_app_fails(self) -> None:
         app = self.signed_mac_app(None)
         subprocess.run(["codesign", "--remove-signature", str(app)], check=True)
