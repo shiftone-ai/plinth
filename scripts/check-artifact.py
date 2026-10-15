@@ -3,8 +3,8 @@
 
 Reports secrets and build-machine paths in the bundle's strings, files that should not ship, and
 an iOS app without a privacy manifest. An exported artifact (anything but an .xcarchive) must
-also be validly signed with an Apple-issued certificate, with no debugger attachment and no
-profile limited to devices, in the app and in the code nested in it. Exit status: 0 when nothing is found, 1 when something is
+also be validly signed with an Apple-issued distribution certificate, with no debugger
+attachment and no profile limited to devices, in the app and in the code nested in it. Exit status: 0 when nothing is found, 1 when something is
 found, 2 when the artifact cannot be checked.
 """
 
@@ -40,6 +40,14 @@ UNSHIPPABLE_SUFFIXES = {
 CODE_BUNDLE_SUFFIXES = {".app", ".appex", ".xpc", ".framework"}
 # iOS and macOS spell the entitlement that lets a debugger attach differently.
 DEBUGGABLE = ("get-task-allow", "com.apple.security.get-task-allow")
+# Leaf certificates that sign for distribution: Developer ID outside the App Store, and the
+# App Store and TestFlight ones. Development certificates (Apple Development) are left out.
+DISTRIBUTION_SIGNERS = (
+    "Developer ID Application:",
+    "Apple Distribution:",
+    "iPhone Distribution:",
+    "3rd Party Mac Developer Application:",
+)
 
 
 class CheckError(Exception):
@@ -112,6 +120,17 @@ def label(app: Path, path: Path) -> str:
     return f"{app.name}/{path.relative_to(app)}" if path != app else app.name
 
 
+def signer(bundle: Path) -> str:
+    """The leaf certificate's name, from the first Authority line that codesign prints."""
+    details = subprocess.run(
+        ["codesign", "-dvv", str(bundle)], capture_output=True, text=True, check=False
+    )
+    for line in details.stderr.splitlines():
+        if line.startswith("Authority="):
+            return line.removeprefix("Authority=")
+    return ""
+
+
 def signing(app: Path) -> list[str]:
     findings = []
     for bundle in code_bundles(app):
@@ -132,6 +151,8 @@ def signing(app: Path) -> list[str]:
             findings.append(
                 f"Appleの証明書による署名でない（ad hoc・自己署名など）: {label(app, bundle)}"
             )
+        elif not signer(bundle).startswith(DISTRIBUTION_SIGNERS):
+            findings.append(f"配布用でない証明書による署名（開発用など）: {label(app, bundle)}")
         entitlements = plistlib.loads(result.stdout) if result.stdout.strip() else {}
         if any(entitlements.get(key) for key in DEBUGGABLE):
             findings.append(f"デバッガの接続を許す署名（get-task-allow）: {label(app, bundle)}")
@@ -160,7 +181,9 @@ def privacy_manifest(app: Path) -> list[str]:
 
 
 def unshippable(tree: Path) -> list[str]:
-    allowed = {profile for bundle in code_bundles(tree) for profile in embedded_profiles(bundle)}
+    # Signing embeds a profile only inside code bundles, never at the root of an archive.
+    bundles = code_bundles(tree) if tree.suffix == ".app" else code_bundles(tree)[1:]
+    allowed = {profile for bundle in bundles for profile in embedded_profiles(bundle)}
     findings = []
     for path in tree.rglob("*"):
         name, suffix = path.name.lower(), path.suffix.lower()
@@ -181,13 +204,13 @@ def local_paths(root: Path, files: list[Path]) -> list[str]:
     ]
 
 
-def beside_apps(tree: Path, apps: list[Path]) -> list[Path]:
+def beside_apps(tree: Path, apps: list[Path], ipa: bool) -> list[Path]:
     """Files of an unpacked archive outside its apps. An .ipa's Symbols/ only goes to Apple."""
     return [
         path
         for path in bundle_files(tree)
         if not any(path.is_relative_to(app) for app in apps)
-        and path.relative_to(tree).parts[0] != "Symbols"
+        and not (ipa and path.relative_to(tree).parts[0] == "Symbols")
     ]
 
 
@@ -240,7 +263,7 @@ def main() -> int:
                 finding
                 for tree in trees
                 for finding in unshippable(tree)
-                + local_paths(tree, beside_apps(tree, apps))
+                + local_paths(tree, beside_apps(tree, apps, artifact.suffix.lower() == ".ipa"))
                 + secrets(tree, work)
             ]
             if not apps:

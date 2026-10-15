@@ -182,6 +182,19 @@ class CheckArtifactTests(unittest.TestCase):
         self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
         self.assertIn("notes.txt", result.stdout)
 
+    def test_symbols_folder_is_exempt_only_in_an_ipa(self) -> None:
+        app = self.signed_mac_app(None)
+        (app.parent / "Symbols").mkdir()
+        (app.parent / "Symbols/build.txt").write_bytes(b"built in /Users/builder/src\n")
+        result = self.run_check(self.zip_of(app.parent))
+        self.assertIn("手元のパス: App.zip/Symbols/build.txt", result.stdout)
+
+    def test_profile_beside_the_app_in_a_zip_fails(self) -> None:
+        app = self.signed_mac_app(None)
+        (app.parent / "embedded.mobileprovision").write_bytes(b"x")
+        result = self.run_check(self.zip_of(app.parent))
+        self.assertIn("配らないファイル: App.zip/embedded.mobileprovision", result.stdout)
+
     def test_input_that_is_a_symlink_fails(self) -> None:
         app = self.signed_mac_app(None)
         (self.work / "Link.app").symlink_to(app)
