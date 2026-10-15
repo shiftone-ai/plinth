@@ -680,7 +680,7 @@ final class MobileWorkflowUITests: XCTestCase {
   }
 
   @MainActor
-  private func reach(_ element: XCUIElement, app: XCUIApplication) {
+  func reach(_ element: XCUIElement, app: XCUIApplication) {
     for _ in 0..<5 where !element.exists || !element.isHittable {
       app.collectionViews.firstMatch.swipeUp()
     }
@@ -688,7 +688,7 @@ final class MobileWorkflowUITests: XCTestCase {
   }
 
   @MainActor
-  private func exists(_ element: XCUIElement, timeout: TimeInterval = 10) async throws {
+  func exists(_ element: XCUIElement, timeout: TimeInterval = 10) async throws {
     let ready = expectation(for: NSPredicate(format: "exists == true"), evaluatedWith: element)
     await fulfillment(of: [ready], timeout: timeout)
     _ = try XCTUnwrap(element.exists ? element : nil)
@@ -710,7 +710,7 @@ final class MobileWorkflowUITests: XCTestCase {
   }
 
   @MainActor
-  private func enabled(_ element: XCUIElement) async throws {
+  func enabled(_ element: XCUIElement) async throws {
     let ready = expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: element)
     await fulfillment(of: [ready], timeout: 15)
     _ = try XCTUnwrap(element.isEnabled ? element : nil)
@@ -732,7 +732,7 @@ final class MobileWorkflowUITests: XCTestCase {
   }
 
   @MainActor
-  private func attach(_ app: XCUIApplication, _ name: String) {
+  func attach(_ app: XCUIApplication, _ name: String) {
     let screenshot = XCTAttachment(screenshot: app.screenshot())
     screenshot.name = name
     screenshot.lifetime = .keepAlways

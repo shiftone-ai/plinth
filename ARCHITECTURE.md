@@ -17,6 +17,7 @@ iPad版の本体・外部への展示，展示Viewと管理Viewの切替，マ�
 | モジュール | 責務 |
 | --- | --- |
 | [KioskCore](Sources/KioskCore) | イベント，値モデル，Policy，状態機械，Reply・Effect・Controlの契約 |
+| [KioskLocalization](Sources/KioskLocalization) | 管理画面の翻訳，OSの言語と画面内の言語選択，選択の保存 |
 | [KioskPresentation](Sources/KioskPresentation) | 不変Propsと純粋なPresenter |
 | [KioskRuntime](Sources/KioskRuntime) | Root所有ツリー，同期CoR配送，Effect・Task・reply管理，共通WebKit・Keychain・保存Adapter |
 | [KioskUI](Sources/KioskUI) | Mac・iOS共通のPassive SwiftUI View |

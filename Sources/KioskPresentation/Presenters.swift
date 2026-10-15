@@ -73,11 +73,11 @@ public enum Presenters {
     -> [SettingsValidationMessage]
   {
     var messages = (administration.draft?.validationIssues ?? []).map {
-      SettingsValidationMessage(id: $0, text: validationMessage($0))
+      SettingsValidationMessage(id: $0, textKey: validationMessage($0))
     }
     if ProfileRevision.next(after: root.savedProfile?.revision) == nil {
       messages.removeAll { $0.id == .invalidRevision }
-      messages.append(.init(id: .invalidRevision, text: "設定の保存回数が上限に達しています"))
+      messages.append(.init(id: .invalidRevision, textKey: "設定の保存回数が上限に達しています"))
     }
     return messages
   }

@@ -115,6 +115,13 @@ test = obj(
     path="Tests/KioskUITests/KioskWorkflowUITests.swift",
     sourceTree="SOURCE_ROOT",
 )
+localization_test = obj(
+    "MacLocalizationUISource",
+    "PBXFileReference",
+    lastKnownFileType="sourcecode.swift",
+    path="Tests/KioskUITests/MacLocalizationUITests.swift",
+    sourceTree="SOURCE_ROOT",
+)
 fixture = obj(
     "FixtureSource",
     "PBXFileReference",
@@ -156,7 +163,7 @@ group = obj(
     "MainGroup",
     "PBXGroup",
     sourceTree="<group>",
-    children=[main, test, fixture, fixture_video, products],
+    children=[main, test, localization_test, fixture, fixture_video, products],
 )
 package = obj("LocalPackage", "XCLocalSwiftPackageReference", relativePath=".")
 library = obj(
@@ -165,6 +172,7 @@ library = obj(
 library_build = obj("MacLibraryBuild", "PBXBuildFile", productRef=library)
 main_build = obj("MainBuild", "PBXBuildFile", fileRef=main)
 test_build = obj("TestBuild", "PBXBuildFile", fileRef=test)
+localization_test_build = obj("MacLocalizationTestBuild", "PBXBuildFile", fileRef=localization_test)
 fixture_build = obj("FixtureBuild", "PBXBuildFile", fileRef=fixture)
 fixture_video_build = obj("FixtureVideoBuild", "PBXBuildFile", fileRef=fixture_video)
 
@@ -264,7 +272,11 @@ test_target = obj(
     buildRules=[],
     dependencies=[dependency],
     buildPhases=[
-        phase("UISources", "PBXSourcesBuildPhase", [test_build, fixture_build]),
+        phase(
+            "UISources",
+            "PBXSourcesBuildPhase",
+            [test_build, localization_test_build, fixture_build],
+        ),
         phase("UIFrameworks", "PBXFrameworksBuildPhase", []),
         phase("UIResources", "PBXResourcesBuildPhase", [fixture_video_build]),
     ],
@@ -284,7 +296,7 @@ project = obj(
     ),
     compatibilityVersion="Xcode 16.0",
     developmentRegion="ja",
-    knownRegions=["ja", "en", "Base"],
+    knownRegions=["ja", "en", "ko", "zh-Hans", "zh-Hant", "Base"],
     mainGroup=group,
     productRefGroup=products,
     projectDirPath="",
@@ -324,7 +336,14 @@ mobile_test_product = obj(
     sourceTree="BUILT_PRODUCTS_DIR",
     includeInIndex="0",
 )
-objects[group]["children"] += [mobile_main, mobile_test]
+mobile_localization_test = obj(
+    "MobileLocalizationTest",
+    "PBXFileReference",
+    lastKnownFileType="sourcecode.swift",
+    path="Tests/KioskMobileUITests/MobileLocalizationUITests.swift",
+    sourceTree="SOURCE_ROOT",
+)
+objects[group]["children"] += [mobile_main, mobile_test, mobile_localization_test]
 objects[products]["children"] += [mobile_product, mobile_test_product]
 mobile_library = obj(
     "MobileLibrary",
@@ -335,6 +354,9 @@ mobile_library = obj(
 mobile_library_build = obj("MobileLibraryBuild", "PBXBuildFile", productRef=mobile_library)
 mobile_main_build = obj("MobileMainBuild", "PBXBuildFile", fileRef=mobile_main)
 mobile_test_build = obj("MobileTestBuild", "PBXBuildFile", fileRef=mobile_test)
+mobile_localization_test_build = obj(
+    "MobileLocalizationTestBuild", "PBXBuildFile", fileRef=mobile_localization_test
+)
 mobile_assets = obj(
     "MobileAssets",
     "PBXFileReference",
@@ -429,7 +451,11 @@ mobile_test_target = obj(
     buildRules=[],
     dependencies=[mobile_dependency],
     buildPhases=[
-        phase("MobileUISources", "PBXSourcesBuildPhase", [mobile_test_build, fixture_build]),
+        phase(
+            "MobileUISources",
+            "PBXSourcesBuildPhase",
+            [mobile_test_build, mobile_localization_test_build, fixture_build],
+        ),
         phase("MobileUIFrameworks", "PBXFrameworksBuildPhase", []),
         phase("MobileUIResources", "PBXResourcesBuildPhase", [fixture_video_build]),
     ],
