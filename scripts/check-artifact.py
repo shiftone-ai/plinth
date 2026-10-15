@@ -3,8 +3,8 @@
 
 Reports secrets and build-machine paths in the bundle's strings, files that should not ship, and
 an iOS app without a privacy manifest. An exported artifact (anything but an .xcarchive) must
-also be signed for distribution: no debugger attachment and no profile limited to devices, in
-the app and in the code nested in it. Exit status: 0 when nothing is found, 1 when something is
+also be validly signed for distribution: not ad hoc, no debugger attachment and no profile
+limited to devices, in the app and in the code nested in it. Exit status: 0 when nothing is found, 1 when something is
 found, 2 when the artifact cannot be checked.
 """
 
@@ -18,13 +18,15 @@ import tempfile
 from pathlib import Path
 from xml.parsers.expat import ExpatError
 
-# Printable ASCII runs, the same unit as `strings -n 6`. Rules keyed on a token prefix (ghp_,
-# AKIA, sk-) find literals in binaries; rules that need `key = value` context mostly do not.
+# Printable ASCII runs, the same unit as `strings -n 6`, and the same text stored as UTF-16LE.
+# Rules keyed on a token prefix (ghp_, AKIA, sk-) find literals in binaries; rules that need
+# `key = value` context mostly do not.
 PRINTABLE = re.compile(rb"[\x20-\x7e]{6,}")
+PRINTABLE_UTF16 = re.compile(rb"(?:[\x20-\x7e]\x00){6,}")
 # Absolute paths of the build machine: home folders, temporary folders and mounted volumes.
 # A path must not continue a word, so URL paths such as https://example.com/home/ do not match.
 LOCAL_PATH = re.compile(
-    rb"(?<![\w.-])(?:/(?:Users|home|Volumes)/(?!Shared/)[^/\s]+/"
+    rb"(?<![\w.-])(?:/(?:Users|home|Volumes)/[^/\s]+/"
     rb"|/(?:private/)?(?:var/folders|tmp)/)"
 )
 # Sources, build settings, private keys, profiles and local state. Secrets inside any file are
@@ -36,6 +38,8 @@ UNSHIPPABLE_SUFFIXES = {
     ".mobileprovision", ".provisionprofile", ".log", ".xcuserstate",
 }  # fmt: skip
 CODE_BUNDLE_SUFFIXES = {".app", ".appex", ".xpc", ".framework"}
+# iOS and macOS spell the entitlement that lets a debugger attach differently.
+DEBUGGABLE = ("get-task-allow", "com.apple.security.get-task-allow")
 
 
 class CheckError(Exception):
@@ -53,19 +57,37 @@ def describe(error: Exception) -> str:
     return type(error).__name__
 
 
-def app_bundles(artifact: Path, work: Path) -> list[Path]:
-    """Return the app bundles inside the artifact, unpacking archives into work."""
+def unpack(artifact: Path, work: Path) -> tuple[list[Path], list[Path]]:
+    """Return the trees to check file by file, and the app bundles in them.
+
+    An .ipa or .zip is checked whole, so files beside the app count too. An app that is a
+    symlink is never followed.
+    """
     suffix = artifact.suffix.lower()
     if suffix == ".xcarchive":
-        return sorted((artifact / "Products/Applications").glob("*.app"))
-    if suffix in (".ipa", ".zip"):
-        unpacked = work / "unpacked"
+        apps = sorted((artifact / "Products/Applications").glob("*.app"))
+        trees = apps
+    elif suffix in (".ipa", ".zip"):
+        unpacked = work / "unpacked" / artifact.name
         command = ["ditto", "-x", "-k", str(artifact), str(unpacked)]
         subprocess.run(command, check=True, capture_output=True)
-        return sorted(unpacked.glob("Payload/*.app")) + sorted(unpacked.glob("*.app"))
-    if suffix == ".app":
-        return [artifact]
-    raise CheckError(f"対応していない形式: {artifact.name}")
+        apps = sorted(unpacked.glob("Payload/*.app")) + sorted(unpacked.glob("*.app"))
+        trees = [unpacked]
+    elif suffix == ".app":
+        apps = trees = [artifact]
+    else:
+        raise CheckError(f"対応していない形式: {artifact.name}")
+    return [tree for tree in trees if not tree.is_symlink()], [
+        app for app in apps if not app.is_symlink()
+    ]
+
+
+def text_of(path: Path) -> bytes:
+    """The printable strings of a file, one per line, with UTF-16LE runs converted to ASCII."""
+    data = path.read_bytes()
+    runs = PRINTABLE.findall(data)
+    runs += [run.decode("utf-16-le").encode() for run in PRINTABLE_UTF16.findall(data)]
+    return b"\n".join(runs)
 
 
 def bundle_files(app: Path) -> list[Path]:
@@ -101,7 +123,16 @@ def signing(app: Path) -> list[str]:
         if result.returncode != 0:
             findings.append(f"署名を読めない: {label(app, bundle)}")
             continue
-        if result.stdout.strip() and plistlib.loads(result.stdout).get("get-task-allow"):
+        verify = ["codesign", "--verify", "--strict", str(bundle)]
+        if subprocess.run(verify, capture_output=True, check=False).returncode != 0:
+            findings.append(f"署名が検証できない（署名後の変更など）: {label(app, bundle)}")
+        details = subprocess.run(
+            ["codesign", "-dv", str(bundle)], capture_output=True, text=True, check=False
+        )
+        if "Signature=adhoc" in details.stderr:
+            findings.append(f"配布用でないad hoc署名: {label(app, bundle)}")
+        entitlements = plistlib.loads(result.stdout) if result.stdout.strip() else {}
+        if any(entitlements.get(key) for key in DEBUGGABLE):
             findings.append(f"デバッガの接続を許す署名（get-task-allow）: {label(app, bundle)}")
         for profile in filter(Path.is_file, embedded_profiles(bundle)):
             decoded = subprocess.run(
@@ -117,7 +148,7 @@ def signing(app: Path) -> list[str]:
 
 def privacy_manifest(app: Path) -> list[str]:
     """iOS apps must declare required reason APIs; Apple does not require this of macOS apps."""
-    if (app / "Contents/Info.plist").is_file():
+    if not (app / "Info.plist").is_file() and (app / "Contents/Info.plist").is_file():
         return []
     try:
         if isinstance(plistlib.loads((app / "PrivacyInfo.xcprivacy").read_bytes()), dict):
@@ -127,16 +158,18 @@ def privacy_manifest(app: Path) -> list[str]:
     return [f"PrivacyInfo.xcprivacy が無いか読めない: {app.name}"]
 
 
-def unshippable(app: Path) -> list[str]:
-    allowed = {profile for bundle in code_bundles(app) for profile in embedded_profiles(bundle)}
+def unshippable(tree: Path) -> list[str]:
+    allowed = {profile for bundle in code_bundles(tree) for profile in embedded_profiles(bundle)}
     findings = []
-    for path in app.rglob("*"):
+    for path in tree.rglob("*"):
         name, suffix = path.name.lower(), path.suffix.lower()
-        in_framework = any(part.endswith(".framework") for part in path.relative_to(app).parts)
-        if path in allowed or (suffix == ".h" and in_framework):
+        in_framework = any(part.endswith(".framework") for part in path.relative_to(tree).parts)
+        if path.is_symlink() and not path.resolve().is_relative_to(tree.resolve()):
+            findings.append(f"外を指すsymlink: {label(tree, path)}")
+        elif path in allowed or (suffix == ".h" and in_framework):
             continue
-        if name in UNSHIPPABLE_NAMES or name.startswith(".env") or suffix in UNSHIPPABLE_SUFFIXES:
-            findings.append(f"配らないファイル: {label(app, path)}")
+        elif name in UNSHIPPABLE_NAMES or name.startswith(".env") or suffix in UNSHIPPABLE_SUFFIXES:
+            findings.append(f"配らないファイル: {label(tree, path)}")
     return findings
 
 
@@ -145,7 +178,7 @@ def local_paths(app: Path) -> list[str]:
     return [
         f"手元のパス: {label(app, path)}"
         for path in bundle_files(app)
-        if LOCAL_PATH.search(path.read_bytes())
+        if LOCAL_PATH.search(text_of(path))
     ]
 
 
@@ -158,7 +191,7 @@ def secrets(app: Path, work: Path) -> list[str]:
     sources = {}
     for index, path in enumerate(bundle_files(app)):
         target = strings / f"{index}.txt"
-        target.write_bytes(b"\n".join(PRINTABLE.findall(path.read_bytes())))
+        target.write_bytes(text_of(path))
         sources[target.name] = label(app, path)
     report = work / "gitleaks.json"
     result = subprocess.run(
@@ -189,17 +222,18 @@ def main() -> int:
     with tempfile.TemporaryDirectory() as temporary:
         work = Path(temporary)
         try:
-            apps = app_bundles(artifact, work)
+            trees, apps = unpack(artifact, work)
+            findings = [
+                finding for tree in trees for finding in unshippable(tree) + secrets(tree, work)
+            ]
             if not apps:
                 raise CheckError(f"アプリが見つからない: {artifact.name}")
-            findings = [
+            findings += [
                 finding
                 for app in apps
                 for finding in (signing(app) if exported else [])
                 + privacy_manifest(app)
-                + unshippable(app)
                 + local_paths(app)
-                + secrets(app, work)
             ]
         except (
             CheckError,
