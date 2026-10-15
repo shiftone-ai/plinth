@@ -26,10 +26,17 @@ jobs:
       - uses: cachix/cachix-action@38b082610b782e7e93e209c35fd730d399dee866 # v17
         with:
           name: devenv
+      # flakeを評価すると約90秒かかるため，ビルド済みのdevenvをstore pathで取得する．
+      # 版を上げるときは `nix eval --raw github:cachix/devenv/<tag>#packages.aarch64-darwin.default.outPath` で取り直す．
       - name: Install devenv
-        run: nix profile add github:cachix/devenv/v2.4.0
+        env:
+          DEVENV: /nix/store/kaxp0ycbmay6wypy1fqly1c35dvf0ly8-devenv-wrapped-2.4.0
+        run: |
+          nix-store --realise "$DEVENV"
+          echo "$DEVENV/bin" >> "$GITHUB_PATH"
       - name: Show toolchain
         run: |
+          devenv --version
           xcodebuild -version
           swift --version
       # 全ファイルにcommit前hookを実行してから，devenv.nixのenterTestでビルドとテストを行う．
@@ -38,5 +45,16 @@ jobs:
       # commit前hookのgitleaksはstageした変更だけを見るため，CIでは履歴を調べる．
       - name: Scan secrets
         run: devenv shell -- just secrets
+
+  # iOSのビルドはNixを使わないため，devenvを用意せずcheckと並べて動かす．
+  build-ios:
+    runs-on: xcode-27
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # devenv.lockで固定したjustと同じ版を使う．
+      - uses: taiki-e/install-action@1168f6810a3cb30a3514bf5756a3b7f0422c6df8 # v2.87.28
+        with:
+          tool: just@1.58.0
       - name: Build iOS app
-        run: devenv shell -- just build-ios
+        run: just build-ios
