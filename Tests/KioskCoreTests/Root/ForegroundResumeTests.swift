@@ -56,6 +56,46 @@ struct ForegroundResumeTests {
     #expect(completed.effects.isEmpty)
   }
 
+  @Test(arguments: [false, true])
+  func externalSceneCanBecomeReadyAfterActivation(leavesAgain: Bool) throws {
+    let state = try exhibiting(destination: .externalDisplay)
+    let left = try step(state, .applicationDeactivated, id: 1)
+    let unavailable = try step(
+      left.state,
+      .mobileDisplaysChanged(
+        .init(deviceAvailable: true, externalAvailable: false, externalConnected: true)), id: 2)
+    let active = try step(unavailable.state, .applicationActivated, id: 3)
+    #expect(active.childControls.isEmpty)
+    let waiting =
+      leavesAgain ? try step(active.state, .applicationDeactivated, id: 4).state : active.state
+    let ready = try step(
+      waiting, .mobileDisplaysChanged(try #require(state.mobileDisplays)), id: 5)
+    #expect(
+      ready.childControls == (leavesAgain ? [] : [.init(.exhibition, .stopExhibition)]))
+    if !leavesAgain {
+      let resumed = try step(ready.state, .exhibitionStopped, source: .exhibition, id: 6)
+      #expect(resumed.state.mode == .enteringKiosk)
+      #expect(resumed.state.activeProfile == state.activeProfile)
+    }
+  }
+
+  @Test func physicalDisconnectCancelsWaitingForAnExternalScene() throws {
+    let state = try exhibiting(destination: .externalDisplay)
+    let left = try step(state, .applicationDeactivated, id: 1)
+    let unavailable = try step(
+      left.state,
+      .mobileDisplaysChanged(
+        .init(deviceAvailable: true, externalAvailable: false, externalConnected: true)), id: 2)
+    let active = try step(unavailable.state, .applicationActivated, id: 3)
+    let disconnected = try step(
+      active.state,
+      .mobileDisplaysChanged(.init(deviceAvailable: true, externalAvailable: false)), id: 4)
+    let reconnected = try step(
+      disconnected.state, .mobileDisplaysChanged(try #require(state.mobileDisplays)), id: 5)
+    #expect(reconnected.state.foregroundResume == .none)
+    #expect(reconnected.childControls.isEmpty)
+  }
+
   private func exhibiting(destination: ExhibitionDestination = .device) throws -> RootState {
     var state = RootState()
     var profile = try fixtureProfile()

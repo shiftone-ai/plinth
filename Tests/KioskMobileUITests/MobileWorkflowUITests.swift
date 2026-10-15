@@ -278,6 +278,22 @@ final class MobileWorkflowUITests: XCTestCase {
     attach(app, "external-full-surface")
   }
 
+  @MainActor func testExternalFlingContinuesAfterRelease() async throws {
+    try requireExternalTestDevice()
+    let app = try await configuredExternalExhibition(path: "/scroll", allowsScroll: true)
+    app.buttons["start-exhibition"].tap()
+    try await exists(app.webViews.staticTexts["At top"])
+    let controls = app.otherElements["external-control"]
+    try await exists(controls)
+    controls.swipeUp(velocity: .fast)
+    let momentum = expectation(
+      for: NSPredicate(format: "value == %@", "momentum"), evaluatedWith: controls)
+    await fulfillment(of: [momentum], timeout: 5)
+    XCTAssertEqual(controls.value as? String, "momentum")
+    try await exists(app.webViews.staticTexts["Scrolled"])
+    attach(app, "external-scroll-momentum")
+  }
+
   @MainActor func testDisplayOnlyExternalOutputAndAdministratorRecovery() async throws {
     try requireExternalTestDevice()
     let app = try await configuredExternalExhibition(path: "/scroll", allowsScroll: true)
@@ -439,6 +455,7 @@ final class MobileWorkflowUITests: XCTestCase {
     let app = XCUIApplication()
     app.launchEnvironment["PLINTH_TEST_CREDENTIAL_SERVICE"] =
       "ai.shiftone.plinth.tests.\(UUID().uuidString)"
+    app.launchEnvironment["PLINTH_TEST_SCROLL_DIAGNOSTICS"] = "1"
     addTeardownBlock {
       await MainActor.run {
         app.terminate()

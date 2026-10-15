@@ -57,8 +57,16 @@ public enum RootMediator {
       guard state.mode == .safeHold,
         state.pointerCaptureFailed || state.foregroundResume == .awaitingActivation,
         state.foregroundResume != .awaitingStop, !state.administratorSession,
-        let profile = state.activeProfile, state.canPresent(profile)
+        let profile = state.activeProfile
       else { return .handled(.init(state)) }
+      guard state.canPresent(profile) else {
+        if profile.exhibitionDestination == .externalDisplay,
+          state.mobileDisplays?.externalConnected == true
+        {
+          next.foregroundResume = .awaitingDisplay
+        }
+        return .handled(.init(next))
+      }
       next.foregroundResume = .awaitingStop
       return .handled(.init(next, childControls: [.init(.exhibition, .stopExhibition)]))
 
@@ -271,6 +279,12 @@ public enum RootMediator {
         !availability.externalConnected
       {
         next.foregroundResume = .none
+      }
+      if state.mode == .safeHold, next.foregroundResume == .awaitingDisplay,
+        !state.administratorSession, let profile = state.activeProfile, next.canPresent(profile)
+      {
+        next.foregroundResume = .awaitingStop
+        return .handled(.init(next, childControls: [.init(.exhibition, .stopExhibition)]))
       }
       guard requiresStableDisplay(state) else { return .handled(.init(next)) }
       if state.mode == .enteringKiosk, state.presentationOperation != nil,
