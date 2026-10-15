@@ -23,6 +23,14 @@ jobs:
           # gitleaksでcommit済みの履歴全体を調べる．
           fetch-depth: 0
       - uses: cachix/install-nix-action@448cde739abec1eaf0646249e3d25bb8d9bc7702 # v31.11.2
+      # devenvの設定ごとに，/nix・取得済みのsource・devenvの評価結果をActionsのcacheへ保存し，次の実行で戻す．
+      - uses: nix-community/cache-nix-action@7df957e333c1e5da7721f60227dbba6d06080569 # v7.0.2
+        with:
+          primary-key: nix-${{ runner.os }}-${{ hashFiles('devenv.nix', 'devenv.lock', 'devenv.yaml') }}
+          restore-prefixes-first-match: nix-${{ runner.os }}-
+          paths: |
+            ~/.cache/nix
+            .devenv
       - uses: cachix/cachix-action@38b082610b782e7e93e209c35fd730d399dee866 # v17
         with:
           name: devenv
