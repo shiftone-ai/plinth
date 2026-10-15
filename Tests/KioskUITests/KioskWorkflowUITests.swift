@@ -260,14 +260,14 @@ final class KioskWorkflowUITests: XCTestCase {
   }
 
   @MainActor
-  private func waitFor(_ element: XCUIElement, timeout: TimeInterval = 5) async {
+  func waitFor(_ element: XCUIElement, timeout: TimeInterval = 5) async {
     // Release the main actor so the fixture's real HTTP listener can answer WebKit.
     let ready = expectation(for: NSPredicate(format: "exists == true"), evaluatedWith: element)
     await fulfillment(of: [ready], timeout: timeout)
   }
 
   @MainActor
-  private func replace(_ field: XCUIElement, with value: String) {
+  func replace(_ field: XCUIElement, with value: String) {
     XCTAssertTrue(field.waitForExistence(timeout: 5))
     field.click()
     field.typeKey("a", modifierFlags: .command)
@@ -275,7 +275,7 @@ final class KioskWorkflowUITests: XCTestCase {
   }
 
   @MainActor
-  private func attach(_ app: XCUIApplication, name: String) {
+  func attach(_ app: XCUIApplication, name: String) {
     let screenshot = XCTAttachment(screenshot: app.screenshot())
     screenshot.name = name
     screenshot.lifetime = .keepAlways

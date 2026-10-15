@@ -39,7 +39,7 @@ public struct SettingsProps: Equatable, Sendable {
 
 public struct SettingsValidationMessage: Equatable, Sendable, Identifiable {
   public let id: ProfileIssue
-  public let text: String
+  public let textKey: String
 }
 
 public struct WebSurfaceProps: Equatable, Sendable {

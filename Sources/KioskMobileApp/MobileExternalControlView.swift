@@ -1,9 +1,12 @@
+import KioskLocalization
+
 #if os(iOS)
   import KioskCore
   import SwiftUI
   import UIKit
 
   struct PassiveExternalControl: UIViewRepresentable {
+    @Environment(\.locale) private var locale
     let enabled: Bool
     let allowsDrag: Bool
     let pointerCaptured: Bool
@@ -14,6 +17,7 @@
       view.send = send
       view.allowsDrag = allowsDrag
       view.pointerCaptured = pointerCaptured
+      view.accessibilityLabel = L10n.string("外部展示の操作", locale: locale)
     }
   }
 
@@ -30,7 +34,6 @@
       super.init(frame: frame)
       backgroundColor = .black
       isAccessibilityElement = true
-      accessibilityLabel = "外部展示の操作"
       accessibilityIdentifier = "external-control"
       addGestureRecognizer(UIHoverGestureRecognizer(target: self, action: #selector(hover(_:))))
       addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(activate(_:))))

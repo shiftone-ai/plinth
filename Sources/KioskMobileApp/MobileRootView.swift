@@ -1,3 +1,5 @@
+import KioskLocalization
+
 #if os(iOS)
   import KioskCore
   import KioskPresentation
@@ -12,6 +14,8 @@
     let unlock: RenderPropsStore<UnlockProps>
     let web: RenderPropsStore<WebSurfaceProps>
     let host: UIView
+    let language: LanguagePreference
+    let selectLanguage: (InterfaceLanguage) -> Void
     let exhibitionWindow: Bool
     let displayOnly: Bool
     let pointerSetupGuidance: String
@@ -19,6 +23,7 @@
     let unlockIntent: (UnlockIntent) -> Void
     let rootIntent: (RootIntent) -> Void
     let externalControl: (ExternalWebControl, UInt64) -> Void
+    private var locale: Locale { language.locale }
 
     var body: some View {
       ZStack {
@@ -41,7 +46,7 @@
                 }
             }
           } else if root.props.mode == .administration && !displayOnly {
-            Label("このウィンドウを外部ディスプレイへ移動", systemImage: "display")
+            Label(L10n.string("このウィンドウを外部ディスプレイへ移動", locale: locale), systemImage: "display")
               .foregroundStyle(.white)
           }
         } else if root.props.exhibitionDestination == .externalDisplay
@@ -57,22 +62,24 @@
             }.ignoresSafeArea()
           }
           Image(systemName: "display").foregroundStyle(.white)
-            .accessibilityLabel("展示中")
+            .accessibilityLabel(L10n.string("展示中", locale: locale))
             .accessibilityIdentifier("external-exhibition-active")
             .allowsHitTesting(false)
         } else {
           KioskRootView(
             root: root, settings: settings, unlock: unlock, web: web,
             host: PassiveMobileWebHost(host: host),
+            language: language, selectLanguage: selectLanguage,
             settingsIntent: settingsIntent, unlockIntent: unlockIntent,
             pointerSetupGuidance: pointerSetupGuidance)
         }
       }
+      .environment(\.locale, language.locale)
       .overlay(alignment: .topTrailing) {
         if !exhibitionWindow && root.props.administrationAvailable
           && !root.props.showsAdministration && !root.props.showsUnlock
         {
-          PassiveAdministratorEntry { rootIntent(.unlock) }
+          PassiveAdministratorEntry(locale: locale) { rootIntent(.unlock) }
             .frame(width: 44, height: 44)
             .background(.regularMaterial, in: Circle())
             .padding()
@@ -85,13 +92,13 @@
   final class AdministratorEntryButton: UIButton {}
 
   private struct PassiveAdministratorEntry: UIViewRepresentable {
+    let locale: Locale
     let send: () -> Void
     func makeCoordinator() -> Coordinator { Coordinator(send: send) }
     func makeUIView(context: Context) -> AdministratorEntryButton {
       let button = AdministratorEntryButton(type: .system)
       button.setImage(UIImage(systemName: "lock"), for: .normal)
       button.tintColor = .label
-      button.accessibilityLabel = "管理者解除"
       button.accessibilityIdentifier = "request-unlock"
       button.addTarget(
         context.coordinator, action: #selector(Coordinator.request), for: .touchUpInside)
@@ -99,6 +106,7 @@
     }
     func updateUIView(_ button: AdministratorEntryButton, context: Context) {
       context.coordinator.send = send
+      button.accessibilityLabel = L10n.string("管理者解除", locale: locale)
     }
     @MainActor final class Coordinator: NSObject {
       var send: () -> Void

@@ -3,6 +3,7 @@ import PackageDescription
 
 let package = Package(
   name: "Plinth",
+  defaultLocalization: "ja",
   platforms: [.macOS(.v14), .iOS("18.4")],
   products: [
     .library(name: "KioskCore", targets: ["KioskCore"]),
@@ -15,24 +16,33 @@ let package = Package(
   ],
   targets: [
     .target(name: "KioskCore"),
+    .target(name: "KioskLocalization", resources: [.process("Localizable.xcstrings")]),
     .target(name: "KioskPresentation", dependencies: ["KioskCore"]),
     .target(
       name: "KioskRuntime", dependencies: ["KioskCore", "KioskPresentation"],
       swiftSettings: [.defaultIsolation(MainActor.self)]),
     .target(
-      name: "KioskUI", dependencies: ["KioskCore", "KioskPresentation", "KioskRuntime"],
+      name: "KioskUI",
+      dependencies: ["KioskCore", "KioskPresentation", "KioskRuntime", "KioskLocalization"],
       swiftSettings: [.defaultIsolation(MainActor.self)]),
     .target(
       name: "KioskMobileApp",
-      dependencies: ["KioskCore", "KioskPresentation", "KioskRuntime", "KioskUI"],
+      dependencies: [
+        "KioskCore", "KioskPresentation", "KioskRuntime", "KioskUI", "KioskLocalization",
+      ],
       swiftSettings: [.defaultIsolation(MainActor.self)]),
     .target(
       name: "KioskMacApp",
-      dependencies: ["KioskCore", "KioskPresentation", "KioskRuntime", "KioskUI"],
+      dependencies: [
+        "KioskCore", "KioskPresentation", "KioskRuntime", "KioskUI", "KioskLocalization",
+      ],
       swiftSettings: [.defaultIsolation(MainActor.self)]
     ),
     .testTarget(name: "KioskCoreTests", dependencies: ["KioskCore"]),
     .testTarget(name: "KioskPresentationTests", dependencies: ["KioskCore", "KioskPresentation"]),
+    .testTarget(
+      name: "KioskLocalizationTests",
+      dependencies: ["KioskCore", "KioskPresentation", "KioskLocalization"]),
     .testTarget(
       name: "KioskRuntimeTests", dependencies: ["KioskCore", "KioskMacApp", "KioskRuntime"]),
     .testTarget(
