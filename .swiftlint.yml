@@ -1,0 +1,27 @@
+# 整形はswift-formatが担う．整形と重なる規則は無効にし，SwiftLintは命名・複雑さ・APIの使い方を見る．
+# 既存の違反は .swiftlint-baseline.json に記録し，新しい違反だけを失敗にする．
+included:
+  - Sources
+  - Tests
+  - scripts
+  - Package.swift
+strict: true
+
+disabled_rules:
+  - closure_parameter_position
+  - line_length
+  - opening_brace
+  - trailing_comma
+
+identifier_name:
+  excluded:
+    - id
+    - x
+    - y
+    - dx
+    - dy
+    - up
+
+# Mediatorの遷移関数はイベントごとのcaseを1つのswitchで裁定するため，caseの数を複雑さに数えない．
+cyclomatic_complexity:
+  ignores_case_statements: true

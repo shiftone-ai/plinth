@@ -1,0 +1,14 @@
+.build/
+.swiftpm/
+.DS_Store
+/Plinth.xcodeproj/
+__pycache__/
+.ruff_cache/
+.claude/settings.local.json
+
+# devenv・direnvの生成物．.pre-commit-config.yamlはdevenv.nixから生成する．
+.devenv*
+devenv.local.nix
+devenv.local.yaml
+.direnv/
+.pre-commit-config.yaml
