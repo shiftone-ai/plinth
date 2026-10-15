@@ -13,11 +13,10 @@ public struct SurfacePoint: Equatable, Sendable {
 public enum ExternalMouseInput: Equatable, Sendable {
   case move(dx: Double, dy: Double)
   case primaryButton(pressed: Bool)
-  case scroll(dx: Double, dy: Double)
   case unlock
 }
 
-/// Coordinates are relative to the external viewport, independent of device resolution.
+/// Positions are relative to the external viewport; scroll deltas are CSS pixels.
 public enum ExternalWebControl: Equatable, Sendable {
   case move(SurfacePoint)
   case activate(SurfacePoint)
@@ -31,7 +30,7 @@ public enum ExternalWebControl: Equatable, Sendable {
     case .move(let point), .activate(let point), .press(let point), .release(let point):
       point.isValid
     case .cancelPress: true
-    case .scroll(let dx, let dy): dx.isFinite && dy.isFinite && abs(dx) <= 1 && abs(dy) <= 1
+    case .scroll(let dx, let dy): dx.isFinite && dy.isFinite
     }
   }
 }

@@ -96,4 +96,20 @@ struct ExternalWebControlTests {
     #expect(denied.reply == .rejected(.invalidState))
     #expect(denied.effects.isEmpty)
   }
+
+  @Test(arguments: [
+    (40.0, 120.0, true), (-0.25, -35.5, true),
+    (Double.nan, 10.0, false), (0.0, Double.infinity, false),
+  ])
+  func scrollUsesFinitePixelDeltas(dx: Double, dy: Double, accepted: Bool) throws {
+    let control = ExternalWebControl.scroll(dx: dx, dy: dy)
+    let result = try #require(
+      handled(
+        RootMediator.reduce(
+          try root(),
+          envelope(.externalWebControlRequested(control, generation: 2), source: .platform),
+          context: .init(webAvailable: true, webGeneration: 2))))
+    #expect(result.reply == (accepted ? .accepted : .rejected(.invalidState)))
+    #expect(result.effects.map(\.kind) == (accepted ? [.controlExternalWeb(control)] : []))
+  }
 }

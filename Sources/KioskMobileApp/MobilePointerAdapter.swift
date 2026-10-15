@@ -64,12 +64,7 @@
         input.rightButton?.pressedChangedHandler = { [weak self] _, _, pressed in
           if pressed { MainActor.assumeIsolated { self?.input(.unlock) } }
         }
-        input.scroll.valueChangedHandler = { [weak self] _, dx, dy in
-          MainActor.assumeIsolated {
-            self?.input(
-              .scroll(dx: min(1, max(-1, Double(dx) / 20)), dy: min(1, max(-1, -Double(dy) / 20))))
-          }
-        }
+        // UIKit's pan recognizer delivers scrolling even while locked. Subscribing here doubles it.
       }
       _ = send?(.externalMouseAvailabilityChanged(!mice.isEmpty))
     }
@@ -127,7 +122,6 @@
         mouse.mouseInput?.mouseMovedHandler = nil
         mouse.mouseInput?.leftButton.pressedChangedHandler = nil
         mouse.mouseInput?.rightButton?.pressedChangedHandler = nil
-        mouse.mouseInput?.scroll.valueChangedHandler = nil
       }
       mice.removeAll()
     }

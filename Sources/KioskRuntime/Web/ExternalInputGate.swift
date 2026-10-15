@@ -31,13 +31,13 @@ final class ExternalInputGate {
         waiting.removeLast().completion.finish()
       }
       if case .scroll(let dx, let dy) = control, let previous = waiting.last,
-        case .scroll(let previousX, let previousY) = previous.permit.control
+        case .scroll(let previousX, let previousY) = previous.permit.control,
+        (previousX + dx).isFinite, (previousY + dy).isFinite
       {
         waiting.removeLast().completion.finish()
         permit = Permit(
           id: permit.id,
-          control: .scroll(
-            dx: min(1, max(-1, previousX + dx)), dy: min(1, max(-1, previousY + dy))))
+          control: .scroll(dx: previousX + dx, dy: previousY + dy))
       }
       guard waiting.count < 64 else {
         channel.continuation.finish()

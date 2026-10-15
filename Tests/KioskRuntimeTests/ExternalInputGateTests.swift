@@ -41,6 +41,23 @@ struct ExternalInputGateTests {
     #expect(await release.next() != nil)
     gate.reset()
   }
+
+  @Test func coalescingScrollPreservesPixelDistanceAndDirection() async throws {
+    let gate = ExternalInputGate()
+    defer { gate.reset() }
+    var initial = try gate.enqueue(.move(.init(x: 0.5, y: 0.5))).makeAsyncIterator()
+    let active = try #require(await initial.next())
+    var first = try gate.enqueue(.scroll(dx: 0.25, dy: 40)).makeAsyncIterator()
+    var second = try gate.enqueue(.scroll(dx: -0.5, dy: 80)).makeAsyncIterator()
+    #expect(gate.pendingCount == 1)
+    #expect(await first.next() == nil)
+    gate.finish(active)
+    let combined = try #require(await second.next())
+    #expect(combined.control == .scroll(dx: -0.25, dy: 120))
+    gate.finish(combined)
+    #expect(gate.pendingCount == 0)
+  }
+
   @Test func aBlockedPageCannotAccumulateUnboundedClicks() throws {
     let gate = ExternalInputGate()
     defer { gate.reset() }
