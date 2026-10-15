@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    # Package.swiftのswift-tools-version 6.4はXcode 27のSwiftを要する．
+    runs-on: xcode-27
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # gitleaksでcommit済みの履歴全体を調べる．
+          fetch-depth: 0
+      - uses: cachix/install-nix-action@448cde739abec1eaf0646249e3d25bb8d9bc7702 # v31.11.2
+      - uses: cachix/cachix-action@38b082610b782e7e93e209c35fd730d399dee866 # v17
+        with:
+          name: devenv
+      - name: Install devenv
+        run: nix profile add github:cachix/devenv/v2.4.0
+      - name: Show toolchain
+        run: |
+          xcodebuild -version
+          swift --version
+      # 全ファイルにcommit前hookを実行してから，devenv.nixのenterTestでビルドとテストを行う．
+      - name: Lint and test
+        run: devenv test
+      # commit前hookのgitleaksはstageした変更だけを見るため，CIでは履歴を調べる．
+      - name: Scan secrets
+        run: devenv shell -- just secrets
+      - name: Build iOS app
+        run: devenv shell -- just build-ios

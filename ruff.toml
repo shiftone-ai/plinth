@@ -1,0 +1,3 @@
+# scripts/ のPython．依存packageはなく，python3で直接実行する．
+# 規則はruffの既定を使い，行の長さだけswift-formatの既定（100）にそろえる．
+line-length = 100
