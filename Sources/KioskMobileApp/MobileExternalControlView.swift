@@ -23,6 +23,7 @@
     var send: ((ExternalWebControl) -> Void)?
     var pointerCaptured = false
     var allowsDrag = false { didSet { dragGesture.isEnabled = allowsDrag } }
+    private let scrolling = MobileScrollInputView()
     private lazy var dragGesture = UILongPressGestureRecognizer(
       target: self, action: #selector(drag(_:)))
     override init(frame: CGRect) {
@@ -36,11 +37,19 @@
       dragGesture.minimumPressDuration = 0.25
       dragGesture.isEnabled = false
       addGestureRecognizer(dragGesture)
-      let pan = UIPanGestureRecognizer(target: self, action: #selector(scroll(_:)))
-      pan.minimumNumberOfTouches = 1
-      pan.allowedScrollTypesMask = .all
-      pan.require(toFail: dragGesture)
-      addGestureRecognizer(pan)
+      scrolling.panGestureRecognizer.require(toFail: dragGesture)
+      scrolling.send = { [weak self] delta in
+        guard let self else { return }
+        #if DEBUG
+          if ProcessInfo.processInfo.environment["PLINTH_TEST_SCROLL_DIAGNOSTICS"] == "1",
+            self.scrolling.isDecelerating
+          {
+            self.accessibilityValue = "momentum"
+          }
+        #endif
+        self.send?(.scroll(dx: Double(delta.x), dy: Double(delta.y)))
+      }
+      addSubview(scrolling)
     }
     required init?(coder: NSCoder) { nil }
 
@@ -68,11 +77,13 @@
       guard recognizer.state == .ended else { return }
       send?(.activate(point(recognizer.location(in: self))))
     }
-    @objc private func scroll(_ recognizer: UIPanGestureRecognizer) {
-      guard recognizer.state == .changed else { return }
-      let delta = recognizer.translation(in: self)
-      recognizer.setTranslation(.zero, in: self)
-      send?(.scroll(dx: -Double(delta.x), dy: -Double(delta.y)))
+    override func layoutSubviews() {
+      super.layoutSubviews()
+      scrolling.frame = bounds
+    }
+    override var isUserInteractionEnabled: Bool {
+      didSet { if !isUserInteractionEnabled { scrolling.stop() } }
     }
   }
+
 #endif

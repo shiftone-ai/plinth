@@ -4,7 +4,7 @@ public enum AppMode: String, Equatable, Sendable {
 }
 
 public enum ForegroundResumeState: Equatable, Sendable {
-  case none, awaitingActivation, awaitingStop
+  case none, awaitingActivation, awaitingDisplay, awaitingStop
 }
 
 public struct RootState: Equatable, Sendable {
