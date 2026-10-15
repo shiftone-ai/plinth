@@ -36,7 +36,7 @@ just check   # lint・secrets・testを続けて実行する
 
 SwiftのtoolchainとSDK，swift-formatはXcodeのものを使う．nixpkgsのapple-sdkとC compilerは開発シェルに入れない．SwiftLint・ruff・shfmt・nixfmt・gitleaks・justの版は `devenv.nix` と `devenv.lock` で固定する．
 
-開発シェルに入るとgit hookが入る．commit前は変更したファイルを整形・検査し，stageした変更から秘密情報を探す．push前は `just test` を実行する．push前の検査は作業ツリーをビルドするため，commitしていない変更も結果に含まれる．GitHub Actionsは `xcode-27` runnerで `devenv test`，`just secrets`，`just build-ios` を実行する．
+開発シェルに入るとgit hookが入る．commit前は変更したファイルを整形・検査し，stageした変更から秘密情報を探す．push前は `just test` を実行する．push前の検査は作業ツリーをビルドするため，commitしていない変更も結果に含まれる．GitHub Actionsは `xcode-27` runnerで `devenv test` と `just secrets` を実行し，Nixを使わない `just build-ios` を別のjobで並べて実行する．
 
 git hookは全worktreeで共有され，最後に開発シェルへ入ったworktreeの設定を指す．そのworktreeを削除するとcommitとpushが失敗するため，残っているworktreeで開発シェルに入り直す．
 
