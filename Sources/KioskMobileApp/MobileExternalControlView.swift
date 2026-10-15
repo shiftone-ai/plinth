@@ -72,10 +72,7 @@
       guard recognizer.state == .changed else { return }
       let delta = recognizer.translation(in: self)
       recognizer.setTranslation(.zero, in: self)
-      send?(
-        .scroll(
-          dx: min(1, max(-1, -Double(delta.x / max(1, bounds.width)))),
-          dy: min(1, max(-1, -Double(delta.y / max(1, bounds.height))))))
+      send?(.scroll(dx: -Double(delta.x), dy: -Double(delta.y)))
     }
   }
 #endif

@@ -81,12 +81,12 @@ enum ExternalWebInputScript {
         const style = getComputedStyle(node);
         if (/(auto|scroll)/.test(style.overflow + style.overflowX + style.overflowY)
           && (node.scrollHeight > node.clientHeight || node.scrollWidth > node.clientWidth)) {
-          node.scrollBy({left: dx * innerWidth, top: dy * innerHeight, behavior: 'instant'});
+          node.scrollBy({left: dx, top: dy, behavior: 'instant'});
           return;
         }
         node = node.parentElement;
       }
-      window.scrollBy({left: dx * innerWidth, top: dy * innerHeight, behavior: 'instant'});
+      window.scrollBy({left: dx, top: dy, behavior: 'instant'});
       return;
     }
     if (action === 'cancel') {

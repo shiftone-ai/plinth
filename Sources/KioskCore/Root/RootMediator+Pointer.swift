@@ -62,8 +62,6 @@ extension RootMediator {
       case .primaryButton(let pressed):
         event = .externalWebControlRequested(
           pressed ? .press(point) : .release(point), generation: generation)
-      case .scroll(let dx, let dy):
-        event = .externalWebControlRequested(.scroll(dx: dx, dy: dy), generation: generation)
       case .unlock: event = .unlockRequested
       }
       if case .unlockRequested = event { return requestUnlock(state, envelope, token: token) }
