@@ -54,7 +54,7 @@
       let port = NativeEffectPort(
         web: web, presentation: presentation, repository: ProfileRepository(fileURL: location),
         credentials: CredentialStore(service: credentialService),
-        biometrics: Self.makeBiometrics(
+        biometrics: MobileBiometricComposition.make(
           service: credentialService, fixtureService: fixtureService, language: language),
         clock: clock, displays: presentation, webServer: webServer)
       #if DEBUG
@@ -74,25 +74,6 @@
         runtime?.send(.webServerAddressChanged(endpoint), from: .webAdministration)
       }
       wireAdapters()
-    }
-
-    private static func makeBiometrics(
-      service: String, fixtureService: String?, language: LanguagePreference
-    ) -> any BiometricCredentialPort {
-      #if DEBUG
-        if fixtureService != nil,
-          let result = ProcessInfo.processInfo.environment["PLINTH_TEST_BIOMETRIC_RESULT"]
-            .flatMap(MobileBiometricTestPort.UnlockResult.init(rawValue:))
-        {
-          let kind: BiometricKind =
-            ProcessInfo.processInfo.environment["PLINTH_TEST_BIOMETRIC_KIND"] == "faceID"
-            ? .faceID : .touchID
-          return MobileBiometricTestPort(result: result, kind: kind)
-        }
-      #endif
-      return BiometricCredentialAdapter(service: service) { [language] in
-        L10n.string("Enable administrator unlock with biometrics", locale: language.locale)
-      }
     }
 
     func connect(_ scene: UIWindowScene, exhibitionWindow: Bool) -> UIWindow {

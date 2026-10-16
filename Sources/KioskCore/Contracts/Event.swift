@@ -79,6 +79,7 @@ public enum Event: Equatable, Sendable {
   case webSessionRequested(String, activity: Bool)
   case webServerStarted(OperationToken, WebServerEndpoint)
   case webServerFailed(OperationToken, WebServerFailure)
+  case webServerStoppedUnexpectedly(WebServerFailure)
   case webServerAddressChanged(WebServerEndpoint)
   case localWebServerOriginsChanged([Origin])
   case configurePasscodeRequested
@@ -94,6 +95,7 @@ public enum Event: Equatable, Sendable {
   case biometricUnlockCompleted(OperationToken, BiometricStatus, BiometricUnlockOutcome)
   case passcodeEdited(String)
   case clearPasscode
+  case invalidateWebAuthentication
   case cancelAuthentication
   case unrelatedFact
 
