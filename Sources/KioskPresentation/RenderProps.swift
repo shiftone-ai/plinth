@@ -26,6 +26,7 @@ public struct SettingsProps: Equatable, Sendable {
   public let biometricChanging: Bool
   public let canChangeBiometric: Bool
   public let biometricChangeFailed: Bool
+  public let biometricEnrollmentChanged: Bool
   public let saveFailed: Bool
   public let validationMessages: [SettingsValidationMessage]
   public let startURL: String
@@ -60,4 +61,7 @@ public struct UnlockProps: Equatable, Sendable {
   public let failedAttempts: Int
   public let verifying: Bool
   public let cooldownRemaining: Double
+  public let biometricLabelKey: String?
+  public let biometricVerifying: Bool
+  public let biometricFailed: Bool
 }

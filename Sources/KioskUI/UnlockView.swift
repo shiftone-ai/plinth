@@ -4,12 +4,17 @@ import SwiftUI
 
 public struct UnlockView: View {
   let props: UnlockProps
+  let biometricHost: AnyView?
   let send: (UnlockIntent) -> Void
   @Environment(\.locale) private var locale
   @FocusState private var focused: Bool
 
-  public init(props: UnlockProps, send: @escaping (UnlockIntent) -> Void) {
+  public init(
+    props: UnlockProps, biometricHost: AnyView? = nil,
+    send: @escaping (UnlockIntent) -> Void
+  ) {
     self.props = props
+    self.biometricHost = biometricHost
     self.send = send
   }
 
@@ -35,6 +40,30 @@ public struct UnlockView: View {
       }
       if props.cooldownRemaining > 0 {
         Label(L10n.string("Try again in 30 seconds", locale: locale), systemImage: "clock")
+      }
+      if let label = props.biometricLabelKey {
+        HStack {
+          Button(L10n.string(label, locale: locale)) {
+            send(.authenticateWithBiometrics)
+          }
+          .disabled(props.biometricVerifying)
+          .accessibilityIdentifier("verify-biometric")
+          if props.biometricVerifying {
+            if let biometricHost { biometricHost } else { ProgressView().controlSize(.small) }
+            Button(L10n.string("Cancel", locale: locale)) {
+              send(.cancelBiometricAuthentication)
+            }
+            .accessibilityIdentifier("cancel-biometric-unlock")
+          }
+        }
+      }
+      if props.biometricFailed {
+        Label(
+          L10n.string("Could not unlock with biometrics", locale: locale),
+          systemImage: "exclamationmark.circle"
+        )
+        .foregroundStyle(.red)
+        .accessibilityIdentifier("biometric-unlock-failed")
       }
       HStack {
         Button(L10n.string("Return to exhibition", locale: locale)) { send(.cancel) }

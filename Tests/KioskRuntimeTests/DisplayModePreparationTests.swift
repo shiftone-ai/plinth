@@ -77,6 +77,9 @@ private final class DelayedBiometric: BiometricCredentialPort {
       waiter = nil
     }
   }
+  func unlock(_ token: OperationToken) async -> (BiometricStatus, BiometricUnlockOutcome) {
+    (initial, .failed)
+  }
   func waitUntilStarted() async {
     if pending != nil { return }
     await withCheckedContinuation { waiter = $0 }

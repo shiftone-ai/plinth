@@ -14,6 +14,9 @@ public struct RootState: Equatable, Sendable {
   public var biometricStatusOperation: OperationToken?
   public var biometricOperation: OperationToken?
   public var biometricChangeFailed = false
+  public var biometricUnlockOperation: OperationToken?
+  public var biometricUnlockFailed = false
+  public var biometricEnrollmentChanged = false
   public var bootstrapOperation: OperationToken?
   public var unlockTimeoutOperation: OperationToken?
   public var unlockDeadline: Double?

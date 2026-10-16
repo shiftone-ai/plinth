@@ -7,8 +7,12 @@ public enum RootMediator {
     case .bootstrapped:
       return bootstrapCompleted(state, envelope)
     case .biometricStatusRequested, .biometricStatusRead, .biometricChangeRequested,
-      .biometricChangeCompleted, .biometricChangeCancelled:
+      .biometricChangeCompleted, .biometricChangeCancelled,
+      .biometricUnlockRequested, .biometricUnlockCancelled, .biometricUnlockCompleted:
       return reduceBiometric(state, envelope)
+    case .applicationDeactivated, .systemWillSleep, .unlockDeadlineReached,
+      .unlockCancelled, .authenticationVerified:
+      return reduceUnlockLifecycle(state, envelope)
     case .externalMouseAvailabilityChanged, .externalPointerCaptureCompleted,
       .externalPointerCaptureChanged, .externalMouseInput, .nativePointerMoved,
       .nativePointerConstraintFailed, .unlockRequested:
@@ -19,6 +23,52 @@ public enum RootMediator {
     default: break
     }
     return reduceLifecycle(state, envelope, context: context)
+  }
+
+  private static func reduceUnlockLifecycle(
+    _ state: RootState, _ envelope: EventEnvelope
+  ) -> Mediation<RootState> {
+    let token = envelope.token(owner: .root, epoch: state.epoch)
+    switch envelope.event {
+    case .applicationDeactivated:
+      guard envelope.source == .platform else { return .reject(state, .wrongSource) }
+      let resumes =
+        state.mobileDisplays != nil && !state.administratorSession
+        && (state.mode == .exhibiting || state.mode == .enteringKiosk
+          || state.foregroundResume != .none)
+      return hold(state, token: token, resumeOnActivation: resumes)
+
+    case .systemWillSleep:
+      guard envelope.source == .platform else { return .reject(state, .wrongSource) }
+      return hold(state, token: token)
+
+    case .unlockDeadlineReached(let completed):
+      guard envelope.source == .idleClock, state.unlockTimeoutOperation == completed else {
+        return .reject(state, .staleOperation)
+      }
+      if let deadline = state.unlockDeadline, envelope.timestamp < deadline {
+        var next = state
+        next.unlockTimeoutOperation = token
+        return .handled(
+          .init(next, effects: [Effect(token, .scheduleUnlockTimeout(deadline: deadline))]))
+      }
+      return cancelUnlock(state, token: token)
+
+    case .unlockCancelled:
+      guard [.administration, .unlock, .platform].contains(envelope.source) else {
+        return .reject(state, .wrongSource)
+      }
+      return cancelUnlock(state, token: token)
+
+    case .authenticationVerified(let unlockID):
+      guard envelope.source == .administration else { return .reject(state, .wrongSource) }
+      guard state.mode == .unlocking, state.unlockID == unlockID else {
+        return .reject(state, .staleOperation)
+      }
+      return completeAuthentication(state, token: token)
+
+    default: return .bubble
+    }
   }
 
   private static func reduceLifecycle(
@@ -45,22 +95,17 @@ public enum RootMediator {
       next.mode = .safeHold
       return .handled(.init(next))
 
-    case .applicationDeactivated:
-      guard envelope.source == .platform else { return .reject(state, .wrongSource) }
-      let resumes =
-        state.mobileDisplays != nil && !state.administratorSession
-        && (state.mode == .exhibiting || state.mode == .enteringKiosk
-          || state.foregroundResume != .none)
-      return hold(next, token: token, resumeOnActivation: resumes)
-
-    case .systemWillSleep:
-      guard envelope.source == .platform else { return .reject(state, .wrongSource) }
-      return hold(next, token: token)
-
     case .applicationActivated:
       guard envelope.source == .platform else { return .reject(state, .wrongSource) }
       if state.mode == .administration {
         guard state.biometricOperation == nil else { return .handled(.init(next)) }
+        let statusToken = envelope.token(owner: .credentials, epoch: state.epoch)
+        next.biometricStatusOperation = statusToken
+        return .handled(.init(next, effects: [Effect(statusToken, .readBiometricStatus)]))
+      }
+      if state.mode == .unlocking, state.unlockID != nil, state.credentialsConfigured,
+        state.biometricUnlockOperation == nil
+      {
         let statusToken = envelope.token(owner: .credentials, epoch: state.epoch)
         next.biometricStatusOperation = statusToken
         return .handled(.init(next, effects: [Effect(statusToken, .readBiometricStatus)]))
@@ -167,40 +212,6 @@ public enum RootMediator {
         return .reject(state, .invalidState)
       }
       return hold(state, token: token)
-
-    case .unlockDeadlineReached(let completed):
-      guard envelope.source == .idleClock, state.unlockTimeoutOperation == completed else {
-        return .reject(state, .staleOperation)
-      }
-      if let deadline = state.unlockDeadline, envelope.timestamp < deadline {
-        next.unlockTimeoutOperation = token
-        return .handled(
-          .init(next, effects: [Effect(token, .scheduleUnlockTimeout(deadline: deadline))]))
-      }
-      return cancelUnlock(state, token: token)
-
-    case .unlockCancelled:
-      guard [.administration, .unlock, .platform].contains(envelope.source) else {
-        return .reject(state, .wrongSource)
-      }
-      return cancelUnlock(state, token: token)
-
-    case .authenticationVerified(let unlockID):
-      guard envelope.source == .administration else { return .reject(state, .wrongSource) }
-      guard state.mode == .unlocking, state.unlockID == unlockID else {
-        return .reject(state, .staleOperation)
-      }
-      next.mode = .leavingKiosk
-      next.administratorSession = true
-      next.unlockID = nil
-      next.unlockReturnMode = nil
-      next.unlockTimeoutOperation = nil
-      next.unlockDeadline = nil
-      return .handled(
-        .init(
-          next,
-          effects: state.unlockTimeoutOperation.map { [Effect(token, .cancelOperation($0))] } ?? [],
-          childControls: [.init(.exhibition, .stopExhibition)]))
 
     case .exhibitionStopped:
       guard envelope.source == .exhibition else { return .reject(state, .wrongSource) }
@@ -390,6 +401,32 @@ public enum RootMediator {
       || (state.mode == .unlocking && state.unlockReturnMode != .safeHold)
   }
 
+  static func completeAuthentication(
+    _ state: RootState, token: OperationToken, fromBiometrics: Bool = false
+  ) -> Mediation<RootState> {
+    var next = state
+    next.mode = .leavingKiosk
+    next.administratorSession = true
+    next.unlockID = nil
+    next.unlockReturnMode = nil
+    next.unlockTimeoutOperation = nil
+    next.unlockDeadline = nil
+    next.biometricUnlockOperation = nil
+    next.biometricStatusOperation = nil
+    next.biometricUnlockFailed = false
+    let operations = [
+      state.unlockTimeoutOperation, state.biometricUnlockOperation,
+      state.biometricStatusOperation,
+    ].compactMap { $0 }
+    let controls: [ChildControl] =
+      (fromBiometrics ? [.init(.administration, .biometricAuthenticationVerified)] : [])
+      + [.init(.exhibition, .stopExhibition)]
+    return .handled(
+      .init(
+        next, effects: operations.map { Effect(token, .cancelOperation($0)) },
+        childControls: controls))
+  }
+
   static func hold(
     _ state: RootState, token: OperationToken, resumeOnActivation: Bool = false
   ) -> Mediation<RootState> {
@@ -405,7 +442,11 @@ public enum RootMediator {
     next.unlockID = nil
     next.unlockTimeoutOperation = nil
     next.unlockDeadline = nil
+    next.biometricUnlockOperation = nil
+    next.biometricStatusOperation = nil
     var effects = state.unlockTimeoutOperation.map { [Effect(token, .cancelOperation($0))] } ?? []
+    effects += state.biometricUnlockOperation.map { [Effect(token, .cancelOperation($0))] } ?? []
+    effects += state.biometricStatusOperation.map { [Effect(token, .cancelOperation($0))] } ?? []
     effects += releasePointer(&next, token: token)
     if let operation = state.presentationOperation {
       next.presentationOperation = nil
@@ -430,6 +471,9 @@ public enum RootMediator {
     next.unlockReturnMode = nil
     next.unlockTimeoutOperation = nil
     next.unlockDeadline = nil
+    next.biometricUnlockOperation = nil
+    next.biometricStatusOperation = nil
+    next.biometricUnlockFailed = false
     var controls: [ChildControl] = [.init(.administration, .cancelAuthentication)]
     if next.mode == .exhibiting {
       controls.append(.init(.exhibition, .resetExhibition(.newVisitorSession)))
@@ -437,7 +481,10 @@ public enum RootMediator {
     return .handled(
       .init(
         next, reply: .accepted,
-        effects: state.unlockTimeoutOperation.map { [Effect(token, .cancelOperation($0))] } ?? [],
+        effects: [
+          state.unlockTimeoutOperation, state.biometricUnlockOperation,
+          state.biometricStatusOperation,
+        ].compactMap { $0 }.map { Effect(token, .cancelOperation($0)) },
         childControls: controls))
 
   }

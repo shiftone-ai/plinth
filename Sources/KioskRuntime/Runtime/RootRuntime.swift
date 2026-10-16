@@ -42,7 +42,8 @@ public final class RootRuntime {
     rootProps = RenderPropsStore(Presenters.root(store.root))
     settingsProps = RenderPropsStore(Presenters.settings(store.root, store.administration))
     webProps = RenderPropsStore(Presenters.web(store.root, store.exhibition))
-    unlockProps = RenderPropsStore(Presenters.unlock(store.administration, now: clock.now))
+    unlockProps = RenderPropsStore(
+      Presenters.unlock(store.root, store.administration, now: clock.now))
     executor.resultSink = { [weak self] event, source in self?.send(event, from: source) }
   }
 
@@ -83,7 +84,7 @@ public final class RootRuntime {
     rootProps.apply(Presenters.root(store.root))
     settingsProps.apply(Presenters.settings(store.root, store.administration))
     webProps.apply(Presenters.web(store.root, store.exhibition))
-    unlockProps.apply(Presenters.unlock(store.administration, now: clock.now))
+    unlockProps.apply(Presenters.unlock(store.root, store.administration, now: clock.now))
   }
 
   public func stop() {
@@ -120,6 +121,7 @@ public final class RootRuntime {
     case .configurePasscode: store.root.credentialOperation == effect.token
     case .readBiometricStatus: store.root.biometricStatusOperation == effect.token
     case .changeBiometricUnlock: store.root.biometricOperation == effect.token
+    case .performBiometricUnlock: store.root.biometricUnlockOperation == effect.token
     case .cancelOperation: true
     }
   }

@@ -32,6 +32,7 @@ public enum Presenters {
       biometricChanging: root.biometricOperation != nil,
       canChangeBiometric: canChangeBiometric(root),
       biometricChangeFailed: root.biometricChangeFailed,
+      biometricEnrollmentChanged: root.biometricEnrollmentChanged,
       saveFailed: administration.saveFailed,
       validationMessages: settingsValidation(root, administration),
       startURL: administration.draft?.profile.startURL ?? "",
@@ -80,6 +81,8 @@ public enum Presenters {
     case .unavailable(.lockedOut): "Biometrics are locked. Unlock the device and try again"
     case .unavailable(.passcodeNotSet): "Set a device passcode to use biometrics"
     case .unavailable(.storageUnavailable): "Biometric settings are unavailable"
+    case .unavailable(.disconnected): "Touch ID keyboard is disconnected"
+    case .unavailable(.notPaired): "Touch ID keyboard is not paired"
     }
   }
 
@@ -124,11 +127,26 @@ public enum Presenters {
       phase: exhibition.phase, pageLoad: exhibition.pageLoad)
   }
 
-  public static func unlock(_ administration: AdministrationState, now: Double) -> UnlockProps {
-    UnlockProps(
+  public static func unlock(
+    _ root: RootState, _ administration: AdministrationState, now: Double
+  ) -> UnlockProps {
+    let biometricLabelKey: String?
+    if root.biometricStatus?.enabled == true {
+      switch root.biometricStatus?.availability {
+      case .available(.faceID): biometricLabelKey = "Unlock with Face ID"
+      case .available(.touchID): biometricLabelKey = "Unlock with Touch ID"
+      default: biometricLabelKey = nil
+      }
+    } else {
+      biometricLabelKey = nil
+    }
+    return UnlockProps(
       passcode: administration.passcode,
       failedAttempts: administration.failedAttempts,
       verifying: administration.verification != nil,
-      cooldownRemaining: max(0, (administration.cooldownUntil ?? now) - now))
+      cooldownRemaining: max(0, (administration.cooldownUntil ?? now) - now),
+      biometricLabelKey: biometricLabelKey,
+      biometricVerifying: root.biometricUnlockOperation != nil,
+      biometricFailed: root.biometricUnlockFailed)
   }
 }

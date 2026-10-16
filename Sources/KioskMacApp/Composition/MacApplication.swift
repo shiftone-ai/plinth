@@ -21,6 +21,7 @@ public final class MacApplication: NSObject, NSApplicationDelegate, NSWindowDele
   private let legacyCredentialService: String?
   private let storageNamespace: String
   private let language: LanguagePreference
+  private let biometricDisplay = MacBiometricDisplay()
 
   public init(
     preview: Bool = false, profileFileURL: URL? = nil, exhibitionInset: Double = 0,
@@ -89,15 +90,37 @@ public final class MacApplication: NSObject, NSApplicationDelegate, NSWindowDele
       ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
       .appendingPathComponent(storageNamespace, isDirectory: true).appendingPathComponent(
         "profile.json")
+    let biometrics: any BiometricCredentialPort
+    #if DEBUG
+      biometrics =
+        MacBiometricTestPort.make(service: credentialService)
+        ?? BiometricCredentialAdapter(
+          service: credentialService,
+          reason: { [language] in
+            L10n.string("Enable administrator unlock with biometrics", locale: language.locale)
+          },
+          unlockReason: { [language] in
+            L10n.string("Administrator unlock", locale: language.locale)
+          },
+          presentation: biometricDisplay)
+    #else
+      biometrics = BiometricCredentialAdapter(
+        service: credentialService,
+        reason: { [language] in
+          L10n.string("Enable administrator unlock with biometrics", locale: language.locale)
+        },
+        unlockReason: { [language] in
+          L10n.string("Administrator unlock", locale: language.locale)
+        },
+        presentation: biometricDisplay)
+    #endif
     return NativeEffectPort(
       web: web, presentation: presentation,
       repository: ProfileRepository(fileURL: location),
       credentials: CredentialStore(
         service: credentialService, keychain: credentialKeychain,
         legacyService: legacyCredentialService),
-      biometrics: BiometricCredentialAdapter(service: credentialService) { [language] in
-        L10n.string("Enable administrator unlock with biometrics", locale: language.locale)
-      },
+      biometrics: biometrics,
       clock: clock, displays: displays)
   }
 
@@ -118,6 +141,7 @@ public final class MacApplication: NSObject, NSApplicationDelegate, NSWindowDele
       rootView: KioskRootView(
         root: runtime.rootProps, settings: runtime.settingsProps, unlock: runtime.unlockProps,
         web: runtime.webProps, host: PassiveWebHost(host: web.host),
+        biometricHost: AnyView(MacBiometricHost(display: biometricDisplay)),
         language: language,
         selectLanguage: { [weak self] selected in
           self?.language.select(selected)
@@ -154,6 +178,8 @@ public final class MacApplication: NSObject, NSApplicationDelegate, NSWindowDele
     case .editPasscode(let value): event = .passcodeEdited(value)
     case .submit: event = .passcodeSubmitted
     case .cancel: event = .cancelAuthentication
+    case .authenticateWithBiometrics: event = .biometricUnlockRequested
+    case .cancelBiometricAuthentication: event = .biometricUnlockCancelled
     }
     runtime?.send(event, from: .unlock)
   }

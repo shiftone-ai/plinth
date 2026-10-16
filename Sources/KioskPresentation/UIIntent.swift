@@ -17,6 +17,8 @@ public enum UnlockIntent: Sendable {
   case editPasscode(String)
   case submit
   case cancel
+  case authenticateWithBiometrics
+  case cancelBiometricAuthentication
 }
 
 public enum RootIntent: Sendable { case unlock }
