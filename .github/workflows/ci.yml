@@ -78,12 +78,15 @@ jobs:
             -destination 'platform=macOS,arch=arm64' \
             -derivedDataPath .build/mac-store-ui \
             -resultBundlePath .build/mac-store-ui.xcresult \
+            -test-timeouts-enabled YES \
+            -default-test-execution-time-allowance 120 \
+            -maximum-test-execution-time-allowance 180 \
             -only-testing:KioskUITests/KioskWorkflowUITests/testInformationPagesLicensesAndStoreScreenshots \
             test
       - name: Export screenshots
         if: always()
         run: |
-          if test -d .build/mac-store-ui.xcresult; then
+          if test -f .build/mac-store-ui.xcresult/Info.plist; then
             xcrun xcresulttool export attachments \
               --path .build/mac-store-ui.xcresult \
               --output-path .build/mac-store-ui-attachments

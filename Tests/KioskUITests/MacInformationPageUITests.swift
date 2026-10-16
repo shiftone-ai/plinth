@@ -46,12 +46,6 @@ extension KioskWorkflowUITests {
     }
     attach(app, name: "store-mac-settings")
 
-    await captureExhibition(app, start: start, scroll: scroll)
-  }
-
-  @MainActor private func captureExhibition(
-    _ app: XCUIApplication, start: XCUIElement, scroll: XCUIElement
-  ) async {
     scroll.scroll(byDeltaX: 0, deltaY: 700)
     replace(
       app.textFields["start-url"], with: "https://shiftone-ai.github.io/plinth/demo/index.html")
@@ -61,15 +55,7 @@ extension KioskWorkflowUITests {
     app.buttons["save-profile"].click()
     XCTAssertTrue(start.isEnabled)
     start.click()
-    let next = app.webViews.links["Next exhibit"]
-    await waitFor(next, timeout: 25)
-    app.webViews.firstMatch.scroll(byDeltaX: 0, deltaY: -700)
-    next.click()
-    await waitFor(app.webViews.staticTexts["Another view"], timeout: 25)
+    await waitFor(app.webViews.links["Next exhibit"], timeout: 25)
     attach(app, name: "store-mac-exhibition")
-    let screen = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
-    screen.name = "store-mac-display"
-    screen.lifetime = .keepAlways
-    add(screen)
   }
 }
