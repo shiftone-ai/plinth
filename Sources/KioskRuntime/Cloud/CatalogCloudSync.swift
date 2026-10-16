@@ -228,7 +228,12 @@ extension CatalogCloudSync {
       self.disk = disk
       do { try persistDisk() } catch { await sendEvent(.catalogCloudStatus(session, .failed)) }
 
-    case .accountChange:
+    case .accountChange(let change):
+      if case .signIn(let currentUser) = change.changeType,
+        currentUser.recordName == disk.accountIdentifier
+      {
+        return
+      }
       generation &+= 1
       active = false
       engine = nil
