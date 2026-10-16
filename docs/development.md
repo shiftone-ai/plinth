@@ -22,7 +22,11 @@ iPadOS 26.4 SimulatorのTouch IDでは，有効化・無効化・再起動後の
 
 管理者解除画面の生体認証ボタンは，iOS 26.4のiPhone 17 Pro SimulatorとiPadOS 27.0のiPad Pro 13インチ（M5）Simulatorで，結果を差し替えたPortによる成功・失敗・取消・登録変更のUI試験が各4件成功した．方式名と管理者パスワードへの切替も画面から操作した．macOS 26.6.2のMacでは，結果を差し替えたPortによる成功・失敗・取消のUI試験が各1件成功し，パスワード欄の横にTouch IDのアイコンが出る位置と読み上げ名も検査した．これらの試験は実際のFace ID・Touch IDや外部ディスプレイを検証しない．
 
-iOSのFace IDで管理者解除できたと操作者から報告を受けた．端末，実行画面，展示方式，対象ビルドはこの試験では確認していない．
+iOS 27.0.1のiPhone 15 Pro Max実機では，隔離したbundle IDと資格情報serviceを使うApple Development署名版のDebugビルドで，管理者パスワードを保存してFace IDを有効にした．本体で `https://example.com/` を展示し，Face IDで管理者設定へ戻れた．認証要求の受理とKeychain照会の成功，設定画面への遷移を確認した．このビルドでの認証失敗・取消・遅延完了は実機では未確認である．
+
+iPadOS 26.6.2のiPad mini（A17 Pro）実機では，同じ隔離したDebugビルドでTouch IDを有効にし，本体展示と外部ディスプレイ展示の両方で指紋による管理者解除が成功した．外部ディスプレイ展示では，解除画面はiPad本体に表示され，外部画面は黒画面になった．認証後は本体の設定画面に戻った．誤った指紋・取消・遅延完了は実機では未確認である．
+
+macOS 26.6.2のMacBook Pro（M4 Max，内蔵画面とStudio Display）では，隔離したbundle IDと資格情報serviceを使うApple Development署名版のpreviewで，管理者パスワード保存，Touch IDの有効化，展示中のTouch IDによる管理者解除が成功した．解除時は管理者パスワードを入力せず，認証後に設定画面へ移った．認証中の取消でパスワード欄へ戻ることと，Plinthを前面にして20秒待った後のTouch ID解除も確認した．通常モードとDeveloper ID配布版での解除は未確認である．
 
 Macでは，生体認証の設定を実装した際のソースをDeveloper IDで署名して書き出し，`keychain-access-groups` とそれを認めるprovisioning profileを確認した．同じ署名設定の診断用ビルドで，隔離したserviceに `.biometryCurrentSet` のData Protection Keychain項目を作成・削除した（`SecItemAdd = 0`，`SecItemDelete = 0`，削除後 `errSecItemNotFound`）．認証を許さない値の照会は `errSecInteractionNotAllowed` だった．配布用UIでのTouch ID操作と失敗時の表示，実機で登録済みの顔・指紋を別の登録に入れ替えたときの失効は未確認である．
 
