@@ -65,6 +65,12 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Show display modes
+        run: >-
+          swift -e 'import CoreGraphics; let display = CGMainDisplayID();
+          print("current", CGDisplayPixelsWide(display), CGDisplayPixelsHigh(display));
+          if let modes = CGDisplayCopyAllDisplayModes(display, nil) as? [CGDisplayMode] {
+          print(modes.map { "\($0.width)x\($0.height)" }.joined(separator: ",")) }'
       - name: Test Mac store screens
         run: |
           python3 scripts/create-xcode-project.py --enable-ui-tests
