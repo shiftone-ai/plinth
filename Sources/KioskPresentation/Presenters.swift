@@ -107,6 +107,8 @@ public enum Presenters {
     case .unavailable(.lockedOut): "Biometrics are locked. Unlock the device and try again"
     case .unavailable(.passcodeNotSet): "Set a device passcode to use biometrics"
     case .unavailable(.storageUnavailable): "Biometric settings are unavailable"
+    case .unavailable(.disconnected): "Touch ID keyboard is disconnected"
+    case .unavailable(.notPaired): "Touch ID keyboard is not paired"
     }
   }
 
