@@ -9,6 +9,42 @@ import WebKit
 @MainActor
 struct WebAdministrationPageInteractionTests {
   @Test(.timeLimit(.minutes(1)))
+  func focusedEditorStillNoticesRevokedSession() async throws {
+    _ = NSApplication.shared
+    let html = WebAdministrationPage.html(locale: Locale(identifier: "en"))
+      .replacingOccurrences(of: #"<script src="/app.js" defer></script>"#, with: "")
+      .replacingOccurrences(
+        of: "</body>",
+        with: "<script>\(WebAdministrationPage.script)</script></body>")
+    let view = WKWebView(frame: .init(x: 0, y: 0, width: 390, height: 844))
+    let observer = PageLoadObserver()
+    view.navigationDelegate = observer
+    try await withCheckedThrowingContinuation { continuation in
+      observer.completion = continuation
+      view.loadHTMLString(html, baseURL: nil)
+    }
+    let result =
+      try await view.callAsyncJavaScript(
+        """
+        sessionToken = 'revoked';
+        details.hidden = false;
+        editor.hidden = false;
+        form.hidden = true;
+        document.querySelector('#edit-start-url').focus();
+        const focused = editor.contains(document.activeElement);
+        let requests = 0;
+        window.fetch = async () => { requests++; return { status: 401, ok: false }; };
+        await poll();
+        return [focused, requests, form.hidden, details.hidden, message.textContent];
+        """, arguments: [:], in: nil, contentWorld: .page) as? [Any]
+    #expect(result?[0] as? Bool == true)
+    #expect(result?[1] as? Int == 1)
+    #expect(result?[2] as? Bool == false)
+    #expect(result?[3] as? Bool == true)
+    #expect(result?[4] as? String == "")
+  }
+
+  @Test(.timeLimit(.minutes(1)))
   func expiredSessionShowsLoginWithoutAConnectionError() async throws {
     _ = NSApplication.shared
     let html = WebAdministrationPage.html(locale: Locale(identifier: "en"))

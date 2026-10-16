@@ -1,6 +1,6 @@
 let webAdministrationScript =
   webAdministrationRenderingScript + #"""
-    async function refresh() {
+    async function refresh(renderResult = true) {
       const response = await fetchWithTimeout('/api/state', {
         headers: { authorization: `Bearer ${sessionToken}` }, cache: 'no-store'
       });
@@ -10,6 +10,7 @@ let webAdministrationScript =
       }
       if (!response.ok) throw new Error('state');
       const state = await response.json();
+      if (!renderResult) return state;
       render(state);
       if (connectionLost) {
         connectionLost = false;
@@ -182,16 +183,17 @@ let webAdministrationScript =
       exhibitionAction('/api/exhibition/stop', 'paused'));
     document.querySelector('#resume-exhibition').addEventListener('click', () =>
       exhibitionAction('/api/exhibition/resume', 'exhibiting'));
-    setInterval(async () => {
-      if (!sessionToken || editor.contains(document.activeElement)) return;
-      try { await refresh(); }
+    async function poll() {
+      if (!sessionToken) return;
+      try { await refresh(!editor.contains(document.activeElement)); }
       catch (error) {
         if (error?.message === 'unauthorized') return;
         connectionLost = true;
         message.textContent = saveOutcomeUnknown
           ? document.body.dataset.saveUnknown : document.body.dataset.connection;
       }
-    }, 5000);
+    }
+    setInterval(poll, 5000);
     form.addEventListener('submit', async event => {
       event.preventDefault();
       message.textContent = document.body.dataset.wait;
