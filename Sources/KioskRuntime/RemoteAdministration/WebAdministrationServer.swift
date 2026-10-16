@@ -7,9 +7,10 @@ public final class WebAdministrationServer: WebAdministrationServerPort {
   public static let standardPort: UInt16 = 47623
 
   private let configuredPort: UInt16
-  private var generation: UUID?
-  private var cancellationPending: UUID?
+  var generation: UUID?
+  var cancellationPending: UUID?
   private var cancellationWaiters: [CheckedContinuation<Void, Never>] = []
+  var cancellationWaiterCount: Int { cancellationWaiters.count }
   private var listener: NWListener?
   private var monitor: NWPathMonitor?
   private var clients: [UUID: WebAdministrationClient] = [:]
@@ -19,6 +20,7 @@ public final class WebAdministrationServer: WebAdministrationServerPort {
   public private(set) var listeningPort: UInt16?
   public private(set) var url: String?
   public var addressChanged: ((WebServerEndpoint) -> Void)?
+  var listenerFailed: ((WebServerFailure) -> Void)?
   var respond: ((HTTPRequest, Set<String>) -> HTTPResponse)?
 
   public init(port: UInt16 = standardPort) { configuredPort = port }
@@ -26,11 +28,16 @@ public final class WebAdministrationServer: WebAdministrationServerPort {
   public func attach(runtime: RootRuntime, locale: @escaping @MainActor () -> Locale) {
     let endpoint = WebAdministrationHTTPHandler(runtime: runtime, locale: locale)
     respond = { request, hosts in endpoint.handle(request, validHosts: hosts) }
+    listenerFailed = { [weak runtime] failure in
+      runtime?.send(.webServerStoppedUnexpectedly(failure), from: .webAdministration)
+    }
   }
 
   public func start() async -> Result<WebServerEndpoint, WebServerFailure> {
+    guard !Task.isCancelled else { return .failure(.unavailable) }
     if cancellationPending != nil {
       await withCheckedContinuation { cancellationWaiters.append($0) }
+      guard !Task.isCancelled else { return .failure(.unavailable) }
       return await start()
     }
     if listener != nil {
@@ -82,7 +89,7 @@ public final class WebAdministrationServer: WebAdministrationServerPort {
     url = nil
   }
 
-  private func stateChanged(_ state: NWListener.State, generation source: UUID) {
+  func stateChanged(_ state: NWListener.State, generation source: UUID) {
     if case .cancelled = state, cancellationPending == source {
       cancellationPending = nil
       let waiters = cancellationWaiters
@@ -103,8 +110,10 @@ public final class WebAdministrationServer: WebAdministrationServerPort {
     case .failed(let error):
       let failure: WebServerFailure
       if case .posix(.EADDRINUSE) = error { failure = .portInUse } else { failure = .unavailable }
+      let wasReady = listeningPort != nil
       completeStart(.failure(failure))
       stop()
+      if wasReady { listenerFailed?(failure) }
     default: break
     }
   }

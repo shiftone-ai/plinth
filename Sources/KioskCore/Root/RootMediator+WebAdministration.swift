@@ -3,7 +3,8 @@ extension RootMediator {
     _ state: RootState, _ envelope: EventEnvelope
   ) -> Mediation<RootState> {
     switch envelope.event {
-    case .webServerStarted, .webServerFailed, .webServerAddressChanged:
+    case .webServerStarted, .webServerFailed, .webServerStoppedUnexpectedly,
+      .webServerAddressChanged:
       return reduceWebServerEvent(state, envelope)
     case .webAuthenticationVerified, .webSessionRequested:
       return reduceWebSessionEvent(state, envelope)
@@ -55,8 +56,30 @@ extension RootMediator {
     case .webServerAddressChanged(let endpoint):
       return webServerAddressChanged(state, envelope, endpoint: endpoint)
 
+    case .webServerStoppedUnexpectedly(let failure):
+      return webServerStoppedUnexpectedly(state, envelope, failure: failure)
+
     default: return .bubble
     }
+  }
+
+  private static func webServerStoppedUnexpectedly(
+    _ state: RootState, _ envelope: EventEnvelope, failure: WebServerFailure
+  ) -> Mediation<RootState> {
+    guard envelope.source == .webAdministration, state.webServerRunning else {
+      return .reject(state, .staleOperation)
+    }
+    var next = state
+    next.webServerRunning = false
+    next.webServerURL = nil
+    next.localWebServerOrigins = []
+    next.webServerFailure = failure
+    return .handled(
+      .init(
+        next,
+        childControls: [
+          .init(.exhibition, .localWebServerOriginsChanged([]))
+        ]))
   }
 
   private static func webServerAddressChanged(
@@ -114,16 +137,18 @@ extension RootMediator {
     _ mediation: Mediation<RootState>, before: RootState, _ envelope: EventEnvelope
   ) -> Mediation<RootState> {
     guard case .handled(var transition) = mediation else { return mediation }
+    let canListen = transition.state.mobileDisplays == nil || transition.state.mobileForeground
     switch envelope.event {
     case .bootstrapped:
-      if transition.state.savedProfile?.webAdministrationEnabled == true
-        && transition.state.credentialsConfigured
+      if canListen,
+        transition.state.savedProfile?.webAdministrationEnabled == true
+          && transition.state.credentialsConfigured
       {
         startWebServer(&transition, event: envelope)
       }
     case .profileSaved:
       if transition.state.savedProfile?.webAdministrationEnabled == true {
-        if transition.state.credentialsConfigured,
+        if canListen, transition.state.credentialsConfigured,
           !before.webServerRunning && before.webServerOperation == nil
         {
           startWebServer(&transition, event: envelope)
@@ -151,7 +176,7 @@ extension RootMediator {
         startWebServer(&transition, event: envelope)
       }
     case .credentialConfigured:
-      if transition.state.credentialsConfigured,
+      if canListen, transition.state.credentialsConfigured,
         transition.state.savedProfile?.webAdministrationEnabled == true,
         !before.webServerRunning, before.webServerOperation == nil
       {

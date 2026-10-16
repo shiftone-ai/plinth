@@ -56,6 +56,8 @@ macOS 26.6.2ではDeveloper ID版と，内部TestFlightから更新したSandbox
 
 iPad実機で展示中に画面を消すとWeb接続は拒否され，起こしてPlinthへ戻すと同じURLがHTTP 200で応答した．Wi-Fiをオフにすると接続はタイムアウトし，オンへ戻すと同じURLでHTTP 200に復帰した．Wi-Fi切り替え後の展示は停止表示になったが，iPhoneのSafariからWebで再開でき，外部画面にページが戻った．Macのスリープ復帰とアドレス変更は，作業中のMacの接続を切るため未実行である．iOS 27.0.1のiPhone実機では内部TestFlight版への更新と展示の表示を確認した．管理画面でWeb管理を有効にした後，同じネットワークのMacとiPadのSafariから接続でき，iPadのSafariではログインして設定画面を表示した．未認証の設定取得は401，異なるHostと`Origin: null`では403だった．iPhoneを背景へ移すと接続は拒否され，前景へ戻すと同じURLで再接続できた．更新版ではiPadのSafariにiPhoneの設定・編集画面が表示された．ユーザーから展示操作のボタンはすべて効いたと報告を受け，終了時のiPhone本体に展示ページが出ていることを取得画像で確認した．各操作の遷移は個別に取得していない．iPhoneをサーバーとする設定の編集・保存は，iPadと同じモバイルのWeb管理経路を使うため実機では繰り返していない．
 
+PRレビュー後，管理者パスワード変更時のWebセッション失効と検証中のログイン取消，背景中に完了した保存・起動処理からの待ち受け再開防止，Web編集中の下書き保持，待ち受け異常終了後のURL消去を追加した．取消待ちの起動が取り消された場合も，新しいlistenerを作らない．Core・Runtimeの回帰試験と実TCPを使ったlistener試験が成功した．実HTTPとヘッドレスChromiumでは，ログイン中のブラウザからパスワード変更後に再ログイン画面へ戻ることを確認した．通信エラーの誤表示も直し，実ブラウザの取得画像とWebKit試験で確かめた．MacのNative試験とiOSのDebug・Releaseビルドが成功した．この修正を含む配布版での実機操作はまだ確認していない．
+
 ## 環境とtarget
 
 確認した環境はmacOS 26.6.2（arm64），Xcode 27.0，Swift 6.4，macOS SDK 27.0．deployment target，Swift language mode，target別のdefault isolationは [Package.swift](../Package.swift) で管理する．upcoming featureの個別指定は追加していない．

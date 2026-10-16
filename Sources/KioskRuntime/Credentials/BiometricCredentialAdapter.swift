@@ -23,7 +23,7 @@ public protocol BiometricUnlockPresentationPort: AnyObject {
 @MainActor
 public final class BiometricCredentialAdapter: BiometricCredentialPort {
   private let service: String
-  private let reason: @MainActor () -> String
+  private let enableReason: @MainActor () -> String
   private let unlockReason: @MainActor () -> String
   private let presentation: (any BiometricUnlockPresentationPort)?
   private let account = "administrator-biometric-unlock"
@@ -31,13 +31,13 @@ public final class BiometricCredentialAdapter: BiometricCredentialPort {
   private var committedEnable: OperationToken?
 
   public init(
-    service: String, reason: @escaping @MainActor () -> String,
-    unlockReason: (@MainActor () -> String)? = nil,
+    service: String, enableReason: @escaping @MainActor () -> String,
+    unlockReason: @escaping @MainActor () -> String,
     presentation: (any BiometricUnlockPresentationPort)? = nil
   ) {
     self.service = service
-    self.reason = reason
-    self.unlockReason = unlockReason ?? reason
+    self.enableReason = enableReason
+    self.unlockReason = unlockReason
     self.presentation = presentation
   }
 
@@ -120,7 +120,7 @@ public final class BiometricCredentialAdapter: BiometricCredentialPort {
     do {
       try await context.evaluatePolicy(
         .deviceOwnerAuthenticationWithBiometrics,
-        localizedReason: reason())
+        localizedReason: enableReason())
     } catch {
       let authenticationError = error as NSError
       let cancellationCodes = [
