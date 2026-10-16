@@ -51,7 +51,7 @@ struct EffectExecutorTests {
     #expect(runtime.snapshot.root.mode == .exhibiting)
     #expect(runtime.snapshot.exhibition.phase == .ready)
     #expect(
-      port.performed.map(\.kind) == [
+      port.performed.map(\.kind).filter { $0 != .readBiometricStatus } == [
         .applyPresentation(.init()), .createSurface(.newVisitorSession), .load(profile.startURL),
       ])
     #expect(runtime.reports.contains { $0.source == .platform && $0.handler == .root })

@@ -3,6 +3,86 @@ import XCTest
 import XCUIAutomation
 
 extension MobileWorkflowUITests {
+  @MainActor func testSystemSettingsListsAppLanguages() async throws {
+    continueAfterFailure = false
+    let settings = XCUIApplication(bundleIdentifier: "com.apple.Preferences")
+    settings.launch()
+    addTeardownBlock { await MainActor.run { settings.terminate() } }
+    let apps = settings.staticTexts["Apps"]
+    XCTAssertTrue(apps.waitForExistence(timeout: 10), settings.debugDescription)
+    apps.tap()
+    let search = settings.searchFields["Search Apps"]
+    XCTAssertTrue(search.waitForExistence(timeout: 10), settings.debugDescription)
+    search.tap()
+    search.typeText("Plinth\n")
+    let plinth = settings.staticTexts["Plinth"]
+    XCTAssertTrue(plinth.waitForExistence(timeout: 10), settings.debugDescription)
+    plinth.tap()
+    let language = settings.staticTexts["Language"]
+    XCTAssertTrue(language.waitForExistence(timeout: 10), settings.debugDescription)
+    language.tap()
+    for name in ["English", "日本語", "한국어", "简体中文"] {
+      XCTAssertTrue(
+        settings.staticTexts[name].waitForExistence(timeout: 10), settings.debugDescription)
+    }
+    attach(settings, "ios-settings-language-options")
+    // Apple's Settings app does not provide an identifier for this language row.
+    // swiftlint:disable:next ui_test_japanese_element_lookup
+    settings.staticTexts["日本語"].tap()
+    attach(settings, "ios-settings-japanese-selected")
+    settings.staticTexts["English"].tap()
+  }
+
+  @MainActor func testUnsupportedLanguageFallsBackToEnglish() async throws {
+    continueAfterFailure = false
+    let app = XCUIApplication()
+    app.launchArguments = ["-AppleLanguages", "(fr)", "-NSShowNonLocalizedStrings", "YES"]
+    app.launchEnvironment["PLINTH_TEST_CREDENTIAL_SERVICE"] =
+      "ai.shiftone.plinth.tests.\(UUID().uuidString)"
+    addTeardownBlock { await MainActor.run { app.terminate() } }
+    app.launch()
+    let start = app.buttons["start-exhibition"]
+    try await exists(start)
+    XCTAssertEqual(start.label, "Start exhibition")
+    XCTAssertEqual(app.buttons["save-profile"].label, "Save settings")
+    attach(app, "unsupported-language-en")
+  }
+
+  @MainActor func testDoubleLocalizationKeepsSettingsControlsReachable() async throws {
+    continueAfterFailure = false
+    let app = XCUIApplication()
+    app.launchArguments = ["-AppleLanguages", "(en)", "-NSDoubleLocalizedStrings", "YES"]
+    app.launchEnvironment["PLINTH_TEST_CREDENTIAL_SERVICE"] =
+      "ai.shiftone.plinth.tests.\(UUID().uuidString)"
+    addTeardownBlock { await MainActor.run { app.terminate() } }
+    app.launch()
+    let start = app.buttons["start-exhibition"]
+    try await exists(start)
+    XCTAssertGreaterThan(start.label.count, "Start exhibition".count)
+    let language = app.buttons["interface-language"]
+    reach(language, app: app)
+    XCTAssertTrue(language.isHittable)
+    let biometric = app.switches["biometric-unlock"]
+    reach(biometric, app: app)
+    XCTAssertTrue(biometric.isHittable)
+    attach(app, "double-localization-portrait")
+    XCUIDevice.shared.orientation = .landscapeLeft
+    defer { XCUIDevice.shared.orientation = .portrait }
+    for _ in 0..<25 {
+      if app.frame.width > app.frame.height { break }
+      try await Task.sleep(for: .milliseconds(200))
+    }
+    XCTAssertGreaterThan(app.frame.width, app.frame.height)
+    try await exists(app.buttons["start-exhibition"])
+    reach(biometric, app: app)
+    XCTAssertTrue(biometric.isHittable)
+    try await Task.sleep(for: .seconds(2))
+    let screen = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+    screen.name = "double-localization-landscape"
+    screen.lifetime = .keepAlways
+    add(screen)
+  }
+
   @MainActor func testOnScreenLanguageChoicePersistsWithSavedSetup() async throws {
     continueAfterFailure = false
     let server = try FixtureServer()
@@ -15,13 +95,13 @@ extension MobileWorkflowUITests {
     addTeardownBlock { await MainActor.run { app.terminate() } }
     app.launch()
     try await selectEachLanguage(app)
-    attach(app, "language-selected-zh-Hant")
+    attach(app, "language-selected-zh-Hans")
     try await configureExhibition(
-      app, origin: server.origin, language: "selected-zh-Hant",
-      controlTitles: (save: "儲存設定", start: "開始展示"))
+      app, origin: server.origin, language: "selected-zh-Hans",
+      controlTitles: (save: "保存设置", start: "开始展示"))
     try await unlockExhibition(
-      app, language: "selected-zh-Hant", incorrectPasscode: "密碼不正確",
-      controlTitles: (start: "開始展示", unlock: "管理員解鎖"))
+      app, language: "selected-zh-Hans", incorrectPasscode: "管理员密码不正确",
+      controlTitles: (start: "开始展示", unlock: "管理员解锁"))
     app.terminate()
     app.launch()
     try await exists(app.webViews.links["Allowed"])
@@ -32,10 +112,10 @@ extension MobileWorkflowUITests {
     unlock.typeText("plinth-localization-passcode")
     app.buttons["verify-passcode"].tap()
     try await exists(app.buttons["start-exhibition"])
-    XCTAssertEqual(app.buttons["start-exhibition"].label, "開始展示")
+    XCTAssertEqual(app.buttons["start-exhibition"].label, "开始展示")
     XCTAssertEqual(app.textFields["start-url"].value as? String, server.origin + "/home")
     app.buttons["interface-language"].tap()
-    app.buttons["跟隨系統"].tap()
+    app.buttons["interface-language-system"].tap()
     XCTAssertEqual(app.buttons["start-exhibition"].label, "展示を開始")
     app.terminate()
     app.launch()
@@ -52,14 +132,13 @@ extension MobileWorkflowUITests {
   @MainActor private func selectEachLanguage(_ app: XCUIApplication) async throws {
     let picker = app.buttons["interface-language"]
     try await exists(picker)
-    for (name, start) in [
-      ("English", "Start exhibition"),
-      ("한국어", "전시 시작"),
-      ("简体中文", "开始展示"),
-      ("繁體中文", "開始展示"),
+    for (identifier, start) in [
+      ("interface-language-en", "Start exhibition"),
+      ("interface-language-ko", "전시 시작"),
+      ("interface-language-zh-Hans", "开始展示"),
     ] {
       picker.tap()
-      app.buttons[name].tap()
+      app.buttons[identifier].tap()
       XCTAssertEqual(app.buttons["start-exhibition"].label, start)
     }
   }
@@ -70,11 +149,13 @@ extension MobileWorkflowUITests {
     try await server.start()
     addTeardownBlock { await MainActor.run { server.stop() } }
     let languages = [
-      ("ja", "設定を保存", "展示を開始", "パスコードが一致しません", "管理者解除"),
-      ("en", "Save settings", "Start exhibition", "Incorrect passcode", "Administrator unlock"),
-      ("ko", "설정 저장", "전시 시작", "암호가 일치하지 않습니다", "관리자 잠금 해제"),
-      ("zh-Hans", "保存设置", "开始展示", "密码不正确", "管理员解锁"),
-      ("zh-Hant", "儲存設定", "開始展示", "密碼不正確", "管理員解鎖"),
+      ("ja", "設定を保存", "展示を開始", "管理者パスワードが一致しません", "管理者解除"),
+      (
+        "en", "Save settings", "Start exhibition", "Incorrect administrator password",
+        "Administrator unlock"
+      ),
+      ("ko", "설정 저장", "전시 시작", "관리자 비밀번호가 일치하지 않습니다", "관리자 잠금 해제"),
+      ("zh-Hans", "保存设置", "开始展示", "管理员密码不正确", "管理员解锁"),
     ]
     for (language, saveTitle, startTitle, incorrectPasscode, unlockTitle) in languages {
       let service = "ai.shiftone.plinth.tests.\(UUID().uuidString)"
@@ -96,14 +177,53 @@ extension MobileWorkflowUITests {
     }
   }
 
-  @MainActor private func configureExhibition(
+  @MainActor func testExternalDisplayAccessibilityUsesSelectedLanguage() async throws {
+    continueAfterFailure = false
+    let server = try FixtureServer()
+    try await server.start()
+    addTeardownBlock { await MainActor.run { server.stop() } }
+    let cases = [
+      ("en", "Save settings", "Start exhibition", "External display controls", "Exhibiting"),
+      ("ja", "設定を保存", "展示を開始", "外部展示の操作", "展示中"),
+      ("ko", "설정 저장", "전시 시작", "외부 전시 제어", "전시 중"),
+      ("zh-Hans", "保存设置", "开始展示", "外接显示器控制", "展示中"),
+    ]
+    for (language, save, start, control, active) in cases {
+      let app = XCUIApplication()
+      app.launchArguments = ["-AppleLanguages", "(\(language))"]
+      app.launchEnvironment["PLINTH_TEST_CREDENTIAL_SERVICE"] =
+        "ai.shiftone.plinth.tests.\(UUID().uuidString)"
+      addTeardownBlock { await MainActor.run { app.terminate() } }
+      app.launch()
+      try await configureExhibition(
+        app, origin: server.origin, language: "external-\(language)",
+        controlTitles: (save: save, start: start), external: true)
+      let controls = app.otherElements["external-control"]
+      try await exists(controls)
+      XCTAssertEqual(controls.label, control)
+      let status = app.descendants(matching: .any)["external-exhibition-active"]
+      try await exists(status)
+      XCTAssertEqual(status.label, active)
+      attach(app, "external-accessibility-\(language)")
+      app.terminate()
+    }
+  }
+
+  @MainActor func configureExhibition(
     _ app: XCUIApplication, origin: String, language: String,
-    controlTitles: (save: String, start: String)
+    controlTitles: (save: String, start: String), external: Bool = false
   ) async throws {
     let start = app.buttons["start-exhibition"]
     try await exists(start)
     XCTAssertEqual(start.label, controlTitles.start)
     XCTAssertEqual(app.buttons["save-profile"].label, controlTitles.save)
+    if external {
+      app.buttons["exhibition-destination"].tap()
+      app.buttons["exhibition-destination-external"].tap()
+      if app.buttons["prepare-external-scene"].exists {
+        throw XCTSkip("Requires an automatically connected external display scene")
+      }
+    }
     let url = app.textFields["start-url"]
     url.tap()
     url.typeText(origin + "/home\n")
@@ -121,7 +241,9 @@ extension MobileWorkflowUITests {
     let setup = app.secureTextFields["setup-passcode"]
     reach(setup, app: app)
     setup.tap()
-    setup.typeText("plinth-localization-passcode\n")
+    setup.typeText("plinth-localization-passcode")
+    try await secureValue(setup, count: "plinth-localization-passcode".count)
+    setup.typeText("\n")
     let savePasscode = app.buttons["save-passcode"]
     reach(savePasscode, app: app)
     savePasscode.tap()
@@ -145,8 +267,11 @@ extension MobileWorkflowUITests {
     try await exists(unlock)
     unlock.tap()
     unlock.typeText("wrong-passcode")
+    try await secureValue(unlock, count: "wrong-passcode".count)
     app.buttons["verify-passcode"].tap()
-    try await exists(app.staticTexts[incorrectPasscode])
+    let failure = app.staticTexts["incorrect-credential"]
+    try await exists(failure)
+    XCTAssertEqual(failure.label, incorrectPasscode)
     attach(app, "unlock-\(language)")
     app.buttons["cancel-unlock"].tap()
     try await exists(app.webViews.links["Allowed"])
@@ -154,6 +279,7 @@ extension MobileWorkflowUITests {
     try await exists(unlock)
     unlock.tap()
     unlock.typeText("plinth-localization-passcode")
+    try await secureValue(unlock, count: "plinth-localization-passcode".count)
     app.buttons["verify-passcode"].tap()
     let start = app.buttons["start-exhibition"]
     try await exists(start)

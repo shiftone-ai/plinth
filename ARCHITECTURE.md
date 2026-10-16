@@ -28,4 +28,4 @@ iPad版の本体・外部への展示，展示Viewと管理Viewの切替，マ�
 
 OS別のApplicationがRuntimeとNative資源を所有し，[NativeEffectPort](Sources/KioskRuntime/Effects/NativeEffectPort.swift) が裁定済みEffectを実行する．MobileApplicationは最後のSceneの切断時にSessionを停止・破棄し，次の接続で生成し直す．展示用Sceneと管理用Sceneの役割は固定し，外部に管理画面を描画しない．targetとisolationは [Package.swift](Package.swift)，アプリのwrapperは [project生成手順](scripts/create-xcode-project.py) で管理する．
 
-Runtimeの入口は [RootRuntime](Sources/KioskRuntime/Runtime/RootRuntime.swift)．ViewのBindingは項目別の意図を送るだけで，draftの更新・検証と送信時のパスコード選択はAdministration Mediatorが行う．外部Sceneの作成は接続またはエラーの完了を待ち，取消時はoperationを無効化してから待機を解放する．実装の条件は [実装規約](docs/rules/index.md)，検証の範囲は [開発と検証](docs/development.md) を参照する．
+Runtimeの入口は [RootRuntime](Sources/KioskRuntime/Runtime/RootRuntime.swift)．ViewのBindingは項目別の意図を送るだけで，draftの更新・検証と送信時の管理者パスワード選択はAdministration Mediatorが行う．外部Sceneの作成は接続またはエラーの完了を待ち，取消時はoperationを無効化してから待機を解放する．実装の条件は [実装規約](docs/rules/index.md)，検証の範囲は [開発と検証](docs/development.md) を参照する．

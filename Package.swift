@@ -3,7 +3,7 @@ import PackageDescription
 
 let package = Package(
   name: "Plinth",
-  defaultLocalization: "ja",
+  defaultLocalization: "en",
   platforms: [.macOS(.v14), .iOS("18.4")],
   products: [
     .library(name: "KioskCore", targets: ["KioskCore"]),

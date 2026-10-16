@@ -15,9 +15,9 @@ public struct UnlockView: View {
 
   public var body: some View {
     VStack(alignment: .leading, spacing: 20) {
-      Text(L10n.string("管理者解除", locale: locale)).font(.title2)
+      Text(L10n.string("Administrator unlock", locale: locale)).font(.title2)
       SecureField(
-        L10n.string("パスコード", locale: locale),
+        L10n.string("Administrator password", locale: locale),
         text: Binding(
           get: { props.passcode }, set: { send(.editPasscode($0)) })
       )
@@ -26,18 +26,22 @@ public struct UnlockView: View {
       .onSubmit { send(.submit) }
       .disabled(props.verifying)
       if props.failedAttempts > 0 {
-        Label(L10n.string("パスコードが一致しません", locale: locale), systemImage: "exclamationmark.circle")
-          .foregroundStyle(.red)
+        Label(
+          L10n.string("Incorrect administrator password", locale: locale),
+          systemImage: "exclamationmark.circle"
+        )
+        .foregroundStyle(.red)
+        .accessibilityIdentifier("incorrect-credential")
       }
       if props.cooldownRemaining > 0 {
-        Label(L10n.string("30秒後にもう一度入力してください", locale: locale), systemImage: "clock")
+        Label(L10n.string("Try again in 30 seconds", locale: locale), systemImage: "clock")
       }
       HStack {
-        Button(L10n.string("展示に戻る", locale: locale)) { send(.cancel) }
+        Button(L10n.string("Return to exhibition", locale: locale)) { send(.cancel) }
           .accessibilityIdentifier("cancel-unlock")
         Spacer()
         if props.verifying { ProgressView().controlSize(.small) }
-        Button(L10n.string("解除", locale: locale)) { send(.submit) }
+        Button(L10n.string("Unlock", locale: locale)) { send(.submit) }
           .disabled(props.verifying || props.passcode.isEmpty)
           .buttonStyle(.borderedProminent)
           .accessibilityIdentifier("verify-passcode")

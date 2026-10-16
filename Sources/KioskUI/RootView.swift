@@ -54,12 +54,14 @@ public struct KioskRootView<WebHost: View>: View {
             if root.props.showsPointerSetupHelp {
               PointerSetupHelpView(
                 instructions: pointerSetupGuidance
-                  ?? "Plinthを全画面表示にしてください。")
+                  ?? "Switch Plinth to full screen.")
             } else {
               Label(
-                L10n.string("展示を停止しました", locale: locale), systemImage: "exclamationmark.triangle"
+                L10n.string("Exhibition stopped", locale: locale),
+                systemImage: "exclamationmark.triangle"
               )
               .font(.title2).foregroundStyle(.white)
+              .accessibilityIdentifier("exhibition-stopped")
             }
           } else {
             host.allowsHitTesting(web.props.acceptsInput)

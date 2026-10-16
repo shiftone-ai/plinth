@@ -26,6 +26,12 @@ public enum Presenters {
       credentialsConfigured: root.credentialsConfigured,
       configuringCredential: root.credentialOperation != nil,
       credentialConfigurationFailed: root.credentialConfigurationFailed,
+      biometricLabelKey: biometricLabel(root.biometricStatus),
+      biometricUnavailableKey: biometricUnavailable(root.biometricStatus),
+      biometricEnabled: root.biometricStatus?.enabled == true,
+      biometricChanging: root.biometricOperation != nil,
+      canChangeBiometric: canChangeBiometric(root),
+      biometricChangeFailed: root.biometricChangeFailed,
       saveFailed: administration.saveFailed,
       validationMessages: settingsValidation(root, administration),
       startURL: administration.draft?.profile.startURL ?? "",
@@ -41,7 +47,7 @@ public enum Presenters {
       canStart: root.mode == .administration && root.credentialsConfigured
         && root.savedProfile.map(root.canPresent) == true
         && !administration.hasUnsavedDraft && root.saveOperation == nil
-        && root.credentialOperation == nil
+        && root.credentialOperation == nil && root.biometricOperation == nil
         && root.externalSceneOperation == nil
         && root.savedProfile?.validationIssues.isEmpty == true,
       saving: administration.saving,
@@ -57,15 +63,44 @@ public enum Presenters {
     )
   }
 
+  private static func biometricLabel(_ status: BiometricStatus?) -> String {
+    switch status?.availability {
+    case .available(.faceID): "Unlock with Face ID"
+    case .available(.touchID): "Unlock with Touch ID"
+    default: "Biometric unlock"
+    }
+  }
+
+  private static func biometricUnavailable(_ status: BiometricStatus?) -> String? {
+    switch status?.availability {
+    case nil: "Checking biometrics"
+    case .available: nil
+    case .unavailable(.notAvailable): "Biometrics are not available on this device"
+    case .unavailable(.notEnrolled): "Set up Face ID or Touch ID on this device first"
+    case .unavailable(.lockedOut): "Biometrics are locked. Unlock the device and try again"
+    case .unavailable(.passcodeNotSet): "Set a device passcode to use biometrics"
+    case .unavailable(.storageUnavailable): "Biometric settings are unavailable"
+    }
+  }
+
+  private static func canChangeBiometric(_ root: RootState) -> Bool {
+    guard root.mode == .administration, root.credentialsConfigured,
+      root.biometricOperation == nil, let status = root.biometricStatus
+    else { return false }
+    if status.enabled { return true }
+    if case .available = status.availability { return true }
+    return false
+  }
+
   private static func validationMessage(_ issue: ProfileIssue) -> String {
     switch issue {
-    case .unsupportedSchema: "設定の形式を読み込めません"
-    case .invalidRevision: "設定を読み込めません"
-    case .invalidNavigationRules: "ドメインを確認してください"
-    case .homeNotAllowed: "開始URLが閲覧先のルールで許可されていません"
-    case .invalidIdleTimeout: "無操作の秒数は0より大きい数で入力してください"
-    case .invalidRecoveryPolicy: "再試行の回数・間隔を確認してください"
-    case .invalidDisplayMode: "解像度を確認してください"
+    case .unsupportedSchema: "Could not read the settings format"
+    case .invalidRevision: "Could not read settings"
+    case .invalidNavigationRules: "Check the domain"
+    case .homeNotAllowed: "The start URL is not allowed by the navigation rules"
+    case .invalidIdleTimeout: "Enter an idle time greater than zero"
+    case .invalidRecoveryPolicy: "Check retry count and interval"
+    case .invalidDisplayMode: "Check the resolution"
     }
   }
 
@@ -77,7 +112,7 @@ public enum Presenters {
     }
     if ProfileRevision.next(after: root.savedProfile?.revision) == nil {
       messages.removeAll { $0.id == .invalidRevision }
-      messages.append(.init(id: .invalidRevision, textKey: "設定の保存回数が上限に達しています"))
+      messages.append(.init(id: .invalidRevision, textKey: "Settings have reached the save limit"))
     }
     return messages
   }

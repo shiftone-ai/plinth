@@ -5,6 +5,8 @@ public enum SettingsIntent: Sendable {
   case editPasscode(String)
   case save, discard
   case configurePasscode
+  case changeBiometricUnlock(Bool)
+  case cancelBiometricChange
   case start, quit
   case prepareExternalScene
   case addOriginRule

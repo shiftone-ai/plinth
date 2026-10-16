@@ -7,7 +7,6 @@ public enum InterfaceLanguage: String, CaseIterable, Identifiable, Sendable {
   case english = "en"
   case korean = "ko"
   case simplifiedChinese = "zh-Hans"
-  case traditionalChinese = "zh-Hant"
 
   public var id: String { rawValue }
 
@@ -18,7 +17,6 @@ public enum InterfaceLanguage: String, CaseIterable, Identifiable, Sendable {
     case .english: "English"
     case .korean: "한국어"
     case .simplifiedChinese: "简体中文"
-    case .traditionalChinese: "繁體中文"
     }
   }
 }
@@ -38,7 +36,7 @@ public final class LanguagePreference {
   public var locale: Locale {
     Locale(
       identifier: selection == .system
-        ? Bundle.main.preferredLocalizations.first ?? "ja" : selection.rawValue)
+        ? Bundle.main.preferredLocalizations.first ?? "en" : selection.rawValue)
   }
 
   public func select(_ language: InterfaceLanguage) {

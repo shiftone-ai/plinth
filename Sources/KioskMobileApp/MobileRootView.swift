@@ -46,8 +46,11 @@ import KioskLocalization
                 }
             }
           } else if root.props.mode == .administration && !displayOnly {
-            Label(L10n.string("このウィンドウを外部ディスプレイへ移動", locale: locale), systemImage: "display")
-              .foregroundStyle(.white)
+            Label(
+              L10n.string("Move this window to the external display", locale: locale),
+              systemImage: "display"
+            )
+            .foregroundStyle(.white)
           }
         } else if root.props.exhibitionDestination == .externalDisplay
           && [.exhibiting, .enteringKiosk].contains(root.props.mode)
@@ -62,7 +65,7 @@ import KioskLocalization
             }.ignoresSafeArea()
           }
           Image(systemName: "display").foregroundStyle(.white)
-            .accessibilityLabel(L10n.string("展示中", locale: locale))
+            .accessibilityLabel(L10n.string("Exhibiting", locale: locale))
             .accessibilityIdentifier("external-exhibition-active")
             .allowsHitTesting(false)
         } else {
@@ -106,7 +109,7 @@ import KioskLocalization
     }
     func updateUIView(_ button: AdministratorEntryButton, context: Context) {
       context.coordinator.send = send
-      button.accessibilityLabel = L10n.string("管理者解除", locale: locale)
+      button.accessibilityLabel = L10n.string("Administrator unlock", locale: locale)
     }
     @MainActor final class Coordinator: NSObject {
       var send: () -> Void

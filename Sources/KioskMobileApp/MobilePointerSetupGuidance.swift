@@ -5,9 +5,10 @@
   enum MobilePointerSetupGuidance {
     static var instructions: String {
       if #available(iOS 26.0, *), UIDevice.current.userInterfaceIdiom == .pad {
-        return "「設定」の「マルチタスクとジェスチャ」で「フルスクリーンアプリ」を選び、Plinthに戻ってください。"
+        return
+          "In Settings, choose Full Screen Apps under Multitasking & Gestures, then return to Plinth."
       }
-      return "Plinthを全画面表示にしてください。"
+      return "Switch Plinth to full screen."
     }
   }
 #endif

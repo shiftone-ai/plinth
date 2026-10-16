@@ -52,6 +52,9 @@
       let port = NativeEffectPort(
         web: web, presentation: presentation, repository: ProfileRepository(fileURL: location),
         credentials: CredentialStore(service: credentialService),
+        biometrics: BiometricCredentialAdapter(service: credentialService) { [language] in
+          L10n.string("Enable administrator unlock with biometrics", locale: language.locale)
+        },
         clock: clock, displays: presentation)
       #if DEBUG
         if let value = ProcessInfo.processInfo.environment["PLINTH_TEST_IDLE_SECONDS"],
@@ -196,6 +199,8 @@
       case .edit(let edit): event = .draftEdited(edit)
       case .editPasscode(let value): event = .passcodeEdited(value)
       case .configurePasscode: event = .configurePasscodeRequested
+      case .changeBiometricUnlock(let enabled): event = .biometricChangeRequested(enabled)
+      case .cancelBiometricChange: event = .biometricChangeCancelled
       case .save: event = .saveDraftRequested
       case .discard: event = .discardDraftRequested
       case .addOriginRule: event = .addOriginRuleRequested

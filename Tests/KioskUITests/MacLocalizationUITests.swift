@@ -19,12 +19,12 @@ extension KioskWorkflowUITests {
     try await server.start()
     addTeardownBlock { await MainActor.run { server.stop() } }
     let languages: [MacLanguageCase] = [
-      .init(code: "ja", save: "設定を保存", start: "展示を開始", failure: "パスコードが一致しません"),
+      .init(code: "ja", save: "設定を保存", start: "展示を開始", failure: "管理者パスワードが一致しません"),
       .init(
-        code: "en", save: "Save settings", start: "Start exhibition", failure: "Incorrect passcode"),
-      .init(code: "ko", save: "설정 저장", start: "전시 시작", failure: "암호가 일치하지 않습니다"),
-      .init(code: "zh-Hans", save: "保存设置", start: "开始展示", failure: "密码不正确"),
-      .init(code: "zh-Hant", save: "儲存設定", start: "開始展示", failure: "密碼不正確"),
+        code: "en", save: "Save settings", start: "Start exhibition",
+        failure: "Incorrect administrator password"),
+      .init(code: "ko", save: "설정 저장", start: "전시 시작", failure: "관리자 비밀번호가 일치하지 않습니다"),
+      .init(code: "zh-Hans", save: "保存设置", start: "开始展示", failure: "管理员密码不正确"),
     ]
     for language in languages {
       await localizedWorkflow(server: server, language: language)
@@ -65,11 +65,11 @@ extension KioskWorkflowUITests {
   @MainActor private func verifyLanguagePicker(_ app: XCUIApplication) {
     let picker = app.popUpButtons["interface-language"]
     picker.click()
-    app.menuItems["English"].click()
+    app.menuItems["interface-language-en"].click()
     XCTAssertEqual(app.buttons["start-exhibition"].label, "Start exhibition")
     attach(app, name: "settings-selected-en")
     picker.click()
-    app.menuItems["Use system language"].click()
+    app.menuItems["interface-language-system"].click()
     XCTAssertEqual(app.buttons["start-exhibition"].label, "展示を開始")
   }
 
@@ -110,7 +110,9 @@ extension KioskWorkflowUITests {
     await waitFor(unlock)
     replace(unlock, with: "incorrect-passcode")
     app.buttons["verify-passcode"].click()
-    await waitFor(app.staticTexts[language.failure], timeout: 10)
+    let failure = app.staticTexts["incorrect-credential"]
+    await waitFor(failure, timeout: 10)
+    XCTAssertEqual(failure.label, language.failure)
     attach(app, name: "unlock-\(language.code)")
     app.buttons["cancel-unlock"].click()
     await waitFor(app.webViews.links["Allowed"], timeout: 10)

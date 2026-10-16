@@ -118,6 +118,8 @@ public final class RootRuntime {
     case .scheduleUnlockTimeout: store.root.unlockTimeoutOperation == effect.token
     case .verifyPasscode: store.administration.verification == effect.token
     case .configurePasscode: store.root.credentialOperation == effect.token
+    case .readBiometricStatus: store.root.biometricStatusOperation == effect.token
+    case .changeBiometricUnlock: store.root.biometricOperation == effect.token
     case .cancelOperation: true
     }
   }

@@ -7,8 +7,11 @@ struct PointerSetupHelpView: View {
 
   var body: some View {
     VStack(alignment: .leading, spacing: 16) {
-      Label(L10n.string("マウスを固定できません", locale: locale), systemImage: "cursorarrow.rays")
-        .font(.title2)
+      Label(
+        L10n.string("Could not confine the pointer", locale: locale),
+        systemImage: "cursorarrow.rays"
+      )
+      .font(.title2)
       Text(L10n.string(instructions, locale: locale))
         .fixedSize(horizontal: false, vertical: true)
     }

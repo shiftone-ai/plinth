@@ -9,14 +9,14 @@ struct SettingsLanguageSection: View {
   var body: some View {
     Section {
       Picker(
-        L10n.string("表示言語", locale: locale),
+        L10n.string("Display language", locale: locale),
         selection: Binding(get: { language }, set: { select($0) })
       ) {
         ForEach(InterfaceLanguage.allCases) { option in
           Text(
             option == .system
-              ? L10n.string("システムに従う", locale: locale) : option.nativeName
-          ).tag(option)
+              ? L10n.string("Use system language", locale: locale) : option.nativeName
+          ).tag(option).accessibilityIdentifier("interface-language-\(option.rawValue)")
         }
       }
       .accessibilityIdentifier("interface-language")
