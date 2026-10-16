@@ -1,6 +1,6 @@
 # 翻訳
 
-管理画面・解除画面・展示停止の文言は [String Catalog](../../Sources/KioskLocalization/Localizable.xcstrings) で管理する．原文のキーは自然な英語とし，en・ja・ko・zh-Hansをすべて訳す．中国語は簡体字を対象とする．対応していない言語と欠けた訳は英語のキーを表示する．Webコンテンツは対象外．この判断は [ADR](../adr/0001-localization.md) に記録した．
+管理画面・解除画面・展示停止・Webからの管理画面の文言は [String Catalog](../../Sources/KioskLocalization/Localizable.xcstrings) で管理する．原文のキーは自然な英語とし，en・ja・ko・zh-Hansをすべて訳す．中国語は簡体字を対象とする．対応していない言語と欠けた訳は英語のキーを表示する．展示するWebコンテンツは対象外．この判断は [ADR](../adr/0001-localization.md) に記録した．
 
 1. Viewの文言は英語のキーを `L10n.string("Save settings", locale: locale)` で取り，Viewの `@Environment(\.locale)` を渡す．package内のresource bundleを参照するため，アプリ本体のBundleには頼らない．
 2. キーと各言語の訳をcatalogへ追加する．あいまいな語と補間値には翻訳者向けのcommentを付ける．Presenterは翻訳せず，入力エラーの英語キーをViewへ渡す．

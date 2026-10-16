@@ -181,6 +181,7 @@ struct MobileDisplayTests {
     let unlocking = try #require(
       handled(RootMediator.reduce(root, envelope(.unlockRequested, source: .platform))))
     let timeout = try #require(unlocking.state.unlockTimeoutOperation)
+    let biometricStatus = try #require(unlocking.state.biometricStatusOperation)
     let changed = try #require(
       handled(
         RootMediator.reduce(
@@ -190,7 +191,10 @@ struct MobileDisplayTests {
             source: .platform, id: 2))))
     #expect(changed.state.mode == .safeHold)
     #expect(changed.state.unlockID == nil)
-    #expect(changed.effects.map(\.kind) == [.cancelOperation(timeout)])
+    #expect(
+      changed.effects.map(\.kind) == [
+        .cancelOperation(timeout), .cancelOperation(biometricStatus),
+      ])
     #expect(changed.childControls.contains(.init(.administration, .cancelAuthentication)))
     #expect(changed.childControls.contains(.init(.exhibition, .stopExhibition)))
   }

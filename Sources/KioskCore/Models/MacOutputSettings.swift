@@ -1,5 +1,5 @@
-public struct DisplayDescriptor: Equatable, Sendable, Identifiable {
-  public struct Frame: Equatable, Sendable {
+public struct DisplayDescriptor: Equatable, Encodable, Sendable, Identifiable {
+  public struct Frame: Equatable, Encodable, Sendable {
     public let x: Double
     public let y: Double
     public let width: Double

@@ -9,9 +9,21 @@ public struct AdministrationState: Equatable, Sendable {
   public var verification: OperationToken?
   public var failedAttempts = 0
   public var cooldownUntil: Double?
+  public var pendingWebLogin: String?
+  public var webVerification: OperationToken?
+  public var lastWebLogin: WebLoginResult?
   public var hasUnsavedDraft: Bool {
     guard let draft else { return false }
     return draft.validatedProfile != savedProfile
   }
   public init() {}
+}
+
+public struct WebLoginResult: Equatable, Sendable {
+  public let token: String
+  public let succeeded: Bool
+  public init(token: String, succeeded: Bool) {
+    self.token = token
+    self.succeeded = succeeded
+  }
 }

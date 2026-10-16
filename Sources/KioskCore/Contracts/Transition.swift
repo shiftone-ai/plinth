@@ -9,6 +9,11 @@ public enum Reply: Equatable, Sendable {
   case rejected(RejectionReason)
   case navigation(NavigationDecision)
   case input(InputDecision)
+  case webLoginStatus(WebLoginStatus)
+}
+
+public enum WebLoginStatus: Equatable, Sendable {
+  case pending, failed, succeeded
 }
 
 public struct ChildControl: Equatable, Sendable {
