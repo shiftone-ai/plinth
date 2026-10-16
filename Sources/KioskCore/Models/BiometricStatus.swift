@@ -4,6 +4,7 @@ public enum BiometricKind: String, Equatable, Sendable {
 
 public enum BiometricUnavailableReason: String, Equatable, Sendable {
   case notAvailable, notEnrolled, lockedOut, passcodeNotSet, storageUnavailable
+  case disconnected, notPaired
 }
 
 public enum BiometricAvailability: Equatable, Sendable {

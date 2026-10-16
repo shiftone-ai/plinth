@@ -68,9 +68,6 @@ private final class DelayedBiometric: BiometricCredentialPort {
   private(set) var cancelAllCount = 0
 
   func status() -> BiometricStatus { initial }
-  func unlock(_ token: OperationToken) async -> (BiometricStatus, BiometricUnlockOutcome) {
-    (initial, .failed)
-  }
   func changeEnabled(_ enabled: Bool, token: OperationToken) async
     -> (BiometricStatus, BiometricChangeOutcome)
   {
@@ -79,6 +76,9 @@ private final class DelayedBiometric: BiometricCredentialPort {
       waiter?.resume()
       waiter = nil
     }
+  }
+  func unlock(_ token: OperationToken) async -> (BiometricStatus, BiometricUnlockOutcome) {
+    (initial, .failed)
   }
   func waitUntilStarted() async {
     if pending != nil { return }
