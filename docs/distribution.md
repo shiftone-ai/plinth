@@ -31,7 +31,7 @@ iOS版はPrivacy Manifest `Resources/PrivacyInfo.xcprivacy` で，理由の申�
 
 直接インストールの署名期限と端末登録は，生成したprovisioning profileを見て確認する．TestFlight用の配布署名とは区別する．外部画面と端末制限の条件は [iPad対応](design-docs/ipad-support.md) にある．
 
-管理画面の多言語表示（日本語・英語・韓国語・中国語の簡体字／繁体字）は実装済み．OSの言語と画面内の切り替えについては [管理画面の言語](development.md#管理画面の言語) を参照する．
+管理画面の多言語表示（日本語・英語・韓国語・中国語の簡体字）は実装済み．OSの言語と画面内の切り替えについては [管理画面の言語](development.md#管理画面の言語) を参照する．
 
 外部ブラウザから設定するWebサーバー機能は [Issue #2](https://github.com/shiftone-ai/plinth/issues/2) で追跡する．
 

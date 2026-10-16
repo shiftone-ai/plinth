@@ -13,10 +13,10 @@ if arguments.contains("--help") {
   exit(EXIT_SUCCESS)
 }
 var appArguments = arguments
-if let languageIndex = appArguments.firstIndex(of: "-AppleLanguages"),
-  appArguments.indices.contains(languageIndex + 1)
-{
-  appArguments.removeSubrange(languageIndex...(languageIndex + 1))
+for option in ["-AppleLanguages", "-NSShowNonLocalizedStrings", "-NSDoubleLocalizedStrings"] {
+  if let index = appArguments.firstIndex(of: option), appArguments.indices.contains(index + 1) {
+    appArguments.removeSubrange(index...(index + 1))
+  }
 }
 if appArguments.contains(where: { $0 != "--preview" }) {
   FileHandle.standardError.write(Data("Unknown option. Use Plinth --help.\n".utf8))
