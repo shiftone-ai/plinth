@@ -15,12 +15,12 @@ Issue #28の提出可否を判断する表．iPhone／iPad版とMac専用版はA
 | App Privacy | 要判断 | App Store Connectは未回答．管理者指定サイトのWebView通信をAppleの[申告範囲](https://developer.apple.com/app-store/app-privacy-details/)にどう含めるか確定し，両プラットフォーム共通の回答と[公開ポリシー](public-pages.md)を照合する | 公開担当 |
 | Privacy Manifest | 要作成 | `systemUptime`の35F9.1と`UserDefaults`のCA92.1をソースと照合し，iOS SimulatorアプリとMacの未署名archiveでmanifestを検査した．署名済み候補でも検査する | 実装担当 |
 | 年齢制限 | 確認済み | App Store Connectで任意のWebページへのアクセスを「あり」，同梱の成熟表現などを「なし」と回答し保存した．iOS 26以降の表示は原則16+，旧OSは17+ | 実装担当 |
-| 第三者コンテンツの権利 | 要判断 | 審査用の[展示サンプル](public-pages.md)は自作．任意サイトを表示する製品の権利申告をApp Store Connectで確定する | 公開担当 |
+| 第三者コンテンツの権利 | 要登録 | 審査用の[展示サンプル](public-pages.md)は自作．管理者が展示サイトの表示権利・許可を確認する運用を利用者が承認し，4言語の[サポートページ](public-pages.md)に記した．App Store Connectでの申告保存は未確認 | 公開担当 |
 | 暗号利用 | 要作成 | iOS SimulatorアプリとMacの未署名archiveのInfo.plistには`ITSAppUsesNonExemptEncryption=false`がある．署名済み候補の利用範囲とAppleの申告画面で再確認する | 実装担当 |
 | 価格・税区分 | 確認済み | 利用者の指定に従い，App Store Connectで基本価格$0.00を保存した．税区分は「App Store software」 | 実装担当 |
 | 提供地域・公開方法 | 確認済み | 利用者の指定に従い，全175地域を「App Release後に提供」で保存した．iOS版とMac版を手動公開に設定した | 実装担当 |
 | 審査用サイト・手順 | 要作成 | [自作の展示サンプル](public-pages.md)は公開済み．iOS・Macの審査メモをApp Store Connectへ保存した．[原稿](review-notes.md)をMac候補と実機で再照合する | 実装担当 |
-| 審査連絡先 | 要判断 | 氏名・電話番号・メールアドレスはApp Store Connectで担当者が入力する．公開文書に非公開の連絡先を置かない | 公開担当 |
+| 審査連絡先 | 要登録 | 利用者が入力値を提示した．App Store Connectでの保存を確認する．公開文書に非公開の連絡先を置かない | 実装担当 |
 | 署名済み候補と実機 | 要作成 | MacのApp Store設定でRelease archiveを作り，`check-artifact.py`は成功した．このMacには対象チームの配布用署名証明書がないため，archiveの署名と実機配布は未実施．iPhone・iPad・Macの署名済み候補で影響範囲を確認する | 実装担当 |
 
 ## 現在の判定
