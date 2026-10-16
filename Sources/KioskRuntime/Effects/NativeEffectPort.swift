@@ -7,17 +7,19 @@ public final class NativeEffectPort: EffectPort {
   private let presentation: any PresentationPort
   private let repository: ProfileRepository
   private let credentials: CredentialStore
+  private let biometrics: any BiometricCredentialPort
   private let clock: any ClockPort
   private let displays: any DisplayReadingPort
   public init(
     web: any WebSurfacePort, presentation: any PresentationPort, repository: ProfileRepository,
-    credentials: CredentialStore, clock: any ClockPort,
+    credentials: CredentialStore, biometrics: any BiometricCredentialPort, clock: any ClockPort,
     displays: any DisplayReadingPort
   ) {
     self.web = web
     self.presentation = presentation
     self.repository = repository
     self.credentials = credentials
+    self.biometrics = biometrics
     self.clock = clock
     self.displays = displays
   }
@@ -76,6 +78,11 @@ public final class NativeEffectPort: EffectPort {
         try await credentials.configure(passcode)
         return .credentialConfigured(effect.token, succeeded: true)
       } catch { return .credentialConfigured(effect.token, succeeded: false) }
+    case .readBiometricStatus:
+      return .biometricStatusRead(effect.token, biometrics.status())
+    case .changeBiometricUnlock(let enabled):
+      let (status, outcome) = await biometrics.changeEnabled(enabled, token: effect.token)
+      return .biometricChangeCompleted(effect.token, status, outcome)
     case .saveProfile(let profile):
       do {
         try await repository.save(profile)
@@ -131,6 +138,7 @@ public final class NativeEffectPort: EffectPort {
   public func confinePointer(_ point: SurfacePoint) -> Bool { presentation.confinePointer(point) }
 
   public func cancel(_ token: OperationToken) {
+    biometrics.cancel(token)
     presentation.cancelScenePreparation(token)
     presentation.cancelDisplayModePreparation(token)
     presentation.cancelPointerCapture(token)

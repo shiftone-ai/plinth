@@ -79,4 +79,27 @@ struct PresentersTests {
     #expect(value.generation == 3)
     #expect(Presenters.root(root).showsUnlock)
   }
+
+  @Test func biometricSettingProjectsAvailabilityAndExhibitionGuard() throws {
+    var root = RootState()
+    root.mode = .administration
+    root.credentialsConfigured = true
+    let origin = try #require(Origin(urlString: "https://example.com"))
+    root.savedProfile = KioskProfile(
+      startURL: "https://example.com", navigation: .init(rules: [.init(id: 1, origin: origin)]))
+    root.biometricStatus = .init(availability: .unavailable(.notEnrolled), enabled: false)
+    let unavailable = Presenters.settings(root, AdministrationState())
+    #expect(
+      unavailable.biometricUnavailableKey == "Set up Face ID or Touch ID on this device first")
+    #expect(!unavailable.canChangeBiometric)
+    root.biometricStatus = .init(availability: .available(.faceID), enabled: false)
+    let available = Presenters.settings(root, AdministrationState())
+    #expect(available.biometricLabelKey == "Unlock with Face ID")
+    #expect(available.canChangeBiometric)
+    root.biometricOperation = .init(owner: .credentials, operationID: 7)
+    let changing = Presenters.settings(root, AdministrationState())
+    #expect(changing.biometricChanging)
+    #expect(!changing.canStart)
+    #expect(!changing.canChangeBiometric)
+  }
 }

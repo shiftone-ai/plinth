@@ -20,6 +20,12 @@ public struct SettingsProps: Equatable, Sendable {
   public let credentialsConfigured: Bool
   public let configuringCredential: Bool
   public let credentialConfigurationFailed: Bool
+  public let biometricLabelKey: String
+  public let biometricUnavailableKey: String?
+  public let biometricEnabled: Bool
+  public let biometricChanging: Bool
+  public let canChangeBiometric: Bool
+  public let biometricChangeFailed: Bool
   public let saveFailed: Bool
   public let validationMessages: [SettingsValidationMessage]
   public let startURL: String

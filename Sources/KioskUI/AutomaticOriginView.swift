@@ -7,14 +7,14 @@ struct AutomaticOriginView: View {
 
   var body: some View {
     HStack {
-      Text(L10n.string("ドメイン", locale: locale))
+      Text(L10n.string("Domain", locale: locale))
       Spacer(minLength: 16)
       Label(address, systemImage: "lock.fill")
         .foregroundStyle(.secondary)
     }
     .fixedSize(horizontal: false, vertical: true)
     .accessibilityElement(children: .combine)
-    .accessibilityLabel(L10n.string("開始URLの許可先", locale: locale))
+    .accessibilityLabel(L10n.string("Allowed destination for start URL", locale: locale))
     .accessibilityValue(address)
     .accessibilityIdentifier("automatic-origin")
   }

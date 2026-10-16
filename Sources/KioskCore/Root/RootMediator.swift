@@ -4,6 +4,11 @@ public enum RootMediator {
     context: ReadonlyContext = .init()
   ) -> Mediation<RootState> {
     switch envelope.event {
+    case .bootstrapped:
+      return bootstrapCompleted(state, envelope)
+    case .biometricStatusRequested, .biometricStatusRead, .biometricChangeRequested,
+      .biometricChangeCompleted, .biometricChangeCancelled:
+      return reduceBiometric(state, envelope)
     case .externalMouseAvailabilityChanged, .externalPointerCaptureCompleted,
       .externalPointerCaptureChanged, .externalMouseInput, .nativePointerMoved,
       .nativePointerConstraintFailed, .unlockRequested:
@@ -54,6 +59,12 @@ public enum RootMediator {
 
     case .applicationActivated:
       guard envelope.source == .platform else { return .reject(state, .wrongSource) }
+      if state.mode == .administration {
+        guard state.biometricOperation == nil else { return .handled(.init(next)) }
+        let statusToken = envelope.token(owner: .credentials, epoch: state.epoch)
+        next.biometricStatusOperation = statusToken
+        return .handled(.init(next, effects: [Effect(statusToken, .readBiometricStatus)]))
+      }
       guard state.mode == .safeHold,
         state.pointerCaptureFailed || state.foregroundResume == .awaitingActivation,
         state.foregroundResume != .awaitingStop, !state.administratorSession,
@@ -91,42 +102,14 @@ public enum RootMediator {
       next.credentialConfigurationFailed = !succeeded
       if succeeded { next.credentialsConfigured = true }
       return .handled(.init(next, childControls: [.init(.administration, .clearPasscode)]))
-    case .bootstrapped(let profile, let credentials, let displayCount):
-      guard state.mode == .bootstrapping else { return .reject(state, .invalidState) }
-      guard envelope.source == .root || envelope.source == .profileRepository else {
-        return .reject(state, .wrongSource)
-      }
-      next.savedProfile = profile
-      next.bootstrapOperation = nil
-      next.credentialsConfigured = credentials
-      next.displayCount = displayCount
-      if let profile {
-        let waitsForMobileDisplay =
-          profile.exhibitionDestination == .externalDisplay
-          && next.mobileDisplays?.supportsExternalDisplay == true
-        guard credentials, profile.validationIssues.isEmpty,
-          next.canPresent(profile) || waitsForMobileDisplay
-        else {
-          next.mode = .safeHold
-          return .handled(.init(next))
-        }
-        return enter(next, profile: profile, token: token)
-      }
-      if credentials {
-        next.mode = .safeHold
-        return .handled(.init(next))
-      }
-      next.mode = .administration
-      return .handled(
-        .init(next, childControls: [.init(.administration, .openAdministration(nil))]))
-
     case .startExhibitionRequested:
-      guard [.settings, .administration].contains(envelope.source) else {
+      guard envelope.source == .settings || envelope.source == .administration else {
         return .reject(state, .wrongSource)
       }
       guard state.mode == .administration else { return .reject(state, .invalidState) }
       guard state.credentialsConfigured else { return .reject(state, .unauthenticated) }
       guard !context.hasUnsavedDraft, state.saveOperation == nil, state.credentialOperation == nil,
+        state.biometricOperation == nil,
         state.externalSceneOperation == nil
       else {
         return .reject(state, .unsavedDraft)
@@ -237,7 +220,7 @@ public enum RootMediator {
         return .handled(.init(next, effects: [Effect(token, .releasePresentation)]))
       }
       if state.mode == .terminating { return .handled(.init(next)) }
-      return administration(next)
+      return administration(next, token: token)
 
     case .presentationReleased(let completed):
       guard envelope.source == .platform else { return .reject(state, .wrongSource) }
@@ -250,7 +233,7 @@ public enum RootMediator {
       next.presentationOperation = nil
       next.presentationAcquisition = nil
       if state.mode == .terminating { return .handled(.init(next)) }
-      return administration(next)
+      return administration(next, token: token)
 
     case .prepareExternalSceneRequested:
       guard envelope.source == .settings, state.mode == .administration,
@@ -459,7 +442,7 @@ public enum RootMediator {
 
   }
 
-  private static func enter(
+  static func enter(
     _ state: RootState, profile: KioskProfile, token: OperationToken,
     reply: Reply? = nil
   ) -> Mediation<RootState> {
@@ -487,11 +470,18 @@ public enum RootMediator {
       .init(next, reply: reply, effects: [Effect(token, .applyPresentation(request))]))
   }
 
-  private static func administration(_ state: RootState) -> Mediation<RootState> {
+  private static func administration(_ state: RootState, token: OperationToken) -> Mediation<
+    RootState
+  > {
     var next = state
     next.mode = .administration
     next.activeProfile = nil
+    let statusToken = OperationToken(
+      owner: .credentials, ownerEpoch: token.ownerEpoch, operationID: token.operationID)
+    next.biometricStatusOperation = statusToken
     return .handled(
-      .init(next, childControls: [.init(.administration, .openAdministration(state.savedProfile))]))
+      .init(
+        next, effects: [Effect(statusToken, .readBiometricStatus)],
+        childControls: [.init(.administration, .openAdministration(state.savedProfile))]))
   }
 }

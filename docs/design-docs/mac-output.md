@@ -15,7 +15,7 @@ Viewは設定のPropsを描画し，型付きの編集意図を送る．Rootは�
 
 OS Presentationの切り替えでも画面変更通知が届くため，画面ID・位置・解像度が同じ通知では展示を継続する．展示中や展示へ戻れる解除中に位置や解像度が変わった場合は停止する．停止後の管理者解除は，画面構成の変化で取り消さない．
 
-Mac専用のStore版はiPad版と同じサービス名・Data Protection Keychain・access groupを使い，既存設定のパスコードを参照する．最初のMac版が使った別サービスは読み取りで引き継ぎ，新しい設定や資格情報を優先する．[AppleのKeychain実装の説明](https://developer.apple.com/documentation/technotes/tn3137-on-mac-keychains)
+Mac専用のStore版はiPad版と同じサービス名・Data Protection Keychain・access groupを使い，既存設定の管理者パスワードを参照する．最初のMac版が使った別サービスは読み取りで引き継ぎ，新しい設定や資格情報を優先する．[AppleのKeychain実装の説明](https://developer.apple.com/documentation/technotes/tn3137-on-mac-keychains)
 
 ## 縦置き
 

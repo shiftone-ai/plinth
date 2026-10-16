@@ -17,7 +17,7 @@ import KioskLocalization
       view.send = send
       view.allowsDrag = allowsDrag
       view.pointerCaptured = pointerCaptured
-      view.accessibilityLabel = L10n.string("外部展示の操作", locale: locale)
+      view.accessibilityLabel = L10n.string("External display controls", locale: locale)
     }
   }
 

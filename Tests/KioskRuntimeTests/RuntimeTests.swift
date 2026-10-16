@@ -14,12 +14,15 @@ struct RuntimeTests {
     runtime.send(.passcodeEdited("short"), from: .settings)
     let rejected = runtime.send(.configurePasscodeRequested, from: .settings)
     #expect(rejected.reply == .rejected(.invalidProfile))
-    #expect(fixture.port.effects.isEmpty)
+    #expect(fixture.port.effects.map(\.kind) == [.readBiometricStatus])
     runtime.send(.passcodeEdited("current-admin-passcode"), from: .settings)
     let accepted = runtime.send(.configurePasscodeRequested, from: .settings)
     #expect(accepted.path == [.settings, .administration])
     #expect(accepted.reply == .accepted)
-    #expect(fixture.port.effects.map(\.kind) == [.configurePasscode("current-admin-passcode")])
+    #expect(
+      fixture.port.effects.map(\.kind) == [
+        .readBiometricStatus, .configurePasscode("current-admin-passcode"),
+      ])
     #expect(
       runtime.reports.contains {
         $0.source == .administration && $0.handler == .root && $0.causationID == accepted.eventID
@@ -59,7 +62,7 @@ struct RuntimeTests {
     #expect(fixture.runtime.snapshot.administration.saving == false)
     let recorded = try #require(fixture.runtime.reports.first { $0.eventID == reply.eventID })
     #expect(recorded.reply == reply.reply)
-    #expect(fixture.port.effects.count == 1)
+    #expect(fixture.port.effects.map(\.kind).filter { $0 != .readBiometricStatus }.count == 1)
   }
 
   @Test func allNodesHaveOneReachableParentAndNoSiblingRoutes() {
@@ -95,7 +98,7 @@ struct RuntimeTests {
       from: .root)
     #expect(fixture.runtime.snapshot.exhibition.phase == .preparing)
     #expect(
-      fixture.port.effects.map(\.kind) == [
+      fixture.port.effects.map(\.kind).filter { $0 != .readBiometricStatus } == [
         .applyPresentation(.init()), .createSurface(.newVisitorSession),
       ])
   }

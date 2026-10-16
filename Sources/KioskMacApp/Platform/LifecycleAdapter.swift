@@ -20,6 +20,7 @@ public final class LifecycleAdapter {
       .macDisplaysChanged(displays.availableDisplays)
     }
     observe(.default, NSApplication.didResignActiveNotification) { .applicationDeactivated }
+    observe(.default, NSApplication.didBecomeActiveNotification) { .biometricStatusRequested }
     observe(NSWorkspace.shared.notificationCenter, NSWorkspace.willSleepNotification) {
       .systemWillSleep
     }

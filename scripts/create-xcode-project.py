@@ -38,6 +38,11 @@ parser.add_argument(
     help="Enable iPad/iPhone UI tests that require a connected external display.",
 )
 parser.add_argument(
+    "--enable-biometric-simulator-tests",
+    action="store_true",
+    help="Enable biometric Simulator UI tests that require an enrolled device and a response driver.",
+)
+parser.add_argument(
     "--mac-test-bundle-id",
     help="Use an isolated ai.shiftone.plinth.tests.* identifier for dedicated Mac GUI tests.",
 )
@@ -195,7 +200,7 @@ base = {
     "ENABLE_HARDENED_RUNTIME": "NO",
     "PRODUCT_NAME": "$(TARGET_NAME)",
 }
-# Developer ID keeps the non-store identifier, file keychain and storage of scripts/build-app.sh.
+# Developer ID keeps the non-store identifier and existing file-keychain credentials.
 if options.app_store or options.developer_id:
     base["CODE_SIGN_STYLE"] = "Automatic"
     base.pop("CODE_SIGN_IDENTITY")
@@ -219,6 +224,8 @@ if options.app_store:
         ENABLE_APP_SANDBOX="YES",
         CODE_SIGN_ENTITLEMENTS="Resources/MacAppStore.entitlements",
     )
+elif options.developer_id:
+    app_settings["CODE_SIGN_ENTITLEMENTS"] = "Resources/MacDeveloperID.entitlements"
 mac_assets_build = obj("MacAssetsBuild", "PBXBuildFile", fileRef=identifier("MobileAssets"))
 # Keep the wrapper's target name distinct from the package's Plinth executable.
 if options.mac_test_bundle_id:
@@ -295,8 +302,8 @@ project = obj(
         "Project", {"MACOSX_DEPLOYMENT_TARGET": "14.0", "SDKROOT": "macosx"}
     ),
     compatibilityVersion="Xcode 16.0",
-    developmentRegion="ja",
-    knownRegions=["ja", "en", "ko", "zh-Hans", "zh-Hant", "Base"],
+    developmentRegion="en",
+    knownRegions=["en", "ja", "ko", "zh-Hans", "Base"],
     mainGroup=group,
     productRefGroup=products,
     projectDirPath="",
@@ -343,7 +350,19 @@ mobile_localization_test = obj(
     path="Tests/KioskMobileUITests/MobileLocalizationUITests.swift",
     sourceTree="SOURCE_ROOT",
 )
-objects[group]["children"] += [mobile_main, mobile_test, mobile_localization_test]
+mobile_biometric_test = obj(
+    "MobileBiometricTest",
+    "PBXFileReference",
+    lastKnownFileType="sourcecode.swift",
+    path="Tests/KioskMobileUITests/MobileBiometricUITests.swift",
+    sourceTree="SOURCE_ROOT",
+)
+objects[group]["children"] += [
+    mobile_main,
+    mobile_test,
+    mobile_localization_test,
+    mobile_biometric_test,
+]
 objects[products]["children"] += [mobile_product, mobile_test_product]
 mobile_library = obj(
     "MobileLibrary",
@@ -357,6 +376,9 @@ mobile_test_build = obj("MobileTestBuild", "PBXBuildFile", fileRef=mobile_test)
 mobile_localization_test_build = obj(
     "MobileLocalizationTestBuild", "PBXBuildFile", fileRef=mobile_localization_test
 )
+mobile_biometric_test_build = obj(
+    "MobileBiometricTestBuild", "PBXBuildFile", fileRef=mobile_biometric_test
+)
 mobile_assets = obj(
     "MobileAssets",
     "PBXFileReference",
@@ -366,6 +388,31 @@ mobile_assets = obj(
 )
 mobile_assets_build = obj("MobileAssetsBuild", "PBXBuildFile", fileRef=mobile_assets)
 objects[group]["children"].append(mobile_assets)
+face_id_strings = obj(
+    "FaceIDStrings",
+    "PBXVariantGroup",
+    path="InfoPlist.strings",
+    sourceTree="<group>",
+    children=[
+        obj(
+            f"FaceIDStrings{language}",
+            "PBXFileReference",
+            lastKnownFileType="text.plist.strings",
+            path=f"Resources/{language}.lproj/InfoPlist.strings",
+            sourceTree="SOURCE_ROOT",
+        )
+        for language in ("en", "ja", "ko", "zh-Hans")
+    ],
+)
+face_id_group = obj(
+    "FaceIDResources",
+    "PBXGroup",
+    path="Resources",
+    sourceTree="<group>",
+    children=[face_id_strings],
+)
+face_id_build = obj("FaceIDStringsBuild", "PBXBuildFile", fileRef=face_id_strings)
+objects[group]["children"].append(face_id_group)
 # 無操作の経過時間をsystemUptimeで測るため，iOSでは利用理由をPrivacy Manifestで申告する．
 mobile_privacy = obj(
     "MobilePrivacy",
@@ -414,7 +461,9 @@ mobile_target = obj(
         phase("MobileSources", "PBXSourcesBuildPhase", [mobile_main_build]),
         phase("MobileFrameworks", "PBXFrameworksBuildPhase", [mobile_library_build]),
         phase(
-            "MobileResources", "PBXResourcesBuildPhase", [mobile_assets_build, mobile_privacy_build]
+            "MobileResources",
+            "PBXResourcesBuildPhase",
+            [mobile_assets_build, mobile_privacy_build, face_id_build],
         ),
     ],
 )
@@ -454,7 +503,12 @@ mobile_test_target = obj(
         phase(
             "MobileUISources",
             "PBXSourcesBuildPhase",
-            [mobile_test_build, mobile_localization_test_build, fixture_build],
+            [
+                mobile_test_build,
+                mobile_localization_test_build,
+                mobile_biometric_test_build,
+                fixture_build,
+            ],
         ),
         phase("MobileUIFrameworks", "PBXFrameworksBuildPhase", []),
         phase("MobileUIResources", "PBXResourcesBuildPhase", [fixture_video_build]),
@@ -606,6 +660,13 @@ ET.SubElement(
     "EnvironmentVariable",
     key="PLINTH_EXTERNAL_PHYSICAL_TESTS",
     value="1" if options.enable_physical_external_tests else "0",
+    isEnabled="YES",
+)
+ET.SubElement(
+    mobile_variables,
+    "EnvironmentVariable",
+    key="PLINTH_BIOMETRIC_SIMULATOR_TEST",
+    value="1" if options.enable_biometric_simulator_tests else "0",
     isEnabled="YES",
 )
 mobile_testable = ET.SubElement(

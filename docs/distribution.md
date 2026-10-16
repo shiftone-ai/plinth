@@ -39,7 +39,9 @@ Touch ID・Face IDによる解除は [Issue #3](https://github.com/shiftone-ai/p
 
 ## MacのDeveloper ID配布
 
-App Storeを通さずにMacへ渡す版は，Developer IDで署名し，公証チケットをstapleしたzipにする．Bundle IDは `ai.shiftone.plinth` で，`scripts/build-app.sh` の版と同じくSandboxを使わない．設定は `~/Library/Application Support/Plinth/`，パスコードの検証値はログインKeychainのservice `ai.shiftone.plinth` に置く．TestFlight版（`ai.shiftone.plinth.mobile`）とは保存先を共有しない．
+App Storeを通さずにMacへ渡す版は，Developer IDで署名し，公証チケットをstapleしたzipにする．Bundle IDは `ai.shiftone.plinth` で，`scripts/build-app.sh` の版と同じくSandboxを使わない．設定は `~/Library/Application Support/Plinth/`，管理者パスワードの検証値はログインKeychainのservice `ai.shiftone.plinth` に置く．TestFlight版（`ai.shiftone.plinth.mobile`）とは保存先を共有しない．
+
+生体認証の有効状態は別のData Protection Keychain項目に置く．Developer ID版ではKeychain access groupの権限を署名に含め，それを認めるprovisioning profileをアプリへ埋め込む必要がある．配布物の検査はprofileの欠落を検出する．`scripts/build-app.sh` のad hoc署名にはその権限がないため，この版の管理画面では生体認証の設定を使えない理由を表示する．
 
 XcodeのApple Accountsで配布チームにサインインしてから，プロジェクトのルートで実行する．team IDは環境変数で渡す．build番号は版ごとに増やす．
 
@@ -55,4 +57,4 @@ PLINTH_TEAM_ID=<team ID> zsh scripts/build-notarized-app.sh 0.1.0 1
 
 配布先のMacではzipを展開し，`Plinth.app` を `/Applications` へ移してから起動する．
 
-`build-app.sh` の版で保存したパスコードを，署名の異なるこの版が確認画面なしで読めるかは未確認．
+`build-app.sh` の版で保存した管理者パスワードを，署名の異なるこの版が確認画面なしで読めるかは未確認．

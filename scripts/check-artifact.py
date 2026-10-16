@@ -156,7 +156,16 @@ def signing(app: Path) -> list[str]:
         entitlements = plistlib.loads(result.stdout) if result.stdout.strip() else {}
         if any(entitlements.get(key) for key in DEBUGGABLE):
             findings.append(f"デバッガの接続を許す署名（get-task-allow）: {label(app, bundle)}")
-        for profile in filter(Path.is_file, embedded_profiles(bundle)):
+        profiles = list(filter(Path.is_file, embedded_profiles(bundle)))
+        if (
+            (bundle / "Contents/Info.plist").is_file()
+            and entitlements.get("keychain-access-groups")
+            and not profiles
+        ):
+            findings.append(
+                f"生体認証用Keychainの権限を認めるprovisioning profileがない: {label(app, bundle)}"
+            )
+        for profile in profiles:
             decoded = subprocess.run(
                 ["security", "cms", "-D", "-i", str(profile)], capture_output=True, check=False
             )
