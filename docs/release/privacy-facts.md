@@ -1,6 +1,6 @@
 # 公開候補のデータ取扱い
 
-Issue #28 の公開文書と App Privacy を照合するための根拠．現在の `main` を取り込んだソースを調べた．配布用IPA・Macの配布用パッケージは統合後に再検査する．App Store ConnectのApp Privacy回答は利用者の承認を受けて公開した．
+Issue #28 の公開文書と App Privacy を照合するための根拠．Web管理と生体認証を含む候補のソースを調べ，配布用IPAとMacの配布用パッケージを検査した．App Store ConnectのApp Privacy回答は利用者の承認を受けて公開した．
 
 | 対象 | コードで確認できる扱い | 根拠 |
 | --- | --- | --- |
