@@ -43,7 +43,11 @@ public final class MacApplication: NSObject, NSApplicationDelegate, NSWindowDele
     let clock = MonotonicClock()
     let displays = DisplayAdapter(exhibitionInset: exhibitionInset)
     let web = WebKitAdapter()
-    let presentation = PresentationAdapter(window: window, preview: preview, displays: displays)
+    let presentation = PresentationAdapter(
+      window: window, preview: preview, displays: displays,
+      unlockTitle: { [language] in
+        L10n.string("Administrator unlock", locale: language.locale)
+      })
     let port = makeEffectPort(
       web: web, presentation: presentation, clock: clock, displays: displays)
     let executor = EffectExecutor(port: port)

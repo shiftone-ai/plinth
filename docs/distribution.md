@@ -57,4 +57,6 @@ PLINTH_TEAM_ID=<team ID> zsh scripts/build-notarized-app.sh 0.1.0 1
 
 配布先のMacではzipを展開し，`Plinth.app` を `/Applications` へ移してから起動する．
 
+展示用アカウントの通知設定と，外部画面への展示中に内蔵画面へ出る管理者解除の案内は，[Mac実機の受け入れ試験](native-acceptance.md#展示中の通知) に従って確認する．
+
 `build-app.sh` の版で保存した管理者パスワードを，署名の異なるこの版が確認画面なしで読めるかは未確認．
