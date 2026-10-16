@@ -12,7 +12,7 @@ Issue #28の提出可否を判断する表．iPhone／iPad版とMac専用版はA
 | 公開のプライバシーURL | 確認済み | [4言語のURL](public-pages.md)が未ログインで到達可能．App Store Connectにも言語別URLを保存した．アプリ内導線の残りの端末での確認は別項目 | 実装担当 |
 | 公開のサポートURL | 確認済み | [4言語のURL](public-pages.md)が未ログインで到達可能．連絡先は利用者が承認した `contact@shiftone.ai` | 実装担当 |
 | アプリ内のページとライセンス | 要作成 | iPhone SimulatorのiOS 27英語，iOS 26.4簡体字中国語でプライバシー・サポートの遷移が成功し，英語でライセンス表示が成功した．iPadの導線試験はSimulatorのテストrunnerが起動できず中断．Macと署名済み候補で確認する | 実装担当 |
-| App Privacy | 要判断 | App Store Connectは未回答．管理者指定サイトのWebView通信をAppleの[申告範囲](https://developer.apple.com/app-store/app-privacy-details/)にどう含めるか確定し，両プラットフォーム共通の回答と[公開ポリシー](public-pages.md)を照合する | 公開担当 |
+| App Privacy | 要確認 | App Store Connectは未回答．[データ取扱い](privacy-facts.md)に「アプリが収集するデータなし」の申告案と，WebViewのオープンWeb例外に関する推測・不確実性を記した．両プラットフォーム共通の回答と[公開ポリシー](public-pages.md)を照合する | 公開担当 |
 | Privacy Manifest | 要作成 | `systemUptime`の35F9.1と`UserDefaults`のCA92.1をソースと照合し，iOS SimulatorアプリとMacの未署名archiveでmanifestを検査した．署名済み候補でも検査する | 実装担当 |
 | 年齢制限 | 確認済み | App Store Connectで任意のWebページへのアクセスを「あり」，同梱の成熟表現などを「なし」と回答し保存した．iOS 26以降の表示は原則16+，旧OSは17+ | 実装担当 |
 | 第三者コンテンツの権利 | 要登録 | 審査用の[展示サンプル](public-pages.md)は自作．管理者が展示サイトの表示権利・許可を確認する運用を利用者が承認し，4言語の[サポートページ](public-pages.md)に記した．App Store Connectでの申告保存は未確認 | 公開担当 |
