@@ -38,7 +38,7 @@ public enum InputPolicy {
   ) -> InputDecision {
     let administratorEntry =
       scope == .administratorEntry
-      && [.exhibiting, .enteringKiosk, .safeHold].contains(mode)
+      && [.exhibiting, .enteringKiosk, .safeHold, .paused].contains(mode)
     if administratorEntry || (mode == .administration && scope == .administration)
       || (mode == .unlocking && scope == .authentication)
     {

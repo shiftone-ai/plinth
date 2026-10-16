@@ -17,10 +17,12 @@ public final class NativeEffectPort: EffectPort {
   private let biometrics: any BiometricCredentialPort
   private let clock: any ClockPort
   private let displays: any DisplayReadingPort
+  private let webServer: (any WebAdministrationServerPort)?
   public init(
     web: any WebSurfacePort, presentation: any PresentationPort, repository: ProfileRepository,
     credentials: CredentialStore, biometrics: any BiometricCredentialPort, clock: any ClockPort,
-    displays: any DisplayReadingPort
+    displays: any DisplayReadingPort,
+    webServer: (any WebAdministrationServerPort)? = nil
   ) {
     self.web = web
     self.presentation = presentation
@@ -29,6 +31,7 @@ public final class NativeEffectPort: EffectPort {
     self.biometrics = biometrics
     self.clock = clock
     self.displays = displays
+    self.webServer = webServer
   }
 
   public func perform(_ effect: Effect) async -> Event? {
@@ -93,11 +96,23 @@ public final class NativeEffectPort: EffectPort {
     case .changeBiometricUnlock(let enabled):
       let (status, outcome) = await biometrics.changeEnabled(enabled, token: effect.token)
       return .biometricChangeCompleted(effect.token, status, outcome)
+    case .performBiometricUnlock:
+      let (status, outcome) = await biometrics.unlock(effect.token)
+      return .biometricUnlockCompleted(effect.token, status, outcome)
     case .saveProfile(let profile):
       do {
         try await repository.save(profile)
         return .profileSaved(effect.token, profile)
       } catch { return .profileSaveFailed(effect.token) }
+    case .startWebServer:
+      guard let webServer else { return .webServerFailed(effect.token, .unavailable) }
+      switch await webServer.start() {
+      case .success(let endpoint): return .webServerStarted(effect.token, endpoint)
+      case .failure(let failure): return .webServerFailed(effect.token, failure)
+      }
+    case .stopWebServer:
+      webServer?.stop()
+      return nil
     case .cancelOperation: return nil
     }
   }
@@ -160,10 +175,12 @@ public final class NativeEffectPort: EffectPort {
     web.stop()
     presentation.release()
     presentation.releasePointer()
+    webServer?.stop()
   }
 
   public func releasePointer() { presentation.releasePointer() }
   public func confinePointer(_ point: SurfacePoint) -> Bool { presentation.confinePointer(point) }
+  public func stopWebServer() { webServer?.stop() }
 
   public func cancel(_ token: OperationToken) {
     biometrics.cancel(token)

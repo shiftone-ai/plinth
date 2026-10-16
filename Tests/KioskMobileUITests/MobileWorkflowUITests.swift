@@ -95,6 +95,70 @@ final class MobileWorkflowUITests: XCTestCase {
     try await exists(app.buttons["start-exhibition"])
   }
 
+  @MainActor func testWebManagementAddressAndQRCodeOnIPad() async throws {
+    continueAfterFailure = false
+    let app = XCUIApplication()
+    let service = "ai.shiftone.plinth.tests.\(UUID().uuidString)"
+    app.launchEnvironment["PLINTH_TEST_CREDENTIAL_SERVICE"] = service
+    addTeardownBlock { await MainActor.run { app.terminate() } }
+    app.launch()
+    let startURL = app.textFields["start-url"]
+    try await exists(startURL)
+    startURL.tap()
+    startURL.typeText("https://example.com/home")
+    try await value(startURL, equals: "https://example.com/home")
+    startURL.typeText("\n")
+    let passcode = app.secureTextFields["setup-passcode"]
+    reach(passcode, app: app)
+    passcode.tap()
+    passcode.typeText("plinth-web-management-passcode")
+    try await secureValue(passcode, count: "plinth-web-management-passcode".count)
+    passcode.typeText("\n")
+    let savePasscode = app.buttons["save-passcode"]
+    reach(savePasscode, app: app)
+    savePasscode.tap()
+    let webManagement = app.switches["web-management-enabled"]
+    reach(webManagement, app: app)
+    XCTAssertTrue(webManagement.isEnabled)
+    webManagement.switches.firstMatch.tap()
+    let saveProfile = app.buttons["save-profile"]
+    try await enabled(saveProfile)
+    saveProfile.tap()
+    let address = app.staticTexts["web-management-url"]
+    reach(address, app: app)
+    try await exists(address, timeout: 20)
+    let url = try XCTUnwrap(address.label.isEmpty ? nil : URL(string: address.label))
+    XCTAssertEqual(url.scheme, "http")
+    XCTAssertEqual(url.port, 47623)
+    let qrCode = app.images["web-management-qr"]
+    reach(qrCode, app: app)
+    XCTAssertTrue(qrCode.exists)
+    attach(app, "ipad-web-management-address-and-qr")
+    try await verifyPersistedWebManagement(app)
+  }
+
+  @MainActor private func verifyPersistedWebManagement(_ app: XCUIApplication) async throws {
+    app.terminate()
+    app.launch()
+    let requestUnlock = app.buttons["request-unlock"]
+    try await exists(requestUnlock)
+    requestUnlock.tap()
+    let unlock = app.secureTextFields["unlock-passcode"]
+    try await exists(unlock)
+    unlock.tap()
+    unlock.typeText("plinth-web-management-passcode")
+    try await secureValue(unlock, count: "plinth-web-management-passcode".count)
+    app.buttons["verify-passcode"].tap()
+    try await exists(app.buttons["start-exhibition"])
+    let webManagement = app.switches["web-management-enabled"]
+    reach(webManagement, app: app)
+    XCTAssertEqual(webManagement.value as? String, "1")
+    let address = app.staticTexts["web-management-url"]
+    reach(address, app: app)
+    try await exists(address)
+    XCTAssertTrue(app.images["web-management-qr"].exists)
+  }
+
   @MainActor func testExternalExhibitionAutomaticallyResumesAfterAppSwitch() async throws {
     try requireExternalTestDevice()
     let app = try await configuredExternalExhibition(

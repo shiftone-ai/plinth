@@ -2,6 +2,27 @@ import KioskCore
 import Testing
 
 struct AdministrationMediatorTests {
+  @Test func openingLocalAdministrationPreservesUnsavedWebDraft() throws {
+    let profile = try fixtureProfile()
+    var state = AdministrationState()
+    state.savedProfile = profile
+    state.draft = ProfileDraft(profile: profile)
+    let changed = try #require(
+      handled(
+        AdministrationMediator.reduce(
+          state,
+          envelope(
+            .draftEdited(.startURL("https://example.com/unsaved")),
+            source: .webAdministration), mode: .exhibiting, webEnabled: true)))
+    let opened = try #require(
+      handled(
+        AdministrationMediator.reduce(
+          changed.state, envelope(.openAdministration(profile), source: .root, id: 2),
+          mode: .administration, webEnabled: true)))
+    #expect(opened.state.draft?.profile.startURL == "https://example.com/unsaved")
+    #expect(opened.state.hasUnsavedDraft)
+  }
+
   @Test(arguments: ["", "-", "NaN", "inf", "0", "-1", "1e309"])
   func retainsInvalidIntermediateDraftInput(_ text: String) throws {
     var draft = ProfileDraft(profile: try fixtureProfile())

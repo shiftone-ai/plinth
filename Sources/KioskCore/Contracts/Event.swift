@@ -6,7 +6,11 @@ public enum Event: Equatable, Sendable {
   case applicationDeactivated
   case applicationActivated
   case systemWillSleep
+  case systemDidWake
   case startExhibitionRequested
+  case webRestartExhibitionRequested
+  case webStopExhibitionRequested
+  case webResumeExhibitionRequested
   case unlockRequested
   case unlockCancelled
   case unlockDeadlineReached(OperationToken)
@@ -57,6 +61,7 @@ public enum Event: Equatable, Sendable {
   case retryDeadlineReached(OperationToken)
   // Administration controls and adapter facts.
   case openAdministration(KioskProfile?)
+  case initializeWebDraft(KioskProfile?)
   case draftChanged(ProfileDraft)
   case draftEdited(ProfileDraftEdit)
   case saveDraftRequested
@@ -69,6 +74,15 @@ public enum Event: Equatable, Sendable {
   case openUnlock(unlockID: UInt64)
   case passcodeSubmitted
   case credentialVerified(OperationToken, succeeded: Bool)
+  case webLoginRequested(password: String, candidate: String)
+  case webLoginStatusRequested(String)
+  case webAuthenticationVerified(String)
+  case webSessionRequested(String, activity: Bool)
+  case webServerStarted(OperationToken, WebServerEndpoint)
+  case webServerFailed(OperationToken, WebServerFailure)
+  case webServerStoppedUnexpectedly(WebServerFailure)
+  case webServerAddressChanged(WebServerEndpoint)
+  case localWebServerOriginsChanged([Origin])
   case configurePasscodeRequested
   case credentialConfigurationRequested(String)
   case credentialConfigured(OperationToken, succeeded: Bool)
@@ -77,14 +91,21 @@ public enum Event: Equatable, Sendable {
   case biometricChangeRequested(Bool)
   case biometricChangeCompleted(OperationToken, BiometricStatus, BiometricChangeOutcome)
   case biometricChangeCancelled
+  case biometricUnlockRequested
+  case biometricUnlockCancelled
+  case biometricUnlockCompleted(OperationToken, BiometricStatus, BiometricUnlockOutcome)
+  case biometricAuthenticationVerified
   case passcodeEdited(String)
   case clearPasscode
+  case invalidateWebAuthentication
   case cancelAuthentication
   case unrelatedFact
 
   public var requiresReply: Bool {
     switch self {
-    case .startExhibitionRequested, .unlockRequested, .unlockCancelled, .terminateRequested,
+    case .startExhibitionRequested, .webRestartExhibitionRequested,
+      .webStopExhibitionRequested, .webResumeExhibitionRequested,
+      .unlockRequested, .unlockCancelled, .terminateRequested,
       .nativeInput, .externalWebControlRequested, .externalWebControlExecutionRequested,
       .externalMouseInput,
       .navigationRequested, .profileCommitRequested, .draftChanged, .draftEdited,
@@ -92,7 +113,9 @@ public enum Event: Equatable, Sendable {
       .cancelAuthentication, .configurePasscodeRequested,
       .passcodeEdited, .discardDraftRequested, .webCapabilityRequested, .addOriginRuleRequested,
       .removeOriginRuleRequested, .prepareExternalSceneRequested, .credentialConfigurationRequested,
-      .biometricStatusRequested, .biometricChangeRequested, .biometricChangeCancelled:
+      .biometricStatusRequested, .biometricChangeRequested, .biometricChangeCancelled,
+      .biometricUnlockRequested, .biometricUnlockCancelled,
+      .webLoginRequested, .webLoginStatusRequested, .webSessionRequested:
       true
     default: false
     }

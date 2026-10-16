@@ -18,6 +18,7 @@
       let previousOverscanCompensation: UIScreen.OverscanCompensation?
     }
     private let web = WebKitAdapter()
+    private let webServer = WebAdministrationServer()
     private let language: LanguagePreference
     private let pointer = MobilePointerAdapter()
     private let displayModes = MobileDisplayModeAdapter()
@@ -39,6 +40,7 @@
         let storageNamespace = fixtureService ?? "Plinth"
         let credentialService = fixtureService ?? "ai.shiftone.plinth.mobile"
       #else
+        let fixtureService: String? = nil
         let storageNamespace = "Plinth"
         let credentialService = "ai.shiftone.plinth.mobile"
       #endif
@@ -52,10 +54,9 @@
       let port = NativeEffectPort(
         web: web, presentation: presentation, repository: ProfileRepository(fileURL: location),
         credentials: CredentialStore(service: credentialService),
-        biometrics: BiometricCredentialAdapter(service: credentialService) { [language] in
-          L10n.string("Enable administrator unlock with biometrics", locale: language.locale)
-        },
-        clock: clock, displays: presentation)
+        biometrics: MobileBiometricComposition.make(
+          service: credentialService, fixtureService: fixtureService, language: language),
+        clock: clock, displays: presentation, webServer: webServer)
       #if DEBUG
         if let value = ProcessInfo.processInfo.environment["PLINTH_TEST_IDLE_SECONDS"],
           let timeout = Double(value), timeout.isFinite, timeout > 0
@@ -68,6 +69,10 @@
         executor = EffectExecutor(port: port)
       #endif
       runtime = RootRuntime(clock: clock, executor: executor, diagnostics: DiagnosticLogAdapter())
+      webServer.attach(runtime: runtime, locale: { [language] in language.locale })
+      webServer.addressChanged = { [weak runtime] endpoint in
+        runtime?.send(.webServerAddressChanged(endpoint), from: .webAdministration)
+      }
       wireAdapters()
     }
 
@@ -218,7 +223,11 @@
       let event: Event
       switch intent {
       case .editPasscode(let value): event = .passcodeEdited(value)
-      case .submit: event = .passcodeSubmitted
+      case .submit:
+        runtime.send(.biometricUnlockCancelled, from: .unlock)
+        event = .passcodeSubmitted
+      case .authenticateWithBiometrics: event = .biometricUnlockRequested
+      case .cancelBiometricAuthentication: event = .biometricUnlockCancelled
       case .cancel: event = .cancelAuthentication
       }
       runtime.send(event, from: .unlock)

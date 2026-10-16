@@ -4,6 +4,10 @@ public enum ExhibitionMediator {
   > {
     var next = state
     switch envelope.event {
+    case .localWebServerOriginsChanged(let origins):
+      guard envelope.source == .root else { return .reject(state, .wrongSource) }
+      next.localWebServerOrigins = origins
+      return .handled(.init(next))
     case .webCapabilityRequested(_, let generation):
       guard envelope.source == .webSurface else { return .reject(state, .wrongSource) }
       guard generation == state.generation else { return .reject(state, .staleOperation) }
@@ -85,6 +89,9 @@ public enum ExhibitionMediator {
       }
       guard !newWindow || isGET else {
         return .handled(.init(state, reply: .navigation(.cancel(.unsupportedWindow))))
+      }
+      if let origin = Origin(urlString: url), state.localWebServerOrigins.contains(origin) {
+        return .handled(.init(state, reply: .navigation(.cancel(.urlBlocked))))
       }
       let decision: NavigationDecision =
         supported
