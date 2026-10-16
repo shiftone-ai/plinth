@@ -2,6 +2,37 @@ import KioskCore
 import Testing
 
 struct NativeLifecycleTests {
+  @Test func delayedCredentialSetupWhileBackgroundedWaitsForForeground() throws {
+    var state = RootState()
+    state.mobileDisplays = .init(deviceAvailable: true, externalAvailable: false)
+    state.mode = .administration
+    state.savedProfile = try fixtureProfile()
+    state.savedProfile?.webAdministrationEnabled = true
+    let setup = try #require(
+      handled(
+        RootMediator.reduce(
+          state,
+          envelope(
+            .credentialConfigurationRequested("new-passcode"),
+            source: .administration))))
+    let backgrounded = try #require(
+      handled(
+        RootMediator.reduce(
+          setup.state, envelope(.applicationDeactivated, source: .platform, id: 2))))
+    let token = try #require(backgrounded.state.credentialOperation)
+    let finished = try #require(
+      handled(
+        RootMediator.reduce(
+          backgrounded.state,
+          envelope(.credentialConfigured(token, succeeded: true), source: .credentials, id: 3))))
+    #expect(finished.state.webServerOperation == nil)
+    let foregrounded = try #require(
+      handled(
+        RootMediator.reduce(
+          finished.state, envelope(.applicationActivated, source: .platform, id: 4))))
+    #expect(foregrounded.state.webServerOperation != nil)
+  }
+
   @Test func credentialSetupBlocksStartAndAcceptsOnlyItsOwnResult() throws {
     var state = RootState()
     state.mode = .administration
@@ -27,7 +58,11 @@ struct NativeLifecycleTests {
           envelope(.credentialConfigured(token, succeeded: true), source: .credentials, id: 3))))
     #expect(success.state.credentialsConfigured)
     #expect(success.state.credentialOperation == nil)
-    #expect(success.childControls == [.init(.administration, .clearPasscode)])
+    #expect(
+      success.childControls == [
+        .init(.administration, .clearPasscode),
+        .init(.administration, .invalidateWebAuthentication),
+      ])
   }
 
   @Test func unlockTimeoutRearmsEarlyNotificationAndInvalidatesDelayedSuccess() throws {

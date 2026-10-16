@@ -51,9 +51,10 @@ struct NativeRuntimeTests {
       web: web,
       presentation: PresentationAdapter(window: window, preview: true, displays: displays),
       repository: repository, credentials: credentials,
-      biometrics: BiometricCredentialAdapter(service: "ai.shiftone.plinth.tests.\(UUID())") {
-        "Enable administrator unlock with biometrics"
-      },
+      biometrics: BiometricCredentialAdapter(
+        service: "ai.shiftone.plinth.tests.\(UUID())",
+        enableReason: { "Enable administrator unlock with biometrics" },
+        unlockReason: { "Unlock administrator settings" }),
       clock: MonotonicClock(), displays: displays)
     let executor = EffectExecutor(port: port)
     let runtime = RootRuntime(clock: MonotonicClock(), executor: executor)
@@ -121,9 +122,10 @@ struct NativeRuntimeTests {
       web: web,
       presentation: PresentationAdapter(window: window, preview: true, displays: displays),
       repository: repository, credentials: credentials,
-      biometrics: BiometricCredentialAdapter(service: "ai.shiftone.plinth.tests.\(UUID())") {
-        "Enable administrator unlock with biometrics"
-      },
+      biometrics: BiometricCredentialAdapter(
+        service: "ai.shiftone.plinth.tests.\(UUID())",
+        enableReason: { "Enable administrator unlock with biometrics" },
+        unlockReason: { "Unlock administrator settings" }),
       clock: clock, displays: displays)
     let executor = EffectExecutor(port: port)
     let runtime = RootRuntime(clock: clock, executor: executor)

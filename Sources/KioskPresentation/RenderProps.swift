@@ -12,6 +12,7 @@ public struct RootProps: Equatable, Sendable {
   public let externalAllowsDrag: Bool
   public let externalPointerLocked: Bool
   public let showsPointerSetupHelp: Bool
+  public let webServerURL: String?
 }
 
 public struct SettingsProps: Equatable, Sendable {
@@ -26,6 +27,7 @@ public struct SettingsProps: Equatable, Sendable {
   public let biometricChanging: Bool
   public let canChangeBiometric: Bool
   public let biometricChangeFailed: Bool
+  public let biometricEnrollmentChanged: Bool
   public let saveFailed: Bool
   public let validationMessages: [SettingsValidationMessage]
   public let startURL: String
@@ -41,9 +43,11 @@ public struct SettingsProps: Equatable, Sendable {
   public let supportsExternalDisplay: Bool
   public let externalDisplayModes: [ExternalDisplayMode]
   public let externalDisplayCurrentMode: ExternalDisplayMode?
+  public let webServerURL: String?
+  public let webServerFailure: WebServerFailure?
 }
 
-public struct SettingsValidationMessage: Equatable, Sendable, Identifiable {
+public struct SettingsValidationMessage: Equatable, Encodable, Sendable, Identifiable {
   public let id: ProfileIssue
   public let textKey: String
 }
@@ -60,4 +64,25 @@ public struct UnlockProps: Equatable, Sendable {
   public let failedAttempts: Int
   public let verifying: Bool
   public let cooldownRemaining: Double
+  public let biometricLabelKey: String?
+  public let biometricVerifying: Bool
+  public let biometricFailed: Bool
+}
+
+/// Credentials and credential controls never cross the remote management boundary.
+public struct WebAdministrationProps: Encodable, Equatable, Sendable {
+  public let mode: AppMode
+  public let savedProfile: KioskProfile?
+  public let draft: ProfileDraft?
+  public let saving: Bool
+  public let saveFailed: Bool
+  public let canSave: Bool
+  public let validationMessages: [SettingsValidationMessage]
+  public let hasUnsavedDraft: Bool
+  public let webRestartFailed: Bool
+  public let macDisplays: [DisplayDescriptor]?
+  public let mobileOutputAvailable: Bool
+  public let supportsExternalDisplay: Bool
+  public let externalDisplayModes: [ExternalDisplayMode]
+  public let showsExhibitionWindowPreparation: Bool
 }

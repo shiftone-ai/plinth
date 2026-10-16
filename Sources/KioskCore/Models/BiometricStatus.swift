@@ -24,3 +24,7 @@ public struct BiometricStatus: Equatable, Sendable {
 public enum BiometricChangeOutcome: Equatable, Sendable {
   case succeeded, cancelled, failed
 }
+
+public enum BiometricUnlockOutcome: Equatable, Sendable {
+  case succeeded, cancelled, failed, enrollmentChanged
+}

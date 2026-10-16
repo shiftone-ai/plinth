@@ -79,7 +79,7 @@ struct ExternalDisplayModeTests {
     #expect(result.state.mode == .enteringKiosk)
     #expect(result.state.activeProfile == profile)
     #expect(result.state.presentationOperation != nil)
-    #expect(result.childControls.isEmpty)
+    #expect(result.childControls == [.init(.administration, .initializeWebDraft(profile))])
   }
 
   @Test func geometryAndSceneReplacementCanSettleDuringOwnedPreparation() throws {

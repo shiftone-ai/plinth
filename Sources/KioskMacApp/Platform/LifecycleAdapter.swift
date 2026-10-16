@@ -24,6 +24,9 @@ public final class LifecycleAdapter {
     observe(NSWorkspace.shared.notificationCenter, NSWorkspace.willSleepNotification) {
       .systemWillSleep
     }
+    observe(NSWorkspace.shared.notificationCenter, NSWorkspace.didWakeNotification) {
+      .systemDidWake
+    }
   }
 
   private func observe(

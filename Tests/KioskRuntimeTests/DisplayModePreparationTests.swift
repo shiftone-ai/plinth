@@ -68,6 +68,9 @@ private final class DelayedBiometric: BiometricCredentialPort {
   private(set) var cancelAllCount = 0
 
   func status() -> BiometricStatus { initial }
+  func unlock(_ token: OperationToken) async -> (BiometricStatus, BiometricUnlockOutcome) {
+    (initial, .failed)
+  }
   func changeEnabled(_ enabled: Bool, token: OperationToken) async
     -> (BiometricStatus, BiometricChangeOutcome)
   {
@@ -102,9 +105,10 @@ struct DisplayModePreparationTests {
         web: ModeWeb(), presentation: presentation,
         repository: ProfileRepository(fileURL: directory.appendingPathComponent("profile.json")),
         credentials: CredentialStore(service: "ai.shiftone.plinth.tests.\(UUID())"),
-        biometrics: BiometricCredentialAdapter(service: "ai.shiftone.plinth.tests.\(UUID())") {
-          "Enable administrator unlock with biometrics"
-        },
+        biometrics: BiometricCredentialAdapter(
+          service: "ai.shiftone.plinth.tests.\(UUID())",
+          enableReason: { "Enable administrator unlock with biometrics" },
+          unlockReason: { "Unlock administrator settings" }),
         clock: FakeClock(), displays: ModeDisplay()))
   }
 
