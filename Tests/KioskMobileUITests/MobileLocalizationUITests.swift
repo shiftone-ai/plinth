@@ -268,7 +268,8 @@ extension MobileWorkflowUITests {
 
   @MainActor func configureExhibition(
     _ app: XCUIApplication, origin: String, language: String,
-    controlTitles: (save: String, start: String), external: Bool = false
+    controlTitles: (save: String, start: String), external: Bool = false,
+    waitForPage: Bool = true
   ) async throws {
     let start = app.buttons["start-exhibition"]
     try await exists(start)
@@ -310,7 +311,7 @@ extension MobileWorkflowUITests {
     save.tap()
     try await enabled(start)
     start.tap()
-    try await exists(app.webViews.links["Allowed"])
+    if waitForPage { try await exists(app.webViews.links["Allowed"]) }
   }
 
   @MainActor private func unlockExhibition(
