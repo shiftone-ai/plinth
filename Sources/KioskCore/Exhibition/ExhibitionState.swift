@@ -23,6 +23,7 @@ public struct ExhibitionState: Equatable, Sendable {
   public var stopping = false
   public var resetMode: ResetMode = .newVisitorSession
   public var currentURL: String?
+  public var localWebServerOrigins: [Origin] = []
   public var inputAvailable: Bool { phase == .ready }
   public init() {}
 }

@@ -19,7 +19,7 @@ let package = Package(
     .target(name: "KioskLocalization", resources: [.process("Localizable.xcstrings")]),
     .target(name: "KioskPresentation", dependencies: ["KioskCore"]),
     .target(
-      name: "KioskRuntime", dependencies: ["KioskCore", "KioskPresentation"],
+      name: "KioskRuntime", dependencies: ["KioskCore", "KioskPresentation", "KioskLocalization"],
       swiftSettings: [.defaultIsolation(MainActor.self)]),
     .target(
       name: "KioskUI",
