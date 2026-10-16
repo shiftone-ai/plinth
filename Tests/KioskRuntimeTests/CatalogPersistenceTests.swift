@@ -139,6 +139,35 @@ struct CatalogPersistenceTests {
     }
   }
 
+  @Test func encryptedFilePreservesNavigationAndOutputSettings() async throws {
+    let fixture = RuntimeFixture()
+    defer { fixture.runtime.stop() }
+    var mac = try fixture.profile()
+    let blocked = try #require(Origin(urlString: "https://blocked.example.net"))
+    mac.navigation = .init(
+      mode: .denylist, rules: [.init(id: 2, origin: blocked, includeSubdomains: true)],
+      allowsHTTP: true)
+    mac.interaction = .init(allowsScroll: true, allowsDrag: true)
+    mac.resetMode = .retainWebsiteData
+    mac.recovery = .init(maximumAttempts: 5, delay: 3)
+    mac.macOutput = .init(mode: .projectionWindow, displayID: "second-display")
+    var mobile = try fixture.profile()
+    mobile.exhibitionDestination = .externalDisplay
+    mobile.externalDisplayMode = .init(width: 1920, height: 1080)
+    mobile.externalDisplayRotation = .clockwise
+    let macSnapshot = try #require(CatalogSnapshot(mac))
+    let mobileSnapshot = try #require(CatalogSnapshot(mobile))
+    let entries = [
+      try #require(CatalogEntry(id: UUID(), name: "Mac", snapshot: macSnapshot)),
+      try #require(CatalogEntry(id: UUID(), name: "iPad", snapshot: mobileSnapshot)),
+    ]
+    let passphrase = "correct horse battery exhibition"
+    let encrypted = try await EncryptedCatalogFile.encrypt(
+      entries: entries, passphrase: passphrase)
+    let decoded = try await EncryptedCatalogFile.decrypt(encrypted, passphrase: passphrase)
+    #expect(decoded.map(\.snapshot) == [macSnapshot, mobileSnapshot])
+  }
+
   @Test func wholeCollectionFileTransfersAvailableEntriesWithoutSharingThem() async throws {
     let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
       "plinth-catalog-whole-file-\(UUID())")
