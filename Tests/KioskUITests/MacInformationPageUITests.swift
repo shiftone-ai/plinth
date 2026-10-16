@@ -61,10 +61,11 @@ extension KioskWorkflowUITests {
     app.buttons["save-profile"].click()
     XCTAssertTrue(start.isEnabled)
     start.click()
-    await waitFor(app.webViews.links["Next exhibit"], timeout: 25)
-    let title = app.webViews.staticTexts["Shapes and light"]
-    await waitFor(title, timeout: 25)
-    XCTAssertTrue(title.isHittable)
+    let next = app.webViews.links["Next exhibit"]
+    await waitFor(next, timeout: 25)
+    app.webViews.firstMatch.scroll(byDeltaX: 0, deltaY: -700)
+    next.click()
+    await waitFor(app.webViews.staticTexts["Another view"], timeout: 25)
     attach(app, name: "store-mac-exhibition")
     let screen = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
     screen.name = "store-mac-display"
