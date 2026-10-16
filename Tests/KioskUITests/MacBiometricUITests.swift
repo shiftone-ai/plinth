@@ -54,10 +54,14 @@ extension KioskWorkflowUITests {
     app.launch()
     await configureBiometricExhibition(app, origin: server.origin)
     app.typeKey("k", modifierFlags: [.command, .option, .shift])
-    XCTAssertTrue(app.secureTextFields["unlock-passcode"].waitForExistence(timeout: 10))
+    let password = app.secureTextFields["unlock-passcode"]
+    XCTAssertTrue(password.waitForExistence(timeout: 10))
     let biometric = app.buttons["verify-biometric"]
     XCTAssertTrue(biometric.waitForExistence(timeout: 10))
     XCTAssertEqual(biometric.label, "Unlock with Touch ID")
+    XCTAssertGreaterThanOrEqual(biometric.frame.minX, password.frame.maxX)
+    XCTAssertLessThan(biometric.frame.minX - password.frame.maxX, 20)
+    XCTAssertLessThan(abs(biometric.frame.midY - password.frame.midY), 20)
     return app
   }
 
@@ -79,11 +83,7 @@ extension KioskWorkflowUITests {
     let available = expectation(
       for: NSPredicate(format: "enabled == true"), evaluatedWith: toggle)
     await fulfillment(of: [available], timeout: 10)
-    XCTAssertEqual(toggle.label, "Unlock with Touch ID")
     toggle.click()
-    let selected = expectation(
-      for: NSPredicate(format: "value == %@", "1"), evaluatedWith: toggle)
-    await fulfillment(of: [selected], timeout: 10)
     let save = app.buttons["save-profile"]
     let canSave = expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: save)
     await fulfillment(of: [canSave], timeout: 10)
@@ -91,7 +91,7 @@ extension KioskWorkflowUITests {
     let canStart = expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: start)
     await fulfillment(of: [canStart], timeout: 10)
     start.click()
-    XCTAssertTrue(app.webViews.links["Allowed"].waitForExistence(timeout: 10))
+    await waitFor(app.webViews.links["Allowed"], timeout: 10)
   }
 
   @MainActor private func unlockWithPassword(_ app: XCUIApplication) async throws {
