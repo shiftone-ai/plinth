@@ -45,6 +45,94 @@ struct WebAdministrationPageInteractionTests {
   }
 
   @Test(.timeLimit(.minutes(1)))
+  func focusedEditorClearsConnectionErrorAfterRecovery() async throws {
+    _ = NSApplication.shared
+    let html = WebAdministrationPage.html(locale: Locale(identifier: "en"))
+      .replacingOccurrences(of: #"<script src="/app.js" defer></script>"#, with: "")
+      .replacingOccurrences(
+        of: "</body>",
+        with: "<script>\(WebAdministrationPage.script)</script></body>")
+    let view = WKWebView(frame: .init(x: 0, y: 0, width: 390, height: 844))
+    let observer = PageLoadObserver()
+    view.navigationDelegate = observer
+    try await withCheckedThrowingContinuation { continuation in
+      observer.completion = continuation
+      view.loadHTMLString(html, baseURL: nil)
+    }
+    let result =
+      try await view.callAsyncJavaScript(
+        """
+        sessionToken = 'current';
+        details.hidden = false;
+        editor.hidden = false;
+        form.hidden = true;
+        const input = document.querySelector('#edit-start-url');
+        input.focus();
+        input.value = 'https://example.com/unsaved';
+        let requests = 0;
+        window.fetch = async () => {
+          requests++;
+          if (requests === 1) throw new TypeError('offline');
+          return { status: 200, ok: true,
+            json: async () => ({ saving: false, saveFailed: false }) };
+        };
+        await poll();
+        const errorShown = connectionLost && message.textContent === document.body.dataset.connection;
+        await poll();
+        return [errorShown, connectionLost, message.textContent,
+          input.value, editor.contains(document.activeElement)];
+        """, arguments: [:], in: nil, contentWorld: .page) as? [Any]
+    #expect(result?[0] as? Bool == true)
+    #expect(result?[1] as? Bool == false)
+    #expect(result?[2] as? String == "")
+    #expect(result?[3] as? String == "https://example.com/unsaved")
+    #expect(result?[4] as? Bool == true)
+  }
+
+  @Test(.timeLimit(.minutes(1)))
+  func oldPollCannotClearANewSession() async throws {
+    _ = NSApplication.shared
+    let html = WebAdministrationPage.html(locale: Locale(identifier: "en"))
+      .replacingOccurrences(of: #"<script src="/app.js" defer></script>"#, with: "")
+      .replacingOccurrences(
+        of: "</body>",
+        with: "<script>\(WebAdministrationPage.script)</script></body>")
+    let view = WKWebView(frame: .init(x: 0, y: 0, width: 390, height: 844))
+    let observer = PageLoadObserver()
+    view.navigationDelegate = observer
+    try await withCheckedThrowingContinuation { continuation in
+      observer.completion = continuation
+      view.loadHTMLString(html, baseURL: nil)
+    }
+    let result =
+      try await view.callAsyncJavaScript(
+        """
+        sessionToken = 'old';
+        details.hidden = false;
+        form.hidden = true;
+        let finishOldRequest;
+        let failOldRequest;
+        let requests = 0;
+        window.fetch = async () => new Promise((resolve, reject) => {
+          requests++;
+          if (requests === 1) finishOldRequest = () => resolve({ status: 401, ok: false });
+          else failOldRequest = () => reject(new TypeError('offline'));
+        });
+        const oldPoll = poll();
+        const failingOldPoll = poll();
+        sessionToken = 'new';
+        finishOldRequest();
+        failOldRequest();
+        await Promise.all([oldPoll, failingOldPoll]);
+        return [sessionToken, form.hidden, details.hidden, message.textContent];
+        """, arguments: [:], in: nil, contentWorld: .page) as? [Any]
+    #expect(result?[0] as? String == "new")
+    #expect(result?[1] as? Bool == true)
+    #expect(result?[2] as? Bool == false)
+    #expect(result?[3] as? String == "")
+  }
+
+  @Test(.timeLimit(.minutes(1)))
   func expiredSessionShowsLoginWithoutAConnectionError() async throws {
     _ = NSApplication.shared
     let html = WebAdministrationPage.html(locale: Locale(identifier: "en"))
