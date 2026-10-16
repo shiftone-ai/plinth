@@ -209,6 +209,63 @@ extension MobileWorkflowUITests {
     }
   }
 
+  @MainActor func testVoiceOverSpeechInSimulator() async throws {
+    guard #available(iOS 27.0, *) else { throw XCTSkip("VoiceOver UI testing requires iOS 27") }
+    continueAfterFailure = false
+    let server = try FixtureServer()
+    try await server.start()
+    addTeardownBlock { await MainActor.run { server.stop() } }
+    let cases = [
+      (
+        "en", "Save settings", "Start exhibition", "External display controls", "Exhibiting",
+        "Administrator unlock"
+      ),
+      ("ja", "設定を保存", "展示を開始", "外部展示の操作", "展示中", "管理者解除"),
+      ("ko", "설정 저장", "전시 시작", "외부 전시 제어", "전시 중", "관리자 잠금 해제"),
+      ("zh-Hans", "保存设置", "开始展示", "外接显示器控制", "展示中", "管理员解锁"),
+    ]
+    for (language, save, start, control, active, unlock) in cases {
+      let app = XCUIApplication()
+      app.launchArguments = ["-AppleLanguages", "(\(language))"]
+      app.launchEnvironment["PLINTH_TEST_CREDENTIAL_SERVICE"] =
+        "ai.shiftone.plinth.tests.\(UUID().uuidString)"
+      addTeardownBlock { await MainActor.run { app.terminate() } }
+      app.launch()
+      try await configureExhibition(
+        app, origin: server.origin, language: "voiceover-\(language)",
+        controlTitles: (save: save, start: start), external: true)
+      let speech = try spokenExternalOutput(app, control: control, active: active, unlock: unlock)
+      print("VOICEOVER_\(language)=\(speech.joined(separator: " | "))")
+      app.terminate()
+    }
+  }
+
+  @MainActor @available(iOS 27.0, *)
+  private func spokenExternalOutput(
+    _ app: XCUIApplication, control: String, active: String, unlock: String
+  ) throws -> [String] {
+    let voiceOver = XCUIDevice.shared.voiceOverService
+    try voiceOver.enable()
+    defer { try? voiceOver.disable() }
+    XCTAssertTrue(voiceOver.isEnabled, voiceOver.debugDescription)
+    app.activate()
+    var speech: [String] = []
+    for _ in 0..<50 {
+      let utterance = try voiceOver.moveForward().utterance
+      speech.append(utterance)
+      if speech.contains(where: { $0.contains(control) })
+        && speech.contains(where: { $0.contains(active) })
+        && speech.contains(where: { $0.contains(unlock) })
+      {
+        break
+      }
+    }
+    XCTAssertTrue(speech.contains { $0.contains(control) }, speech.joined(separator: " | "))
+    XCTAssertTrue(speech.contains { $0.contains(active) }, speech.joined(separator: " | "))
+    XCTAssertTrue(speech.contains { $0.contains(unlock) }, speech.joined(separator: " | "))
+    return speech
+  }
+
   @MainActor func configureExhibition(
     _ app: XCUIApplication, origin: String, language: String,
     controlTitles: (save: String, start: String), external: Bool = false
