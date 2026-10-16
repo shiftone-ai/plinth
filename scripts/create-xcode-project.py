@@ -398,6 +398,7 @@ face_id_strings = obj(
             f"FaceIDStrings{language}",
             "PBXFileReference",
             lastKnownFileType="text.plist.strings",
+            name=language,
             path=f"Resources/{language}.lproj/InfoPlist.strings",
             sourceTree="SOURCE_ROOT",
         )
