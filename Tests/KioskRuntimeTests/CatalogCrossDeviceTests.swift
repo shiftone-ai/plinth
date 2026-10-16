@@ -5,7 +5,8 @@ import Testing
 
 @MainActor
 struct CatalogCrossDeviceTests {
-  @Test func sharedEntryRequiresDeviceChoiceAndSurvivesRestart() async throws {
+  @Test func sharedEntryRequiresDeviceChoiceAndDeletionKeepsSavedProfileAfterRestart() async throws
+  {
     let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
       "plinth-catalog-cross-device-\(UUID())")
     defer { try? FileManager.default.removeItem(at: directory) }
@@ -48,11 +49,27 @@ struct CatalogCrossDeviceTests {
       try #require(destination.snapshot.root.saveOperation))
     #expect(destination.snapshot.root.savedProfile?.startURL == profile.startURL)
     #expect(!destinationPort.credentialsConfigured)
+    try await receiveDeletion(
+      id, in: destination, executor: destinationExecutor, savedStartURL: profile.startURL)
     destination.stop()
 
     try await verifyRestart(
-      profile: destinationProfile, catalog: destinationCatalog, id: id,
+      profile: destinationProfile, catalog: destinationCatalog,
       startURL: profile.startURL)
+  }
+
+  private func receiveDeletion(
+    _ id: UUID, in runtime: RootRuntime, executor: EffectExecutor, savedStartURL: String
+  ) async throws {
+    let session = try #require(runtime.snapshot.root.catalogCloudSessionOperation)
+    #expect(
+      runtime.send(
+        .catalogCloudChanges(session, "account-a", [.delete(id)]), from: .cloudCatalog
+      ).reply == .accepted)
+    await executor.registry.waitForOperation(
+      try #require(runtime.snapshot.root.catalogSaveOperation))
+    #expect(runtime.snapshot.root.catalog.entries.isEmpty)
+    #expect(runtime.snapshot.root.savedProfile?.startURL == savedStartURL)
   }
 
   private func publishSource(_ profile: KioskProfile, id: UUID, in directory: URL) async throws
@@ -99,7 +116,7 @@ struct CatalogCrossDeviceTests {
   }
 
   private func verifyRestart(
-    profile: ProfileRepository, catalog: CatalogRepository, id: UUID, startURL: String
+    profile: ProfileRepository, catalog: CatalogRepository, startURL: String
   ) async throws {
     let executor = EffectExecutor(
       port: CatalogPersistencePort(
@@ -108,8 +125,7 @@ struct CatalogCrossDeviceTests {
     defer { runtime.stop() }
     try await start(runtime, executor: executor)
     #expect(runtime.snapshot.root.savedProfile?.startURL == startURL)
-    #expect(runtime.snapshot.root.catalog.entries.first?.id == id)
-    #expect(runtime.snapshot.root.catalog.entries.first?.isVisible == true)
+    #expect(runtime.snapshot.root.catalog.entries.isEmpty)
     #expect(runtime.snapshot.root.credentialsConfigured == false)
   }
 
