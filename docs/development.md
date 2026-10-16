@@ -18,7 +18,9 @@ Core・Presenter・RuntimeとPassive SwiftUI Viewを共用し，Mac・UIKitの�
 
 macOS 27.0.1の専用Macでは，スクリプト生成とXcodeの両.appをビルドし，4言語のresource bundleを確認した．両.appのpreviewで4言語の設定入力・保存・WebKit展示・誤入力・取消・管理者解除・再起動のGUI試験がそれぞれ1件成功し，失敗は0件だった．編集・終了メニューの4言語の項目も両.appで操作し，それぞれ1件成功した．`-NSShowNonLocalizedStrings YES` と `-NSDoubleLocalizedStrings YES` の起動と画面操作は両.appで成功した．倍長の擬似翻訳の上部・下部の画像では，項目とボタンに重なりや切れは見られなかった．Xcodeの.appでは通常モードも試し，設定・展示・アイドル復帰・終了操作の抑止・誤入力と取消を含む管理者解除・再起動が1件成功し，失敗とskipは0件だった．
 
-iPadOS 26.4 SimulatorのTouch IDでは，有効化・無効化・再起動後の保持と，OSの認証画面での取消を操作した．iOS 26.4のiPhone SimulatorではFace IDの認証画面を確認し，登録解除で設定がオフになり，再登録後もオフのままであることを確認した．実機での登録変更，登録済みの顔や指紋を別の登録に入れ替える操作，Macの署名済み配布物での生体認証は未確認である．
+iPadOS 26.4 SimulatorのTouch IDでは，有効化・無効化・再起動後の保持と，OSの認証画面での取消を操作した．iOS 26.4のiPhone SimulatorではFace IDの認証画面を確認し，登録解除で設定がオフになり，再登録後もオフのままであることを確認した．
+
+Macでは，現行ソースをDeveloper IDで署名して書き出し，`keychain-access-groups` とそれを認めるprovisioning profileを確認した．同じ署名設定の診断用ビルドで，隔離したserviceに `.biometryCurrentSet` のData Protection Keychain項目を作成・削除した（`SecItemAdd = 0`，`SecItemDelete = 0`，削除後 `errSecItemNotFound`）．認証を許さない値の照会は `errSecInteractionNotAllowed` だった．配布用UIでのTouch ID操作と失敗時の表示，実機で登録済みの顔・指紋を別の登録に入れ替えたときの失効は未確認である．
 
 ## 環境とtarget
 

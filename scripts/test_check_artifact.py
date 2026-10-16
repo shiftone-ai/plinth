@@ -107,11 +107,19 @@ class CheckArtifactTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
     def signed_mac_bundle(
-        self, path: Path, entitlements: dict[str, bool | list[str]] | None
+        self,
+        path: Path,
+        entitlements: dict[str, bool | list[str]] | None,
+        bundle_id: str | None = None,
     ) -> Path:
         (path / "Contents/MacOS").mkdir(parents=True)
         (path / "Contents/Info.plist").write_bytes(
-            plistlib.dumps({"CFBundleExecutable": "App", "CFBundleIdentifier": f"test.{path.stem}"})
+            plistlib.dumps(
+                {
+                    "CFBundleExecutable": "App",
+                    "CFBundleIdentifier": bundle_id or f"test.{path.stem}",
+                }
+            )
         )
         shutil.copy("/usr/bin/true", path / "Contents/MacOS/App")
         command = ["codesign", "--force", "--sign", "-"]
@@ -143,6 +151,14 @@ class CheckArtifactTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
         self.assertIn("生体認証用Keychain", result.stdout)
+
+    def test_plinth_mac_export_requires_biometric_entitlement(self) -> None:
+        app = self.signed_mac_bundle(
+            self.work / "Exported/Plinth.app", None, bundle_id="ai.shiftone.plinth"
+        )
+        result = self.run_check(app)
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("生体認証用Keychainの権限がない", result.stdout)
 
     def test_app_changed_after_signing_fails(self) -> None:
         app = self.signed_mac_app(None)
