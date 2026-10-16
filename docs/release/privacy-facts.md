@@ -1,6 +1,6 @@
 # 公開候補のデータ取扱い
 
-Issue #28 の公開文書と App Privacy を照合するための根拠．現在の `main` を基にしたソースと，iOSの配布用IPA・Macの配布用パッケージ内アプリを調べた．App Store ConnectのApp Privacy回答は利用者の承認を受けて公開した．
+Issue #28 の公開文書と App Privacy を照合するための根拠．現在の `main` を取り込んだソースを調べた．配布用IPA・Macの配布用パッケージは統合後に再検査する．App Store ConnectのApp Privacy回答は利用者の承認を受けて公開した．
 
 | 対象 | コードで確認できる扱い | 根拠 |
 | --- | --- | --- |
@@ -11,6 +11,8 @@ Issue #28 の公開文書と App Privacy を照合するための根拠．現在
 | 診断 | OSLogに状態遷移・拒否理由・識別子・revisionなどを記録．入力文字列，パスワード，URL全体，マウス座標は記録しない | `DiagnosticLogAdapter`，`DiagnosticRecord` |
 | 展示ページのサイトデータ | WebKitの非永続データストアを使用．「新しい閲覧セッション」は表示面を作るたびに新規ストア．「Cookieなどを保持」はアプリの稼働中に同じストアを再利用．Runtime停止時に破棄 | `WebKitAdapter.create`，`WebKitAdapter.stop` |
 | 展示ページへの通信 | 管理者が指定したURLをWebKitで読み込む．閲覧先サイトや，そのページの埋め込み先への通信は各サイトの扱いに従う | `WebKitAdapter.load`，`NavigationPolicy` |
+| Web管理の待ち受け | 初期状態は無効．管理者が端末で有効にすると，固定ポート47623で同じローカルネットワークのブラウザからHTTP接続を受ける．HTTPSによる暗号化はない | `WebAdministrationServer`，`WebAdministrationHTTPHandler`，`KioskProfile` |
+| Web管理の認証とセッション | 管理者パスワードと設定の変更内容はブラウザから端末へ送る．ブラウザは一時的なトークンをページのメモリに保持し，端末のセッションは無効化時に破棄する．Shift Oneへは送らない | `WebAdministrationPage`，`WebAdministrationHTTPHandler`，`RootMediator+WebAdministration` |
 
 ソース内に分析SDK，広告SDK，Shift Oneへ設定や診断を送る通信処理は見つからない．アプリから公開のプライバシー・サポートページを開く場合，そのページのホストには通常のWebリクエストが届く．管理者が指定する展示サイトとアプリ自身の扱いは，公開文書でも分けて記載する．
 
@@ -18,4 +20,4 @@ App Store Connect の App Privacy には「アプリから収集するデータ�
 
 公開した回答は「アプリが収集するデータなし」．ソースで確認した端末内保存とOSLogはAppleの定義する収集には当たらず，アプリに組み込んだ分析・広告・外部送信のコードもない．管理者が任意のサイトを選べるため，WebView通信にはオープンWebの例外が当たると推測する．ただしAppleは，管理者だけがURLを変更できるキオスクや，許可リスト方式で表示先を制限する場合の扱いを明示していない．[Appleの別の説明](https://developer.apple.com/app-store/user-privacy-and-data-use/)は，アプリの機能として使うWebViewを原則ネイティブ機能と同様に扱うとしている．この解釈は未確定であり，変更が必要と判明した場合は回答を更新する．
 
-候補に #2 のWeb管理が入る場合は，ローカルネットワークへの通信とセッションをこの表に追加する．
+Web管理は同じネットワーク上の第三者にパスワードと設定が読まれるおそれがある．端末内の管理画面から有効にした場合だけ使えること，隔離したネットワークで運用することを公開ポリシーに記した．これはアプリが開発者へデータを収集する経路ではない．
