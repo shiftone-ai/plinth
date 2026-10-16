@@ -1,3 +1,5 @@
+import Foundation
+
 public enum Event: Equatable, Sendable {
   // Root requests and facts.
   case bootstrapped(profile: KioskProfile?, credentialsConfigured: Bool, displayCount: Int)
@@ -37,6 +39,60 @@ public enum Event: Equatable, Sendable {
   case profileCommitRequested(KioskProfile)
   case profileSaved(OperationToken, KioskProfile)
   case profileSaveFailed(OperationToken)
+  case catalogLoadRequested
+  case catalogLoaded(OperationToken, SettingsCatalog)
+  case catalogLoadFailed(OperationToken)
+  case catalogRegisterRequested(id: UUID, name: String)
+  case catalogRegistrationRequested(id: UUID, name: String, profile: KioskProfile)
+  case catalogSelectRequested(UUID)
+  case catalogSelectionOpened(CatalogEntry)
+  case catalogSelectionDismissed
+  case catalogApplyRequested
+  case catalogSelectionApplied(CatalogEntry, requiresOutputReview: Bool)
+  case catalogRenameRequested(id: UUID, name: String)
+  case catalogRenameConfirmed(UUID)
+  case catalogRenameCancelled
+  case catalogUpdateRequested(UUID)
+  case catalogUpdateConfirmed(UUID)
+  case catalogUpdateCancelled
+  case catalogVisibilityRequested(id: UUID, visible: Bool)
+  case catalogRemoveConfirmed(UUID)
+  case catalogRemovePromptRequested(UUID)
+  case catalogRemovePromptCancelled
+  case catalogNameEdited(String)
+  case catalogSelectionNameEdited(String)
+  case catalogRegistrationSucceeded(UUID)
+  case catalogPassphraseEdited(String)
+  case catalogConfirmPassphraseEdited(String)
+  case catalogPassphraseCleared
+  case catalogExportRequested(ids: [UUID])
+  case catalogExportOperationRequested(ids: [UUID], passphrase: String)
+  case catalogExportPrepared(OperationToken, Data)
+  case catalogExportFailed(OperationToken)
+  case catalogExportDismissed
+  case catalogFileExportCompleted(Bool)
+  case catalogImportFileRequested(URL)
+  case catalogImportOperationRequested(URL, passphrase: String)
+  case catalogImportPreviewReady(OperationToken, [CatalogEntry])
+  case catalogImportFailed(OperationToken)
+  case catalogImportConfirmed(replacementIDs: [UUID])
+  case catalogImportCancelled
+  case catalogSaved(OperationToken, SettingsCatalog)
+  case catalogSaveFailed(OperationToken)
+  case catalogSyncEnableRequested
+  case catalogSyncEnableConfirmed
+  case catalogSyncEnableCancelled
+  case catalogSyncDisableRequested
+  case catalogAccountChecked(OperationToken, String?)
+  case catalogCloudStatus(OperationToken, CatalogSyncStatus)
+  case catalogCloudChanges(OperationToken, String, [CatalogCloudChange])
+  case catalogCloudAcknowledged(OperationToken, String, [UUID: UInt64])
+  case catalogCloudDeletionsAcknowledged(OperationToken, String, [UUID])
+  case catalogCloudAccountChanged(OperationToken)
+  case catalogSharePromptRequested(UUID)
+  case catalogSharePromptCancelled
+  case catalogShareConfirmed(UUID)
+  case catalogConflictResolved(UUID, useRemote: Bool)
   // Exhibition controls and adapter facts.
   case activateExhibition(KioskProfile)
   case stopExhibition
@@ -90,7 +146,25 @@ public enum Event: Equatable, Sendable {
       .saveDraftRequested, .passcodeSubmitted, .cancelAuthentication, .configurePasscodeRequested,
       .passcodeEdited, .discardDraftRequested, .webCapabilityRequested, .addOriginRuleRequested,
       .removeOriginRuleRequested, .prepareExternalSceneRequested, .credentialConfigurationRequested,
-      .biometricStatusRequested, .biometricChangeRequested, .biometricChangeCancelled:
+      .biometricStatusRequested, .biometricChangeRequested, .biometricChangeCancelled,
+      .catalogLoadRequested, .catalogRegisterRequested, .catalogRegistrationRequested,
+      .catalogSelectRequested, .catalogSelectionDismissed, .catalogApplyRequested,
+      .catalogRenameRequested, .catalogRenameConfirmed, .catalogRenameCancelled,
+      .catalogUpdateRequested, .catalogUpdateConfirmed, .catalogUpdateCancelled,
+      .catalogVisibilityRequested, .catalogRemoveConfirmed,
+      .catalogRemovePromptRequested, .catalogRemovePromptCancelled,
+      .catalogNameEdited, .catalogSelectionNameEdited:
+      true
+    case .catalogPassphraseEdited, .catalogConfirmPassphraseEdited,
+      .catalogExportRequested, .catalogExportOperationRequested,
+      .catalogExportDismissed, .catalogFileExportCompleted,
+      .catalogImportFileRequested, .catalogImportOperationRequested,
+      .catalogImportConfirmed, .catalogImportCancelled:
+      true
+    case .catalogSyncEnableRequested, .catalogSyncEnableConfirmed,
+      .catalogSyncEnableCancelled, .catalogSyncDisableRequested,
+      .catalogSharePromptRequested, .catalogSharePromptCancelled,
+      .catalogShareConfirmed, .catalogConflictResolved:
       true
     default: false
     }

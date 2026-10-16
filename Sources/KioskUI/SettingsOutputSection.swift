@@ -12,6 +12,7 @@ struct SettingsOutputSection: View {
     Group {
       #if os(macOS)
         Section(L10n.string("Output", locale: locale)) {
+          unavailableCatalogOutputNotice
           Picker(
             L10n.string("Mode", locale: locale),
             selection: value(\.macOutput.mode, edit: ProfileDraftEdit.macOutputMode)
@@ -44,6 +45,7 @@ struct SettingsOutputSection: View {
       #endif
       #if os(iOS)
         Section(L10n.string("Display destination", locale: locale)) {
+          unavailableCatalogOutputNotice
           Picker(
             L10n.string("Display", locale: locale),
             selection: value(
@@ -120,6 +122,17 @@ struct SettingsOutputSection: View {
           }
         }
       #endif
+    }
+  }
+
+  @ViewBuilder
+  private var unavailableCatalogOutputNotice: some View {
+    if props.catalogOutputUnavailable {
+      Label(
+        L10n.string("Choose an available output before saving", locale: locale),
+        systemImage: "exclamationmark.circle"
+      )
+      .foregroundStyle(.orange)
     }
   }
 

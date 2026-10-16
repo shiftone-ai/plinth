@@ -1,3 +1,5 @@
+import Foundation
+
 public enum RejectionReason: String, Codable, Sendable {
   case invalidState, wrongSource, staleOperation, invalidProfile, unsavedDraft, unauthenticated
   case unsupportedDisplays, invalidURL, httpDisabled, urlBlocked, unsupportedWindow, cooldown
@@ -52,11 +54,17 @@ public struct ReadonlyContext: Sendable {
   public var webAvailable: Bool
   public var webGeneration: UInt64
   public var hasUnsavedDraft: Bool
+  public var catalogSelectionID: UUID?
+  public var catalogRequiresAvailableOutput: Bool
 
-  public init(webAvailable: Bool = false, webGeneration: UInt64 = 0, hasUnsavedDraft: Bool = false)
-  {
+  public init(
+    webAvailable: Bool = false, webGeneration: UInt64 = 0, hasUnsavedDraft: Bool = false,
+    catalogSelectionID: UUID? = nil, catalogRequiresAvailableOutput: Bool = false
+  ) {
     self.webAvailable = webAvailable
     self.webGeneration = webGeneration
     self.hasUnsavedDraft = hasUnsavedDraft
+    self.catalogSelectionID = catalogSelectionID
+    self.catalogRequiresAvailableOutput = catalogRequiresAvailableOutput
   }
 }

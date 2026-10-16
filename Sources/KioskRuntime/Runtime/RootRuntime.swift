@@ -107,6 +107,18 @@ public final class RootRuntime {
         && [.enteringKiosk, .exhibiting, .unlocking].contains(store.root.mode)
     case .applyPresentation, .releasePresentation: store.root.presentationOperation == effect.token
     case .saveProfile: store.root.saveOperation == effect.token
+    case .loadCatalog: store.root.catalogLoadOperation == effect.token
+    case .saveCatalog: store.root.catalogSaveOperation == effect.token
+    case .checkCatalogAccount, .checkCatalogAccountAfterStopping:
+      store.root.catalogAccountCheckOperation == effect.token
+    case .startCatalogCloudSync:
+      store.root.catalogCloudSessionOperation == effect.token
+    case .publishCatalogChanges(let session, _, _, _):
+      store.root.catalogCloudSessionOperation == session
+    case .stopCatalogCloudSync:
+      store.root.epoch == effect.token.ownerEpoch
+    case .prepareCatalogExport: store.root.catalogExportOperation == effect.token
+    case .importCatalogFile: store.root.catalogImportOperation == effect.token
     case .createSurface, .load: store.exhibition.operation == effect.token
     case .controlExternalWeb:
       store.root.mode == .exhibiting && store.root.epoch == effect.token.ownerEpoch

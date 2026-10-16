@@ -6,6 +6,27 @@ public enum RootMediator {
     switch envelope.event {
     case .bootstrapped:
       return bootstrapCompleted(state, envelope)
+    case .catalogLoadRequested, .catalogLoaded, .catalogLoadFailed,
+      .catalogRegistrationRequested, .catalogSelectRequested, .catalogApplyRequested,
+      .catalogRenameRequested, .catalogRenameConfirmed, .catalogRenameCancelled,
+      .catalogUpdateRequested, .catalogUpdateConfirmed, .catalogUpdateCancelled,
+      .catalogVisibilityRequested, .catalogRemoveConfirmed, .catalogSaved, .catalogSaveFailed:
+      return reduceCatalog(state, envelope, context: context)
+    case .catalogRemovePromptRequested, .catalogRemovePromptCancelled:
+      return reduceCatalog(state, envelope, context: context)
+    case .catalogExportOperationRequested, .catalogExportPrepared, .catalogExportFailed,
+      .catalogExportDismissed, .catalogFileExportCompleted,
+      .catalogImportOperationRequested, .catalogImportPreviewReady,
+      .catalogImportFailed, .catalogImportConfirmed, .catalogImportCancelled:
+      return reduceCatalog(state, envelope, context: context)
+    case .catalogSyncEnableRequested, .catalogSyncEnableConfirmed,
+      .catalogSyncEnableCancelled, .catalogSyncDisableRequested,
+      .catalogAccountChecked, .catalogCloudStatus, .catalogCloudChanges,
+      .catalogCloudAcknowledged, .catalogCloudDeletionsAcknowledged,
+      .catalogCloudAccountChanged,
+      .catalogSharePromptRequested, .catalogSharePromptCancelled,
+      .catalogShareConfirmed, .catalogConflictResolved:
+      return reduceCatalog(state, envelope, context: context)
     case .biometricStatusRequested, .biometricStatusRead, .biometricChangeRequested,
       .biometricChangeCompleted, .biometricChangeCancelled:
       return reduceBiometric(state, envelope)
@@ -330,6 +351,7 @@ public enum RootMediator {
         reason = .alreadySaving
       } else if !profile.validationIssues.isEmpty
         || profile.revision != ProfileRevision.next(after: state.savedProfile?.revision)
+        || (context.catalogRequiresAvailableOutput && !state.canPresent(profile))
       {
         reason = .invalidProfile
       } else {

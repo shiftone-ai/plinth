@@ -28,34 +28,37 @@
     private var runtime: RootRuntime!
     private var executor: EffectExecutor!
     private var presentation: MobilePresentationAdapter!
+    private let cloudBridge = CatalogCloudEventBridge()
+
+    private struct CredentialConfiguration {
+      let storageNamespace: String
+      let service: String
+      let keychain: CredentialStore.Keychain
+    }
 
     init() {
       let clock = MonotonicClock()
-      #if DEBUG
-        let testService = ProcessInfo.processInfo.environment["PLINTH_TEST_CREDENTIAL_SERVICE"]
-        let fixtureService = testService.flatMap {
-          $0.hasPrefix("ai.shiftone.plinth.tests.") ? $0 : nil
-        }
-        let storageNamespace = fixtureService ?? "Plinth"
-        let credentialService = fixtureService ?? "ai.shiftone.plinth.mobile"
-      #else
-        let storageNamespace = "Plinth"
-        let credentialService = "ai.shiftone.plinth.mobile"
-      #endif
-      language = LanguagePreference(storageNamespace: storageNamespace)
+      let credentials = Self.credentialConfiguration()
+      language = LanguagePreference(storageNamespace: credentials.storageNamespace)
       let location = FileManager.default.urls(
         for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        .appendingPathComponent(storageNamespace, isDirectory: true)
+        .appendingPathComponent(credentials.storageNamespace, isDirectory: true)
         .appendingPathComponent("profile.json")
       presentation = MobilePresentationAdapter()
       presentation.pointer = pointer
       let port = NativeEffectPort(
         web: web, presentation: presentation, repository: ProfileRepository(fileURL: location),
-        credentials: CredentialStore(service: credentialService),
-        biometrics: BiometricCredentialAdapter(service: credentialService) { [language] in
+        credentials: CredentialStore(service: credentials.service, keychain: credentials.keychain),
+        biometrics: BiometricCredentialAdapter(service: credentials.service) { [language] in
           L10n.string("Enable administrator unlock with biometrics", locale: language.locale)
         },
-        clock: clock, displays: presentation)
+        clock: clock, displays: presentation,
+        catalogRepository: CatalogRepository(
+          fileURL: location.deletingLastPathComponent().appendingPathComponent("catalog.json")),
+        catalogCloudSync: CatalogCloudSync(
+          stateURL: location.deletingLastPathComponent().appendingPathComponent(
+            "catalog-cloud.json")
+        ) { [weak cloudBridge] event in cloudBridge?.send(event) })
       #if DEBUG
         if let value = ProcessInfo.processInfo.environment["PLINTH_TEST_IDLE_SECONDS"],
           let timeout = Double(value), timeout.isFinite, timeout > 0
@@ -68,7 +71,29 @@
         executor = EffectExecutor(port: port)
       #endif
       runtime = RootRuntime(clock: clock, executor: executor, diagnostics: DiagnosticLogAdapter())
+      cloudBridge.runtime = runtime
       wireAdapters()
+    }
+
+    private static func credentialConfiguration() -> CredentialConfiguration {
+      #if DEBUG
+        let testService = ProcessInfo.processInfo.environment["PLINTH_TEST_CREDENTIAL_SERVICE"]
+        let fixtureService = testService.flatMap {
+          $0.hasPrefix("ai.shiftone.plinth.tests.") ? $0 : nil
+        }
+        let keychain: CredentialStore.Keychain =
+          fixtureService != nil
+            && ProcessInfo.processInfo.environment[
+              "PLINTH_TEST_ISOLATED_CREDENTIALS"] == "1"
+          ? .testDefaults : .platformDefault
+        return .init(
+          storageNamespace: fixtureService ?? "Plinth",
+          service: fixtureService ?? "ai.shiftone.plinth.mobile", keychain: keychain)
+      #else
+        return .init(
+          storageNamespace: "Plinth", service: "ai.shiftone.plinth.mobile",
+          keychain: .platformDefault)
+      #endif
     }
 
     func connect(_ scene: UIWindowScene, exhibitionWindow: Bool) -> UIWindow {
@@ -120,6 +145,7 @@
       displaysChanged()
       if !bootstrapped {
         bootstrapped = true
+        runtime.send(.catalogLoadRequested, from: .root)
         runtime.send(.bootstrapRequested, from: .root)
       }
       return window
@@ -205,6 +231,43 @@
       case .discard: event = .discardDraftRequested
       case .addOriginRule: event = .addOriginRuleRequested
       case .removeOriginRule(let id): event = .removeOriginRuleRequested(id)
+      case .editCatalogName(let value): event = .catalogNameEdited(value)
+      case .registerCatalog(let name): event = .catalogRegisterRequested(id: UUID(), name: name)
+      case .selectCatalog(let id): event = .catalogSelectRequested(id)
+      case .dismissCatalogSelection: event = .catalogSelectionDismissed
+      case .applyCatalogSelection: event = .catalogApplyRequested
+      case .editCatalogSelectionName(let value): event = .catalogSelectionNameEdited(value)
+      case .renameCatalog(let id, let name): event = .catalogRenameRequested(id: id, name: name)
+      case .confirmCatalogRename(let id): event = .catalogRenameConfirmed(id)
+      case .cancelCatalogRename: event = .catalogRenameCancelled
+      case .updateCatalog(let id): event = .catalogUpdateRequested(id)
+      case .confirmCatalogUpdate(let id): event = .catalogUpdateConfirmed(id)
+      case .cancelCatalogUpdate: event = .catalogUpdateCancelled
+      case .setCatalogVisibility(let id, let visible):
+        event = .catalogVisibilityRequested(id: id, visible: visible)
+      case .promptCatalogRemoval(let id): event = .catalogRemovePromptRequested(id)
+      case .cancelCatalogRemoval: event = .catalogRemovePromptCancelled
+      case .confirmCatalogRemoval(let id): event = .catalogRemoveConfirmed(id)
+      case .editCatalogPassphrase(let value): event = .catalogPassphraseEdited(value)
+      case .editCatalogConfirmPassphrase(let value): event = .catalogConfirmPassphraseEdited(value)
+      case .exportCatalog(let ids): event = .catalogExportRequested(ids: ids)
+      case .fileExportCompleted(let succeeded): event = .catalogFileExportCompleted(succeeded)
+      case .dismissCatalogExport: event = .catalogExportDismissed
+      case .importCatalogFile(let url): event = .catalogImportFileRequested(url)
+      case .confirmCatalogImport:
+        let count = runtime.settingsProps.props.catalog.importPreview?.count ?? 0
+        event = .catalogImportConfirmed(replacementIDs: (0..<count).map { _ in UUID() })
+      case .cancelCatalogImport: event = .catalogImportCancelled
+      case .retryCatalogLoad: event = .catalogLoadRequested
+      case .requestCatalogSync: event = .catalogSyncEnableRequested
+      case .confirmCatalogSync: event = .catalogSyncEnableConfirmed
+      case .cancelCatalogSync: event = .catalogSyncEnableCancelled
+      case .disableCatalogSync: event = .catalogSyncDisableRequested
+      case .requestCatalogShare(let id): event = .catalogSharePromptRequested(id)
+      case .confirmCatalogShare(let id): event = .catalogShareConfirmed(id)
+      case .cancelCatalogShare: event = .catalogSharePromptCancelled
+      case .resolveCatalogConflict(let id, let useRemote):
+        event = .catalogConflictResolved(id, useRemote: useRemote)
       case .start: event = .startExhibitionRequested
       case .prepareExternalScene: event = .prepareExternalSceneRequested
       case .quit: return

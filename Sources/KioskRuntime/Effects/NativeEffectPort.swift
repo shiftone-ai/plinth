@@ -6,6 +6,9 @@ public final class NativeEffectPort: EffectPort {
   public let web: any WebSurfacePort
   private let presentation: any PresentationPort
   private let repository: ProfileRepository
+  private let catalogRepository: CatalogRepository?
+  private let catalogCloudSync: CatalogCloudSync?
+  private var cloudStopTask: Task<Void, Never>?
   private let credentials: CredentialStore
   private let biometrics: any BiometricCredentialPort
   private let clock: any ClockPort
@@ -13,11 +16,14 @@ public final class NativeEffectPort: EffectPort {
   public init(
     web: any WebSurfacePort, presentation: any PresentationPort, repository: ProfileRepository,
     credentials: CredentialStore, biometrics: any BiometricCredentialPort, clock: any ClockPort,
-    displays: any DisplayReadingPort
+    displays: any DisplayReadingPort, catalogRepository: CatalogRepository? = nil,
+    catalogCloudSync: CatalogCloudSync? = nil
   ) {
     self.web = web
     self.presentation = presentation
     self.repository = repository
+    self.catalogRepository = catalogRepository
+    self.catalogCloudSync = catalogCloudSync
     self.credentials = credentials
     self.biometrics = biometrics
     self.clock = clock
@@ -88,7 +94,57 @@ public final class NativeEffectPort: EffectPort {
         try await repository.save(profile)
         return .profileSaved(effect.token, profile)
       } catch { return .profileSaveFailed(effect.token) }
+    case .loadCatalog, .saveCatalog, .checkCatalogAccount, .checkCatalogAccountAfterStopping,
+      .startCatalogCloudSync, .stopCatalogCloudSync, .publishCatalogChanges,
+      .prepareCatalogExport, .importCatalogFile:
+      return await performCatalog(effect)
     case .cancelOperation: return nil
+    }
+  }
+
+  private func performCatalog(_ effect: Effect) async -> Event? {
+    switch effect.kind {
+    case .loadCatalog:
+      guard let catalogRepository else { return .catalogLoadFailed(effect.token) }
+      do { return try await .catalogLoaded(effect.token, catalogRepository.load()) } catch {
+        return .catalogLoadFailed(effect.token)
+      }
+    case .saveCatalog(let document):
+      guard let catalogRepository else { return .catalogSaveFailed(effect.token) }
+      do {
+        try await catalogRepository.save(document)
+        return .catalogSaved(effect.token, document)
+      } catch { return .catalogSaveFailed(effect.token) }
+    case .checkCatalogAccount:
+      return .catalogAccountChecked(effect.token, await catalogCloudSync?.accountIdentifier())
+    case .checkCatalogAccountAfterStopping:
+      await catalogCloudSync?.stop(command: effect.token)
+      return .catalogAccountChecked(effect.token, await catalogCloudSync?.accountIdentifier())
+    case .startCatalogCloudSync(let accountID, let entries, let conflicts, let pendingDeletions):
+      await catalogCloudSync?.start(
+        accountIdentifier: accountID, entries: entries, conflicts: conflicts,
+        pendingDeletions: pendingDeletions, session: effect.token)
+      return nil
+    case .stopCatalogCloudSync:
+      await catalogCloudSync?.stop(command: effect.token)
+      return nil
+    case .publishCatalogChanges(let session, let resolvedConflicts, let saves, let deletions):
+      await catalogCloudSync?.queue(
+        session: session, resolvedConflicts: resolvedConflicts,
+        saves: saves, deletions: deletions)
+      return nil
+    case .prepareCatalogExport(let entries, let passphrase):
+      do {
+        return try await .catalogExportPrepared(
+          effect.token, EncryptedCatalogFile.encrypt(entries: entries, passphrase: passphrase))
+      } catch { return .catalogExportFailed(effect.token) }
+    case .importCatalogFile(let url, let passphrase):
+      do {
+        let data = try await CatalogFileAccess.read(url)
+        return try await .catalogImportPreviewReady(
+          effect.token, EncryptedCatalogFile.decrypt(data, passphrase: passphrase))
+      } catch { return .catalogImportFailed(effect.token) }
+    default: return nil
     }
   }
 
@@ -129,6 +185,9 @@ public final class NativeEffectPort: EffectPort {
   }
 
   public func stop() {
+    if let catalogCloudSync {
+      cloudStopTask = Task { await catalogCloudSync.stop() }
+    }
     biometrics.cancelAll()
     web.stop()
     presentation.release()
