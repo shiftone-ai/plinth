@@ -15,6 +15,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from fnmatch import fnmatchcase
 from pathlib import Path
 from xml.parsers.expat import ExpatError
 
@@ -147,21 +148,28 @@ def signing(app: Path) -> list[str]:
             findings.append(f"署名が検証できない（署名後の変更など）: {label(app, bundle)}")
         # Developer ID and App Store certificates chain to Apple; ad hoc and self-signed do not.
         issuer = ["codesign", "--verify", "-R=anchor apple generic", str(bundle)]
-        if subprocess.run(issuer, capture_output=True, check=False).returncode != 0:
+        trusted = subprocess.run(issuer, capture_output=True, check=False).returncode == 0
+        if not trusted:
             findings.append(
                 f"Appleの証明書による署名でない（ad hoc・自己署名など）: {label(app, bundle)}"
             )
-        elif not signer(bundle).startswith(DISTRIBUTION_SIGNERS):
+        certificate = signer(bundle)
+        if trusted and not certificate.startswith(DISTRIBUTION_SIGNERS):
             findings.append(f"配布用でない証明書による署名（開発用など）: {label(app, bundle)}")
         entitlements = plistlib.loads(result.stdout) if result.stdout.strip() else {}
         if any(entitlements.get(key) for key in DEBUGGABLE):
             findings.append(f"デバッガの接続を許す署名（get-task-allow）: {label(app, bundle)}")
+        info_path = bundle / "Contents/Info.plist"
+        mac_biometric = (
+            info_path.is_file()
+            and plistlib.loads(info_path.read_bytes()).get("CFBundleIdentifier")
+            == "ai.shiftone.plinth"
+        )
+        groups = entitlements.get("keychain-access-groups", [])
+        if mac_biometric and not groups:
+            findings.append(f"生体認証用Keychainの権限がない: {label(app, bundle)}")
         profiles = list(filter(Path.is_file, embedded_profiles(bundle)))
-        if (
-            (bundle / "Contents/Info.plist").is_file()
-            and entitlements.get("keychain-access-groups")
-            and not profiles
-        ):
+        if info_path.is_file() and groups and not profiles:
             findings.append(
                 f"生体認証用Keychainの権限を認めるprovisioning profileがない: {label(app, bundle)}"
             )
@@ -172,8 +180,17 @@ def signing(app: Path) -> list[str]:
             if decoded.returncode != 0:
                 findings.append(f"provisioning profile を読めない: {label(app, profile)}")
             # Development and Ad Hoc profiles list devices; App Store and Developer ID ones do not.
-            elif "ProvisionedDevices" in plistlib.loads(decoded.stdout):
-                findings.append(f"端末を限った開発用・Ad Hocのprofile: {label(app, profile)}")
+            else:
+                profile_data = plistlib.loads(decoded.stdout)
+                if "ProvisionedDevices" in profile_data:
+                    findings.append(f"端末を限った開発用・Ad Hocのprofile: {label(app, profile)}")
+                allowed = profile_data.get("Entitlements", {}).get("keychain-access-groups", [])
+                if groups and not all(
+                    any(fnmatchcase(group, pattern) for pattern in allowed) for group in groups
+                ):
+                    findings.append(
+                        f"provisioning profileが生体認証用Keychainの権限を認めない: {label(app, profile)}"
+                    )
     return findings
 
 
