@@ -8,6 +8,7 @@ public protocol BiometricCredentialPort: AnyObject {
   func status() -> BiometricStatus
   func changeEnabled(_ enabled: Bool, token: OperationToken) async
     -> (BiometricStatus, BiometricChangeOutcome)
+  func unlock(_ token: OperationToken) async -> (BiometricStatus, BiometricUnlockOutcome)
   func cancel(_ token: OperationToken)
   func cancelAll()
 }
@@ -129,6 +130,43 @@ public final class BiometricCredentialAdapter: BiometricCredentialPort {
     let added = SecItemAdd(attributes as CFDictionary, nil)
     if added == errSecSuccess { committedEnable = token }
     return (status(), added == errSecSuccess ? .succeeded : .failed)
+  }
+
+  public func unlock(_ token: OperationToken) async -> (BiometricStatus, BiometricUnlockOutcome) {
+    let context = LAContext()
+    context.localizedFallbackTitle = ""
+    var error: NSError?
+    guard context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error)
+    else { return (status(), .failed) }
+    contexts[token] = context
+    defer { contexts.removeValue(forKey: token) }
+    do {
+      try await context.evaluatePolicy(
+        .deviceOwnerAuthenticationWithBiometrics, localizedReason: reason())
+    } catch {
+      let authenticationError = error as NSError
+      let cancellationCodes = [
+        LAError.userCancel.rawValue, LAError.userFallback.rawValue,
+        LAError.systemCancel.rawValue, LAError.appCancel.rawValue,
+      ]
+      let outcome: BiometricUnlockOutcome =
+        authenticationError.domain == LAError.errorDomain
+          && cancellationCodes.contains(authenticationError.code) ? .cancelled : .failed
+      return (status(), outcome)
+    }
+    guard !Task.isCancelled, contexts[token] === context else { return (status(), .cancelled) }
+    var query = itemQuery()
+    query[kSecReturnData] = true
+    query[kSecMatchLimit] = kSecMatchLimitOne
+    query[kSecUseAuthenticationContext] = context
+    var value: CFTypeRef?
+    let result = SecItemCopyMatching(query as CFDictionary, &value)
+    guard !Task.isCancelled, contexts[token] === context else { return (status(), .cancelled) }
+    if result == errSecItemNotFound { return (status(), .enrollmentChanged) }
+    guard result == errSecSuccess, (value as? Data) == Data([1]) else {
+      return (status(), .failed)
+    }
+    return (status(), .succeeded)
   }
 
   public func cancel(_ token: OperationToken) {

@@ -1,6 +1,7 @@
 import KioskCore
 import Testing
 
+@MainActor
 struct BiometricSettingsTests {
   private let available = BiometricStatus(availability: .available(.touchID), enabled: false)
 

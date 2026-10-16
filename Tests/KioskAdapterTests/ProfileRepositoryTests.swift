@@ -5,6 +5,22 @@ import KioskRuntime
 import Testing
 
 struct ProfileRepositoryTests {
+  @Test func webAdministrationDefaultsOffForOlderProfileAndPersistsWhenEnabled() throws {
+    let original = try profile()
+    let encoded = try JSONEncoder().encode(original)
+    var oldJSON = try #require(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+    oldJSON.removeValue(forKey: "webAdministrationEnabled")
+    let oldProfile = try JSONDecoder().decode(
+      KioskProfile.self, from: JSONSerialization.data(withJSONObject: oldJSON))
+    #expect(oldProfile.webAdministrationEnabled == false)
+
+    var enabled = oldProfile
+    enabled.webAdministrationEnabled = true
+    let decoded = try JSONDecoder().decode(
+      KioskProfile.self, from: JSONEncoder().encode(enabled))
+    #expect(decoded.webAdministrationEnabled)
+  }
+
   @Test func maximumCommittedRevisionRemainsReadableButCannotWrapAround() async throws {
     let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
       "plinth-revision-limit-\(UUID())")

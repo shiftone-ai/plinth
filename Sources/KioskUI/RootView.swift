@@ -50,6 +50,10 @@ public struct KioskRootView<WebHost: View>: View {
           Color.black
           if root.props.showsUnlock {
             UnlockView(props: unlock.props, send: unlockIntent)
+          } else if root.props.mode == .paused {
+            Label(L10n.string("Exhibition paused", locale: locale), systemImage: "pause.circle")
+              .font(.title2).foregroundStyle(.white)
+              .accessibilityIdentifier("exhibition-paused")
           } else if root.props.mode == .safeHold {
             if root.props.showsPointerSetupHelp {
               PointerSetupHelpView(

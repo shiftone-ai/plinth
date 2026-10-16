@@ -14,10 +14,12 @@ public protocol EffectPort: AnyObject {
   func stop()
   func releasePointer()
   func confinePointer(_ point: SurfacePoint) -> Bool
+  func stopWebServer()
 }
 
 extension EffectPort {
   public func cancel(_ token: OperationToken) {}
   public func releasePointer() {}
   public func confinePointer(_ point: SurfacePoint) -> Bool { false }
+  public func stopWebServer() {}
 }

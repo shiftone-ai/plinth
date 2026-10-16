@@ -2,6 +2,12 @@ import Foundation
 import KioskCore
 
 @MainActor
+public protocol WebAdministrationServerPort: AnyObject {
+  func start() async -> Result<WebServerEndpoint, WebServerFailure>
+  func stop()
+}
+
+@MainActor
 public protocol WebSurfacePort: AnyObject {
   func create(_ token: OperationToken, mode: ResetMode, interaction: InteractionPolicy)
   func load(_ address: String, token: OperationToken) -> Bool
