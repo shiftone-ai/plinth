@@ -33,9 +33,9 @@ iOS版とMac版はPrivacy Manifest `Resources/PrivacyInfo.xcprivacy` で，理�
 
 管理画面の多言語表示（日本語・英語・韓国語・中国語の簡体字）は実装済み．OSの言語と画面内の切り替えについては [管理画面の言語](development.md#管理画面の言語) を参照する．
 
-外部ブラウザから設定するWebサーバー機能は [Issue #2](https://github.com/shiftone-ai/plinth/issues/2) で追跡する．
+端末の管理画面でWeb管理を有効にすると，同じローカルネットワークのブラウザから設定できる．HTTP通信のため，隔離したネットワークで運用する．実装と検証は [Issue #2](https://github.com/shiftone-ai/plinth/issues/2) で追跡する．
 
-Touch ID・Face IDによる解除は [Issue #3](https://github.com/shiftone-ai/plinth/issues/3) で追跡する．
+対応端末では，管理者が有効にしたTouch ID・Face IDによる解除を利用できる．実装と検証は [Issue #3](https://github.com/shiftone-ai/plinth/issues/3) で追跡する．
 
 ## MacのApp Store配布
 
