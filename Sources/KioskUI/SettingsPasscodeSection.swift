@@ -77,14 +77,6 @@ struct SettingsPasscodeSection: View {
         .foregroundStyle(.red)
         .accessibilityIdentifier("biometric-change-failed")
       }
-      if props.biometricEnrollmentChanged {
-        Label(
-          L10n.string("Biometric enrollment changed. Enable unlock again", locale: locale),
-          systemImage: "exclamationmark.circle"
-        )
-        .foregroundStyle(.red)
-        .accessibilityIdentifier("biometric-enrollment-changed")
-      }
       #if os(macOS)
         LabeledContent(L10n.string("Administrator unlock", locale: locale), value: "⌘ ⌥ ⇧ K")
       #endif
