@@ -73,7 +73,7 @@ extension Presenters {
       passphrase: administration.catalogPassphrase,
       confirmPassphrase: administration.catalogConfirmPassphrase,
       canExport: root.mode == .administration && root.catalogLoaded
-        && !root.catalog.entries.isEmpty && root.catalogExportOperation == nil
+        && !available.isEmpty && root.catalogExportOperation == nil
         && root.catalogExportData == nil
         && administration.catalogPassphrase.precomposedStringWithCanonicalMapping.count >= 16
         && administration.catalogPassphrase.utf8.count <= 1024
