@@ -112,13 +112,18 @@ extension RootMediator {
     next.unlockID = envelope.eventID
     next.unlockTimeoutOperation = token
     next.unlockDeadline = envelope.timestamp + 60
+    next.biometricUnlockOperation = nil
+    next.biometricUnlockFailed = false
     next.mode = .unlocking
+    let statusToken = envelope.token(owner: .credentials, epoch: state.epoch)
+    next.biometricStatusOperation = statusToken
     let pointerEffects = releasePointer(&next, token: token)
     return .handled(
       .init(
         next, reply: .accepted,
         effects: pointerEffects + [
-          Effect(token, .scheduleUnlockTimeout(deadline: envelope.timestamp + 60))
+          Effect(token, .scheduleUnlockTimeout(deadline: envelope.timestamp + 60)),
+          Effect(statusToken, .readBiometricStatus),
         ],
         childControls: [
           .init(.administration, .openUnlock(unlockID: envelope.eventID))

@@ -1,8 +1,92 @@
 import Foundation
+import UIKit
 import XCTest
 import XCUIAutomation
 
 extension MobileWorkflowUITests {
+  @MainActor func testBiometricUnlockSucceedsOnlyWhenRequested() async throws {
+    let app = try await biometricUnlockFixture(result: "succeeded")
+    try await exists(app.buttons["verify-biometric"])
+    XCTAssertTrue(app.secureTextFields["unlock-passcode"].exists)
+    app.buttons["verify-biometric"].tap()
+    try await exists(app.buttons["start-exhibition"])
+    XCTAssertFalse(app.secureTextFields["unlock-passcode"].exists)
+  }
+
+  @MainActor func testBiometricUnlockFailureKeepsPasswordAvailable() async throws {
+    let app = try await biometricUnlockFixture(result: "failed")
+    try await exists(app.buttons["verify-biometric"])
+    app.buttons["verify-biometric"].tap()
+    try await exists(app.staticTexts["biometric-unlock-failed"])
+    XCTAssertTrue(app.secureTextFields["unlock-passcode"].exists)
+    try await enterAdministrationWithPassword(app)
+  }
+
+  @MainActor func testBiometricUnlockCancellationKeepsPasswordAvailable() async throws {
+    let app = try await biometricUnlockFixture(result: "cancelled")
+    try await exists(app.buttons["verify-biometric"])
+    app.buttons["verify-biometric"].tap()
+    let cancel = app.buttons["cancel-biometric-unlock"]
+    try await exists(cancel)
+    cancel.tap()
+    XCTAssertFalse(app.staticTexts["biometric-unlock-failed"].exists)
+    XCTAssertTrue(app.secureTextFields["unlock-passcode"].exists)
+    try await enterAdministrationWithPassword(app)
+  }
+
+  @MainActor func testBiometricEnrollmentChangeDisablesUnlock() async throws {
+    let app = try await biometricUnlockFixture(result: "enrollmentChanged")
+    try await exists(app.buttons["verify-biometric"])
+    app.buttons["verify-biometric"].tap()
+    try await exists(app.staticTexts["biometric-unlock-failed"])
+    XCTAssertFalse(app.buttons["verify-biometric"].exists)
+    try await enterAdministrationWithPassword(app)
+    let setting = app.switches["biometric-unlock"]
+    reach(setting, app: app)
+    XCTAssertEqual(setting.value as? String, "0")
+    let notice = app.staticTexts["biometric-enrollment-changed"]
+    reach(notice, app: app)
+    try await exists(notice)
+  }
+
+  @MainActor private func biometricUnlockFixture(result: String) async throws -> XCUIApplication {
+    continueAfterFailure = false
+    let server = try FixtureServer()
+    try await server.start()
+    addTeardownBlock { await MainActor.run { server.stop() } }
+    let app = XCUIApplication()
+    app.launchArguments = ["-AppleLanguages", "(en)"]
+    app.launchEnvironment["PLINTH_TEST_CREDENTIAL_SERVICE"] =
+      "ai.shiftone.plinth.tests.\(UUID().uuidString)"
+    app.launchEnvironment["PLINTH_TEST_BIOMETRIC_RESULT"] = result
+    app.launchEnvironment["PLINTH_TEST_BIOMETRIC_KIND"] =
+      UIDevice.current.userInterfaceIdiom == .phone ? "faceID" : "touchID"
+    addTeardownBlock { await MainActor.run { app.terminate() } }
+    app.launch()
+    try await configureExhibition(
+      app, origin: server.origin, language: "biometric-unlock-\(result)",
+      controlTitles: (save: "Save settings", start: "Start exhibition"),
+      waitForPage: false)
+    try await enterAdministrationWithPassword(app)
+    let setting = app.switches["biometric-unlock"]
+    reach(setting, app: app)
+    try await enabled(setting)
+    XCTAssertEqual(
+      setting.label,
+      UIDevice.current.userInterfaceIdiom == .phone
+        ? "Unlock with Face ID" : "Unlock with Touch ID")
+    setting.switches.firstMatch.tap()
+    let selected = expectation(for: NSPredicate(format: "value == %@", "1"), evaluatedWith: setting)
+    await fulfillment(of: [selected], timeout: 10)
+    let start = app.buttons["start-exhibition"]
+    reach(start, app: app)
+    start.tap()
+    try await exists(app.buttons["request-unlock"])
+    app.buttons["request-unlock"].tap()
+    try await exists(app.secureTextFields["unlock-passcode"])
+    return app
+  }
+
   @MainActor func testFaceIDAuthenticationPromptUsesFaceIDLabel() async throws {
     guard ProcessInfo.processInfo.environment["PLINTH_BIOMETRIC_SIMULATOR_TEST"] == "1" else {
       throw XCTSkip("Requires enrolled Face ID in a Simulator")
@@ -186,10 +270,12 @@ extension MobileWorkflowUITests {
   }
 
   @MainActor private func enterAdministrationWithPassword(_ app: XCUIApplication) async throws {
-    let request = app.buttons["request-unlock"]
-    try await exists(request)
-    request.tap()
     let password = app.secureTextFields["unlock-passcode"]
+    if !password.exists {
+      let request = app.buttons["request-unlock"]
+      try await exists(request)
+      request.tap()
+    }
     try await exists(password)
     password.tap()
     password.typeText("plinth-localization-passcode")

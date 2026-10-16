@@ -83,6 +83,9 @@ public final class NativeEffectPort: EffectPort {
     case .changeBiometricUnlock(let enabled):
       let (status, outcome) = await biometrics.changeEnabled(enabled, token: effect.token)
       return .biometricChangeCompleted(effect.token, status, outcome)
+    case .performBiometricUnlock:
+      let (status, outcome) = await biometrics.unlock(effect.token)
+      return .biometricUnlockCompleted(effect.token, status, outcome)
     case .saveProfile(let profile):
       do {
         try await repository.save(profile)

@@ -2670,6 +2670,126 @@
           }
         }
       }
+    },
+    "Could not unlock with biometrics": {
+      "comment": "Administrator biometric unlock status.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not unlock with biometrics"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "生体認証で解除できませんでした"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "생체 인증으로 잠금 해제할 수 없습니다"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法通过生物识别解锁"
+          }
+        }
+      }
+    },
+    "Biometric enrollment changed. Enable unlock again": {
+      "comment": "Administrator biometric unlock status.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Biometric enrollment changed. Enable unlock again"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "指紋・顔の登録が変わりました。解除をもう一度有効にしてください"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "등록된 생체 정보가 변경되었습니다. 잠금 해제를 다시 켜세요"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "生物识别信息已更改，请重新启用解锁"
+          }
+        }
+      }
+    },
+    "Touch ID keyboard is disconnected": {
+      "comment": "Administrator biometric unlock status.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Touch ID keyboard is disconnected"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Touch IDキーボードが接続されていません"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Touch ID 키보드가 연결되지 않았습니다"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "触控 ID 键盘未连接"
+          }
+        }
+      }
+    },
+    "Touch ID keyboard is not paired": {
+      "comment": "Administrator biometric unlock status.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Touch ID keyboard is not paired"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Touch IDキーボードがペアリングされていません"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Touch ID 키보드가 페어링되지 않았습니다"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "触控 ID 键盘尚未配对"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

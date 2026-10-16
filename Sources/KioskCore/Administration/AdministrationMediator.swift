@@ -165,6 +165,20 @@ public enum AdministrationMediator {
       if next.failedAttempts >= 3 { next.cooldownUntil = envelope.timestamp + 30 }
       return .handled(.init(next))
 
+    case .biometricAuthenticationVerified:
+      guard envelope.source == .root, mode == .leavingKiosk else {
+        return .reject(state, .invalidState)
+      }
+      next.unlockID = nil
+      next.passcode = ""
+      next.failedAttempts = 0
+      next.cooldownUntil = nil
+      next.verification = nil
+      next.epoch += 1
+      return .handled(
+        .init(next, effects: state.verification.map { [Effect(token, .cancelOperation($0))] } ?? [])
+      )
+
     case .cancelAuthentication:
       guard [.root, .unlock].contains(envelope.source) else { return .reject(state, .wrongSource) }
       next.unlockID = nil

@@ -49,12 +49,32 @@
         .appendingPathComponent("profile.json")
       presentation = MobilePresentationAdapter()
       presentation.pointer = pointer
+      let biometrics: any BiometricCredentialPort
+      #if DEBUG
+        biometrics =
+          MobileBiometricTestPort.make(service: credentialService)
+          ?? BiometricCredentialAdapter(
+            service: credentialService,
+            reason: { [language] in
+              L10n.string("Enable administrator unlock with biometrics", locale: language.locale)
+            },
+            unlockReason: { [language] in
+              L10n.string("Administrator unlock", locale: language.locale)
+            })
+      #else
+        biometrics = BiometricCredentialAdapter(
+          service: credentialService,
+          reason: { [language] in
+            L10n.string("Enable administrator unlock with biometrics", locale: language.locale)
+          },
+          unlockReason: { [language] in
+            L10n.string("Administrator unlock", locale: language.locale)
+          })
+      #endif
       let port = NativeEffectPort(
         web: web, presentation: presentation, repository: ProfileRepository(fileURL: location),
         credentials: CredentialStore(service: credentialService),
-        biometrics: BiometricCredentialAdapter(service: credentialService) { [language] in
-          L10n.string("Enable administrator unlock with biometrics", locale: language.locale)
-        },
+        biometrics: biometrics,
         clock: clock, displays: presentation)
       #if DEBUG
         if let value = ProcessInfo.processInfo.environment["PLINTH_TEST_IDLE_SECONDS"],
@@ -218,6 +238,8 @@
       case .editPasscode(let value): event = .passcodeEdited(value)
       case .submit: event = .passcodeSubmitted
       case .cancel: event = .cancelAuthentication
+      case .authenticateWithBiometrics: event = .biometricUnlockRequested
+      case .cancelBiometricAuthentication: event = .biometricUnlockCancelled
       }
       runtime.send(event, from: .unlock)
     }
