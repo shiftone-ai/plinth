@@ -206,6 +206,19 @@ def privacy_manifest(app: Path) -> list[str]:
     return [f"PrivacyInfo.xcprivacy が無いか読めない: {app.name}"]
 
 
+def mac_store_copyright(app: Path) -> list[str]:
+    info_path = app / "Contents/Info.plist"
+    if not info_path.is_file():
+        return []
+    info = plistlib.loads(info_path.read_bytes())
+    if info.get("CFBundleIdentifier") != "ai.shiftone.plinth.mobile":
+        return []
+    value = info.get("NSHumanReadableCopyright", "")
+    if isinstance(value, str) and value.strip() and "$(" not in value:
+        return []
+    return [f"Mac App Store用の著作権表示が無い: {app.name}"]
+
+
 def unshippable(tree: Path) -> list[str]:
     # Signing embeds a profile only inside code bundles, never at the root of an archive.
     bundles = code_bundles(tree) if tree.suffix == ".app" else code_bundles(tree)[1:]
@@ -299,6 +312,7 @@ def main() -> int:
                 for app in apps
                 for finding in (signing(app) if exported else [])
                 + privacy_manifest(app)
+                + mac_store_copyright(app)
                 + local_paths(app, bundle_files(app))
             ]
         except (

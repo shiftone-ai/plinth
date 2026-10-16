@@ -37,6 +37,10 @@ iOS版とMac版はPrivacy Manifest `Resources/PrivacyInfo.xcprivacy` で，理�
 
 Touch ID・Face IDによる解除は [Issue #3](https://github.com/shiftone-ai/plinth/issues/3) で追跡する．
 
+## MacのApp Store配布
+
+`python3 scripts/create-xcode-project.py --app-store` でMac App Store用のprojectを生成する．archive時はXcodeのビルド設定 `PLINTH_COPYRIGHT` に，権利取得年と権利者名を含む承認済みの表記を渡す．この値は `Resources/Info.plist` の `NSHumanReadableCopyright` に入る．個人名をprojectやリポジトリに保存しない．配布前にarchive内の値を `plutil` で確認する．
+
 ## MacのDeveloper ID配布
 
 App Storeを通さずにMacへ渡す版は，Developer IDで署名し，公証チケットをstapleしたzipにする．Bundle IDは `ai.shiftone.plinth` で，`scripts/build-app.sh` の版と同じくSandboxを使わない．設定は `~/Library/Application Support/Plinth/`，管理者パスワードの検証値はログインKeychainのservice `ai.shiftone.plinth` に置く．TestFlight版（`ai.shiftone.plinth.mobile`）とは保存先を共有しない．

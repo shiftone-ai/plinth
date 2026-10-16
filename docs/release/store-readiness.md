@@ -6,10 +6,10 @@ Issue #28の提出可否を判断する表．iPhone／iPad版とMac専用版はA
 | --- | --- | --- | --- |
 | アプリ名・Bundle ID | 要確認 | App Store Connectの日本語名はPlinth Kiosk，Bundle IDは`ai.shiftone.plinth.mobile`で両プラットフォーム共通．署名済みのMacアプリとiOS IPAで同じIDを確認した．iOSの版数は製品ページと候補で1.0にそろえた．製品ページの最終表示を照合する | 実装担当 |
 | カテゴリ・サブタイトル | 確認済み | App Store Connectで主カテゴリをUtilities，4言語のサブタイトルを[原稿](store-listing.md)どおりに保存した | 実装担当 |
-| 著作権表示 | 要判断 | iOS・Mac版のCopyright欄は空欄．権利者の正式な表記を公開担当が決め，両版へ保存する | 公開担当 |
+| 著作権表示 | 確認済み | 利用者が正式な表記を確認した．iOS・Mac版のCopyright欄へ保存し，Macの新しいarchiveの`NSHumanReadableCopyright`に同じ表記を確認した．公開リポジトリには個人名を記録せず，Macのarchive時に`PLINTH_COPYRIGHT`を指定する | 公開担当 |
 | 説明・キーワード・サポートURL | 確認済み | App Store ConnectのiOS版とMac版で，4言語の説明・キーワード・サポートURLを[原稿](store-listing.md)どおりに保存した．選定ビルドとの最終照合は別項目 | 実装担当 |
 | アイコン | 要確認 | `Resources/Assets.xcassets`のアイコンを目視し，Macのarchiveの`Assets.car`に16～1024pxのAppIconが入ることを確認した．製品ページの最終表示を照合する | 実装担当 |
-| iPhone・iPad・Macの画像 | 要確認 | [画像](screenshots/)に4言語それぞれのiPhone 17 Pro Max（1320×2868）・iPad Pro 13インチ（2064×2752）のSimulator実画像を2枚ずつ保存した．App Store Connectの言語別Media Managerで各2枚の登録を確認した．Macは提出候補のアーカイブを開発用に再署名して起動し，管理・展示画面を2560×1600の画像2枚に保存した．画像は未登録で，App Store配布署名の状態での画面は未確認 | 実装担当 |
+| iPhone・iPad・Macの画像 | 要確認 | [画像](screenshots/)に4言語それぞれのiPhone 17 Pro Max（1320×2868）・iPad Pro 13インチ（2064×2752）のSimulator実画像を2枚ずつ保存した．App Store Connectの言語別Media Managerで各2枚の登録を確認した．Macは提出候補のアーカイブを開発用に再署名して起動し，管理・展示画面を2560×1600の画像2枚に保存した．利用者の確認後にMac版のスクリーンショット欄へ登録し，2 of 10と表示された．この画像は全言語のMac製品ページに使われる．新しい候補ビルドには著作権表記だけを追加したため，配布用署名の状態での画面は引き続き未確認 | 実装担当 |
 | 公開のプライバシーURL | 確認済み | [4言語のURL](public-pages.md)が未ログインで到達可能．App Store Connectにも言語別URLを保存した．アプリ内導線の残りの端末での確認は別項目 | 実装担当 |
 | 公開のサポートURL | 確認済み | [4言語のURL](public-pages.md)が未ログインで到達可能．連絡先は利用者が承認した `contact@shiftone.ai` | 実装担当 |
 | アプリ内のページとライセンス | 要確認 | iPhone SimulatorのiOS 27英語・iOS 26.4簡体字中国語と，iPad Pro 13インチ SimulatorのiOS 26.4日本語でプライバシー・サポートの遷移が成功した．iPhoneとiPadでライセンス表示が成功した．開けないURLの試験用設定では，両Simulatorで設定保存・展示開始・管理者解除が成功した．MacのReleaseプレビュー版でも実機UIテスト1件が成功した．提出候補のアーカイブを開発用に再署名して起動し，Safariへのプライバシー・サポート遷移，ライセンス表示，展示画面の描画を手元のMacで確認した．同じ環境で開けないURLを保存して展示を始めると「Exhibition stopped」が表示され，管理者パスワードで設定へ戻れた．App Store配布署名の状態での照合は未確認 | 実装担当 |
@@ -26,4 +26,4 @@ Issue #28の提出可否を判断する表．iPhone／iPad版とMac専用版はA
 
 ## 現在の判定
 
-**審査提出不可**．Mac用画像の登録と著作権の正式な表記が残る．提出候補のアーカイブを開発用に再署名し，手元のMacで管理・展示画面，公開ページへの導線，通信失敗時の解除を確認した．配布署名済み候補をTestFlightで起動した結果は未確認．App PrivacyのWebViewに関する解釈にも不確実性がある．サポートメールの保管先が[運用手順](support-data.md)の期限を満たすか未確認のため，公開ポリシーには期限を記載していない．対応機器やOSの表示方法は[掲載文](store-listing.md)に限定して記した．未完了のWeb管理は掲載しない．
+**審査提出不可**．著作権表記を追加したMac候補の配布用書き出し・App Store Connectの選択と照合が残る．提出候補のアーカイブを開発用に再署名し，手元のMacで管理・展示画面，公開ページへの導線，通信失敗時の解除を確認した．配布署名済み候補をTestFlightで起動した結果は未確認．App PrivacyのWebViewに関する解釈にも不確実性がある．サポートメールの保管先が[運用手順](support-data.md)の期限を満たすか未確認のため，公開ポリシーには期限を記載していない．対応機器やOSの表示方法は[掲載文](store-listing.md)に限定して記した．未完了のWeb管理は掲載しない．
