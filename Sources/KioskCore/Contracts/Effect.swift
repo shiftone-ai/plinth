@@ -21,6 +21,7 @@ public struct Effect: Equatable, Sendable {
     case readBiometricStatus
     case changeBiometricUnlock(Bool)
     case saveProfile(KioskProfile)
+    case recoverProfile(KioskProfile)
     case loadCatalog
     case saveCatalog(SettingsCatalog)
     case checkCatalogAccount

@@ -32,7 +32,7 @@ public final class EffectExecutor: EffectExecuting {
     case .scheduleIdle, .scheduleRetry, .scheduleUnlockTimeout: source = .idleClock
     case .verifyPasscode, .configurePasscode, .readBiometricStatus, .changeBiometricUnlock:
       source = .credentials
-    case .saveProfile, .bootstrap: source = .profileRepository
+    case .saveProfile, .recoverProfile, .bootstrap: source = .profileRepository
     case .loadCatalog, .saveCatalog, .prepareCatalogExport, .importCatalogFile:
       source = .catalogRepository
     case .checkCatalogAccount, .checkCatalogAccountAfterStopping,

@@ -34,12 +34,7 @@ public final class NativeEffectPort: EffectPort {
     if Task.isCancelled { return nil }
     switch effect.kind {
     case .bootstrap:
-      do {
-        async let profile = repository.load()
-        async let configured = credentials.isConfigured()
-        return try await .bootstrapped(
-          profile: profile, credentialsConfigured: configured, displayCount: displays.count)
-      } catch { return .bootstrapFailed(effect.token, displayCount: displays.count) }
+      return await bootstrap(effect.token)
     case .prepareExternalScene:
       return await presentation.prepareExternalScene(effect.token)
         ? .externalScenePrepared(effect.token) : .externalScenePreparationFailed(effect.token)
@@ -94,11 +89,39 @@ public final class NativeEffectPort: EffectPort {
         try await repository.save(profile)
         return .profileSaved(effect.token, profile)
       } catch { return .profileSaveFailed(effect.token) }
+    case .recoverProfile(let profile):
+      do {
+        try await repository.recover(profile)
+        return .profileSaved(effect.token, profile)
+      } catch { return .profileSaveFailed(effect.token) }
     case .loadCatalog, .saveCatalog, .checkCatalogAccount, .checkCatalogAccountAfterStopping,
       .startCatalogCloudSync, .stopCatalogCloudSync, .publishCatalogChanges,
       .prepareCatalogExport, .importCatalogFile:
       return await performCatalog(effect)
     case .cancelOperation: return nil
+    }
+  }
+
+  private func bootstrap(_ token: OperationToken) async -> Event {
+    async let profile = repository.load()
+    async let configured = credentials.isConfigured()
+    let hasCredentials: Bool
+    do { hasCredentials = try await configured } catch {
+      return .bootstrapFailed(
+        token, displayCount: displays.count, credentialsConfigured: false,
+        profileCorrupt: false)
+    }
+    do {
+      return try await .bootstrapped(
+        profile: profile, credentialsConfigured: hasCredentials, displayCount: displays.count)
+    } catch ProfileRepository.Failure.corruptProfile {
+      return .bootstrapFailed(
+        token, displayCount: displays.count, credentialsConfigured: hasCredentials,
+        profileCorrupt: true)
+    } catch {
+      return .bootstrapFailed(
+        token, displayCount: displays.count, credentialsConfigured: hasCredentials,
+        profileCorrupt: false)
     }
   }
 

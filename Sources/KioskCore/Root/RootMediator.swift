@@ -55,7 +55,7 @@ public enum RootMediator {
       next.bootstrapOperation = token
       return .handled(.init(next, effects: [Effect(token, .bootstrap)]))
 
-    case .bootstrapFailed(let completed, let displayCount):
+    case .bootstrapFailed(let completed, let displayCount, let credentials, let profileCorrupt):
       guard state.mode == .bootstrapping, envelope.source == .profileRepository,
         state.bootstrapOperation == completed
       else {
@@ -63,6 +63,8 @@ public enum RootMediator {
       }
       next.bootstrapOperation = nil
       next.displayCount = displayCount
+      next.credentialsConfigured = credentials
+      next.profileCorrupt = profileCorrupt
       next.mode = .safeHold
       return .handled(.init(next))
 
@@ -349,6 +351,8 @@ public enum RootMediator {
         reason = .invalidState
       } else if state.saveOperation != nil {
         reason = .alreadySaving
+      } else if state.profileCorrupt && !state.administratorSession {
+        reason = .unauthenticated
       } else if !profile.validationIssues.isEmpty
         || profile.revision != ProfileRevision.next(after: state.savedProfile?.revision)
         || (context.catalogRequiresAvailableOutput && !state.canPresent(profile))
@@ -367,7 +371,11 @@ public enum RootMediator {
       next.saveOperation = token
       next.pendingProfile = profile
       return .handled(
-        .init(next, reply: .accepted, effects: [Effect(token, .saveProfile(profile))]))
+        .init(
+          next, reply: .accepted,
+          effects: [
+            Effect(token, state.profileCorrupt ? .recoverProfile(profile) : .saveProfile(profile))
+          ]))
 
     case .profileSaved(let completed, let profile):
       guard envelope.source == .profileRepository else { return .reject(state, .wrongSource) }
@@ -375,6 +383,7 @@ public enum RootMediator {
         return .reject(state, .staleOperation)
       }
       next.savedProfile = profile
+      next.profileCorrupt = false
       next.saveOperation = nil
       next.pendingProfile = nil
       return .handled(

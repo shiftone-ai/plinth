@@ -22,6 +22,7 @@ public struct RootState: Equatable, Sendable {
   public var epoch: UInt64 = 1
   public var mode: AppMode = .bootstrapping
   public var savedProfile: KioskProfile?
+  public var profileCorrupt = false
   public var activeProfile: KioskProfile?
   public var catalog = SettingsCatalog()
   public var catalogLoaded = false

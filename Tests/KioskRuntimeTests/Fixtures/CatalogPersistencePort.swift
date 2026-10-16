@@ -9,21 +9,22 @@ final class CatalogPersistencePort: EffectPort {
   private let catalog: CatalogRepository
   var accountIdentifier: String?
   private(set) var publishedEntries: [CatalogEntry] = []
-  private(set) var credentialsConfigured = false
+  private(set) var credentialsConfigured: Bool
 
-  init(profile: ProfileRepository, catalog: CatalogRepository, accountIdentifier: String? = nil) {
+  init(
+    profile: ProfileRepository, catalog: CatalogRepository, accountIdentifier: String? = nil,
+    credentialsConfigured: Bool = false
+  ) {
     self.profile = profile
     self.catalog = catalog
     self.accountIdentifier = accountIdentifier
+    self.credentialsConfigured = credentialsConfigured
   }
 
   func perform(_ effect: Effect) async -> Event? {
     switch effect.kind {
     case .bootstrap:
-      do {
-        return try await .bootstrapped(
-          profile: profile.load(), credentialsConfigured: credentialsConfigured, displayCount: 1)
-      } catch { return .bootstrapFailed(effect.token, displayCount: 1) }
+      return await bootstrap(effect.token)
     case .loadCatalog:
       do { return try await .catalogLoaded(effect.token, catalog.load()) } catch {
         return .catalogLoadFailed(effect.token)
@@ -36,6 +37,11 @@ final class CatalogPersistencePort: EffectPort {
     case .saveProfile(let value):
       do {
         try await profile.save(value)
+        return .profileSaved(effect.token, value)
+      } catch { return .profileSaveFailed(effect.token) }
+    case .recoverProfile(let value):
+      do {
+        try await profile.recover(value)
         return .profileSaved(effect.token, value)
       } catch { return .profileSaveFailed(effect.token) }
     case .checkCatalogAccount, .checkCatalogAccountAfterStopping:
@@ -55,6 +61,21 @@ final class CatalogPersistencePort: EffectPort {
           effect.token, EncryptedCatalogFile.decrypt(data, passphrase: passphrase))
       } catch { return .catalogImportFailed(effect.token) }
     default: return nil
+    }
+  }
+
+  private func bootstrap(_ token: OperationToken) async -> Event {
+    do {
+      return try await .bootstrapped(
+        profile: profile.load(), credentialsConfigured: credentialsConfigured, displayCount: 1)
+    } catch ProfileRepository.Failure.corruptProfile {
+      return .bootstrapFailed(
+        token, displayCount: 1, credentialsConfigured: credentialsConfigured,
+        profileCorrupt: true)
+    } catch {
+      return .bootstrapFailed(
+        token, displayCount: 1, credentialsConfigured: credentialsConfigured,
+        profileCorrupt: false)
     }
   }
 

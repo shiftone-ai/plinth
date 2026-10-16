@@ -4,7 +4,8 @@ public enum Event: Equatable, Sendable {
   // Root requests and facts.
   case bootstrapped(profile: KioskProfile?, credentialsConfigured: Bool, displayCount: Int)
   case bootstrapRequested
-  case bootstrapFailed(OperationToken, displayCount: Int)
+  case bootstrapFailed(
+    OperationToken, displayCount: Int, credentialsConfigured: Bool, profileCorrupt: Bool)
   case applicationDeactivated
   case applicationActivated
   case systemWillSleep
