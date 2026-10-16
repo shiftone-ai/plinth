@@ -5,6 +5,7 @@
 | 変更対象 | 規約 |
 | --- | --- |
 | Nodeの所有，CoR，Mediator，Passive View，Presenter，Binding | [構造と責務](architecture.md) |
+| UIの文言，String Catalog，言語ごとの検証 | [翻訳](localization.md) |
 | isolation，Task，取消，世代照合，WebKitのreply，保存 | [Concurrency](concurrency.md) |
 | Core・Policy・Presenter・CoR・Adapter契約テスト，UI・実機試験 | [Testing](testing.md) |
 | Swift Skillの適用，toolchain，取得元の更新 | [Skillの適用条件](skills.md) |

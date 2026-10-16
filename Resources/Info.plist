@@ -3,6 +3,11 @@
 <plist version="1.0"><dict>
   <key>CFBundleName</key><string>Plinth</string>
   <key>CFBundleDisplayName</key><string>Plinth</string>
+  <key>CFBundleDevelopmentRegion</key><string>en</string>
+  <key>CFBundleLocalizations</key><array>
+    <string>en</string><string>ja</string><string>ko</string>
+    <string>zh-Hans</string>
+  </array>
   <key>CFBundleIdentifier</key><string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
   <key>CFBundleExecutable</key><string>Plinth</string>
   <key>CFBundlePackageType</key><string>APPL</string>

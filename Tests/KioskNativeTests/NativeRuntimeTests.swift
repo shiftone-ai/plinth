@@ -50,7 +50,11 @@ struct NativeRuntimeTests {
     let port = NativeEffectPort(
       web: web,
       presentation: PresentationAdapter(window: window, preview: true, displays: displays),
-      repository: repository, credentials: credentials, clock: MonotonicClock(), displays: displays)
+      repository: repository, credentials: credentials,
+      biometrics: BiometricCredentialAdapter(service: "ai.shiftone.plinth.tests.\(UUID())") {
+        "Enable administrator unlock with biometrics"
+      },
+      clock: MonotonicClock(), displays: displays)
     let executor = EffectExecutor(port: port)
     let runtime = RootRuntime(clock: MonotonicClock(), executor: executor)
     defer { runtime.stop() }
@@ -116,7 +120,11 @@ struct NativeRuntimeTests {
     let port = NativeEffectPort(
       web: web,
       presentation: PresentationAdapter(window: window, preview: true, displays: displays),
-      repository: repository, credentials: credentials, clock: clock, displays: displays)
+      repository: repository, credentials: credentials,
+      biometrics: BiometricCredentialAdapter(service: "ai.shiftone.plinth.tests.\(UUID())") {
+        "Enable administrator unlock with biometrics"
+      },
+      clock: clock, displays: displays)
     let executor = EffectExecutor(port: port)
     let runtime = RootRuntime(clock: clock, executor: executor)
     defer { runtime.stop() }

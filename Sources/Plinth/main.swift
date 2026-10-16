@@ -12,12 +12,18 @@ if arguments.contains("--help") {
     """)
   exit(EXIT_SUCCESS)
 }
-if arguments.contains(where: { $0 != "--preview" }) {
+var appArguments = arguments
+for option in ["-AppleLanguages", "-NSShowNonLocalizedStrings", "-NSDoubleLocalizedStrings"] {
+  if let index = appArguments.firstIndex(of: option), appArguments.indices.contains(index + 1) {
+    appArguments.removeSubrange(index...(index + 1))
+  }
+}
+if appArguments.contains(where: { $0 != "--preview" }) {
   FileHandle.standardError.write(Data("Unknown option. Use Plinth --help.\n".utf8))
   exit(EXIT_FAILURE)
 }
 let application = NSApplication.shared
-let preview = arguments.contains("--preview")
+let preview = appArguments.contains("--preview")
 let environment = ProcessInfo.processInfo.environment
 // Release fixtures are limited to preview; Debug also supports explicitly enabled dedicated OS tests.
 let testService = environment["PLINTH_TEST_CREDENTIAL_SERVICE"]

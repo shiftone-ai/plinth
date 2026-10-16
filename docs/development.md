@@ -2,6 +2,26 @@
 
 Core・Presenter・RuntimeとPassive SwiftUI Viewを共用し，Mac・UIKitの起動処理とNative Adapterを結合している．実装した機能と受け入れ試験の完了は区別する．
 
+## 管理画面の言語
+
+管理画面，展示停止，管理者解除，入力エラー，アクセシビリティ名は英語・日本語・韓国語・中国語の簡体字に対応する．文言は `KioskLocalization` のString Catalogで管理する．原文は英語とし，追加手順は [翻訳の規約](rules/localization.md) に記録した．
+
+初期値はOSが選んだ言語で，管理画面の「表示言語」からその場で変更できる．選択は端末に保存され，次の起動にも適用される．「システムに従う」を選ぶとOSの言語に戻る．
+
+対応外の言語と未翻訳の文言は英語で表示する．Webページの文言はアプリでは翻訳しない．
+
+管理画面に日付表示はない．無操作時間は秒で入力し，解像度はピクセル数で表示する．対応言語の数値入力は小数点に `.` を使う．表示言語は展示設定・管理者パスワードと別に保存するため，言語を変えても設定と認証状態は変更しない．
+
+英語原文のcatalogと英語へのフォールバックは単体試験で確認した．iPad Air 11インチ（M4）のiPadOS 26.4 Simulatorでは，ja・en・ko・zh-Hansそれぞれで入力・保存・実WebKitでの展示・誤入力と取消を含む管理者解除を通した．画面内で言語を切り替えた後の再起動でも，保存済みの設定と管理者パスワードを使えた．frでは英語に戻り，倍長の擬似翻訳でも縦・横の設定画面を操作できた．韓国語と簡体字中国語の取得画像では，文言の重なりや切れを確認しなかった．
+
+同じSimulatorの設定アプリには英語・日本語・韓国語・簡体字中国語が表示された．日本語を選んでPlinthを通常起動し，日本語の管理画面を確認した．iPadOS 26.4 Simulatorの外部画面を720×480で接続し，4言語それぞれで展示を開始して，本体の操作面と展示中のアイコンのaccessibility名をUI試験で確認した（1件成功，失敗・skip 0件）．iPadOS 27.0 Simulatorでも外部Sceneを接続し，同じ4言語のUI試験が成功した．このSceneの接続方法はiPadOS 27以降で変わり，Plinthは新しいScene accessory登録を使う（[Appleの外部表示資料](https://developer.apple.com/documentation/uikit/presenting-content-on-a-connected-display)）．Xcode 27の`XCUIVoiceOverService`を使うと，iPadOS 27.0 Simulatorで外部展示の操作面・展示状態・管理者解除ボタンの発話文字列を4言語とも取得できた．実機のスピーカーからの音声とジェスチャー操作は，この試験には含まない．
+
+macOS 27.0.1の専用Macでは，スクリプト生成とXcodeの両.appをビルドし，4言語のresource bundleを確認した．両.appのpreviewで4言語の設定入力・保存・WebKit展示・誤入力・取消・管理者解除・再起動のGUI試験がそれぞれ1件成功し，失敗は0件だった．編集・終了メニューの4言語の項目も両.appで操作し，それぞれ1件成功した．`-NSShowNonLocalizedStrings YES` と `-NSDoubleLocalizedStrings YES` の起動と画面操作は両.appで成功した．倍長の擬似翻訳の上部・下部の画像では，項目とボタンに重なりや切れは見られなかった．Xcodeの.appでは通常モードも試し，設定・展示・アイドル復帰・終了操作の抑止・誤入力と取消を含む管理者解除・再起動が1件成功し，失敗とskipは0件だった．
+
+iPadOS 26.4 SimulatorのTouch IDでは，有効化・無効化・再起動後の保持と，OSの認証画面での取消を操作した．iOS 26.4のiPhone SimulatorではFace IDの認証画面を確認し，登録解除で設定がオフになり，再登録後もオフのままであることを確認した．
+
+Macでは，現行ソースをDeveloper IDで署名して書き出し，`keychain-access-groups` とそれを認めるprovisioning profileを確認した．同じ署名設定の診断用ビルドで，隔離したserviceに `.biometryCurrentSet` のData Protection Keychain項目を作成・削除した（`SecItemAdd = 0`，`SecItemDelete = 0`，削除後 `errSecItemNotFound`）．認証を許さない値の照会は `errSecInteractionNotAllowed` だった．配布用UIでのTouch ID操作と失敗時の表示，実機で登録済みの顔・指紋を別の登録に入れ替えたときの失効は未確認である．
+
 ## 環境とtarget
 
 確認した環境はmacOS 26.6.2（arm64），Xcode 27.0，Swift 6.4，macOS SDK 27.0．deployment target，Swift language mode，target別のdefault isolationは [Package.swift](../Package.swift) で管理する．upcoming featureの個別指定は追加していない．
@@ -47,7 +67,7 @@ SwiftLintの既存の違反は `.swiftlint-baseline.json` に記録し，記録�
 - `Tests/KioskCoreTests/` はURL・入力Policy，Root／Exhibition／Administrationの遷移，Reply，Effectの順序，拒否理由を検証する．
 - `Tests/KioskPresentationTests/` は未完成のdraft，開始・保存の有効状態，解除中のWeb入力停止を表示用の値として検証する．
 - `Tests/KioskRuntimeTests/` は所有ツリーとCoRの経路，状態確定後のEffect実行，再入，取消・遅延結果，replyの一度だけの完了を検証する．
-- `Tests/KioskAdapterTests/` は実ファイルへの保存，破損・古いrevisionの拒否，パスコード検証値の生成と照合を検証する．Keychainへの実際の読み書きはこのtargetに含まない．
+- `Tests/KioskAdapterTests/` は実ファイルへの保存，破損・古いrevisionの拒否，管理者パスワード検証値の生成と照合を検証する．Keychainへの実際の読み書きはこのtargetに含まない．
 - `Tests/KioskNativeTests/` は実WebKit・隔離したKeychain・原子的保存・時計を結合する専用target．リンク・リダイレクト・新規ウィンドウ・拒否先・ダイアログ，無操作復帰，認証失敗・取消・成功，通信失敗時の再試行上限を検証する．通常はskipする．
 - `Tests/KioskUITests/` はXCTest＋XCUIAutomationで設定から管理者解除までを操作する別target．生成したXcode projectでビルドし，明示的に有効にした専用Macだけで実行する．
 
@@ -80,7 +100,7 @@ Dock／メニューバー，OSジェスチャ，ディスプレイ変更，ス�
 
 ## MobileのUI試験
 
-`KioskMobileUITests` はXCTest＋XCUIAutomationと端末上のHTTP fixtureを使う．設定保存・実WebKitの許可／拒否リンク・到着後の無操作復帰・誤ったパスコード・取消・正しいパスコードでの解除を操作する．Keychainと保存先は試験ごとに分ける．`testCurrentSiteCancelledUnlockAndShortIdle` は展示を設定済みの端末で動かし，開始URLとリンク名を `TEST_RUNNER_PLINTH_TEST_SITE_URL` と `TEST_RUNNER_PLINTH_TEST_SITE_LINK` で渡す．渡さない場合はskipする．
+`KioskMobileUITests` はXCTest＋XCUIAutomationと端末上のHTTP fixtureを使う．設定保存・実WebKitの許可／拒否リンク・到着後の無操作復帰・誤った管理者パスワード・取消・正しい管理者パスワードでの解除を操作する．Keychainと保存先は試験ごとに分ける．`testCurrentSiteCancelledUnlockAndShortIdle` は展示を設定済みの端末で動かし，開始URLとリンク名を `TEST_RUNNER_PLINTH_TEST_SITE_URL` と `TEST_RUNNER_PLINTH_TEST_SITE_LINK` で渡す．渡さない場合はskipする．
 
 ```sh
 python3 scripts/create-xcode-project.py
@@ -110,7 +130,7 @@ python3 scripts/test-mobile-external-display.py <iPad SimulatorのUDID>
 
 専用Macで `PLINTH_NATIVE_TESTS=1 PLINTH_SOAK_TESTS=1 swift test --no-parallel -Xswiftc -warnings-as-errors` を実行し，119件が成功した．実WebKitのhover，Pointer Capture，HTMLドラッグ＆ドロップ，取消とクリック時のユーザー操作状態を含む．5,040回の復帰ではNative Effect Executorを使い，120秒ずつ時計を進めた．表示用Viewが1つであること，旧Viewの取り外し，Taskと記録数の上限を確認した．実時間の1週間運転とは区別する．
 
-旧OS側はiOS 26.4のiPad Simulator，720×480の外部表示で操作・再生・解除・切断・再接続まで成功した．iOS 27のiPhone Simulatorの1920×1080でも同じ操作が通り，動画の再開を画像で確認した．Macのカーソル補正・解除，ウィンドウ表示，署名付きSandboxでの旧Keychain移行・パスコード変更・再起動と，1920×1080全画面の通し試験も実機で成功した．
+旧OS側はiOS 26.4のiPad Simulator，720×480の外部表示で操作・再生・解除・切断・再接続まで成功した．iOS 27のiPhone Simulatorの1920×1080でも同じ操作が通り，動画の再開を画像で確認した．Macのカーソル補正・解除，ウィンドウ表示，署名付きSandboxでの旧Keychain移行・管理者パスワード変更・再起動と，1920×1080全画面の通し試験も実機で成功した．
 
 iPadOS 26.6.2のiPad実機では，外部ディスプレイへの独立表示，リンク・スクロール・解除取消・解除と再開，ドラッグ・無音の再生許可，動画再生が成功した．外部画面の取得画像は四隅まで描画されていた．推奨モードへの明示切替を外し，overscan補正を無効にした版で `testExternalSurfaceFillsDisplay` が成功した．1080pへの切替時に黒帯が消えたが，後の円の確認では縦横比が崩れていた．黒帯の有無だけでモードを適切と判断しない．物理入力によるWeb操作とケーブルの抜き差しは別に確認する．
 
@@ -160,7 +180,7 @@ iPadOS 26.6.2の実機で，マウス固定中の同じトラックパッド操�
 
 実WebKitの回帰試験では，720×480と480×720の両表示領域で，120 CSSピクセルの入力によるページの移動量が120ピクセルになることを確認した．ページ内のスクロール領域と逆方向の移動も確認した．Coreと入力キューの試験では，有限のピクセル値の受付，無効値の拒否と，連続入力をまとめても移動量が失われないことを確認する．
 
-iPadOS 26.6.2の実機で，本体の操作面から外部ページの下部までスクロールし，許可／禁止リンク，解除取消，パスコード解除と展示再開が成功した．
+iPadOS 26.6.2の実機で，本体の操作面から外部ページの下部までスクロールし，許可／禁止リンク，解除取消，管理者パスワード解除と展示再開が成功した．
 
 Pan Gestureの差分だけを送る最小アプリでは，指を離した後の移動が0になることを同じ実機で再現した．操作面をUIScrollViewへ置き換えた最小アプリとPlinthでは，指を離した後も移動が続くことを確認した．減速率はUIKitの標準の `.normal` とし，独自の慣性計算は加えていない．Plinthの実機UI試験はUIKitの減速中に届いた入力とWebページの移動を検証する．ユーザーも物理トラックパッドで滑らかな減速を確認した．
 

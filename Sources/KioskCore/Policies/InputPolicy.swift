@@ -50,11 +50,9 @@ public enum InputPolicy {
         next.pressedScope = nil
         next.pressedGeneration = nil
       case .primaryDown:
-        passes = state.pressedScope == nil
-        if passes {
-          next.pressedScope = scope
-          next.pressedGeneration = nil
-        }
+        passes = true
+        next.pressedScope = scope
+        next.pressedGeneration = nil
       case .primaryDrag, .touchMoved: passes = state.pressedScope == scope
       case .applicationShortcut: passes = false
       default: passes = !administratorEntry || input == .cursorMoved
@@ -70,7 +68,9 @@ public enum InputPolicy {
       next.pressedGeneration = nil
       next.pressedScope = nil
     case .primaryDown:
-      passes = available && state.pressedScope == nil
+      passes =
+        available
+        && (state.pressedScope != .web || state.pressedGeneration == generation)
       if passes {
         next.pressedGeneration = generation
         next.pressedScope = .web

@@ -77,7 +77,7 @@ struct RootMediatorTests {
             .bootstrapped(profile: profile, credentialsConfigured: true, displayCount: 1)))))
     #expect(value.state.mode == .enteringKiosk)
     #expect(value.state.activeProfile == profile)
-    #expect(value.effects.map(\.kind) == [.applyPresentation(.init())])
+    #expect(value.effects.map(\.kind) == [.applyPresentation(.init()), .readBiometricStatus])
     #expect(value.childControls.isEmpty)
     let token = try requireToken(value.state.presentationOperation)
     let applied = try #require(
@@ -99,7 +99,7 @@ struct RootMediatorTests {
             .bootstrapped(
               profile: try fixtureProfile(), credentialsConfigured: true, displayCount: count)))))
     #expect(result.state.mode == .safeHold)
-    #expect(result.effects.isEmpty)
+    #expect(result.effects.map(\.kind) == [.readBiometricStatus])
   }
 
   @Test func rejectsWebForgedAdministrativeEvents() throws {

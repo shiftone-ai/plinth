@@ -31,7 +31,7 @@ iOS版はPrivacy Manifest `Resources/PrivacyInfo.xcprivacy` で，理由の申�
 
 直接インストールの署名期限と端末登録は，生成したprovisioning profileを見て確認する．TestFlight用の配布署名とは区別する．外部画面と端末制限の条件は [iPad対応](design-docs/ipad-support.md) にある．
 
-UIの多言語対応（ja/en/ko/zh）は [Issue #1](https://github.com/shiftone-ai/plinth/issues/1) で追跡する．
+管理画面の多言語表示（日本語・英語・韓国語・中国語の簡体字）は実装済み．OSの言語と画面内の切り替えについては [管理画面の言語](development.md#管理画面の言語) を参照する．
 
 外部ブラウザから設定するWebサーバー機能は [Issue #2](https://github.com/shiftone-ai/plinth/issues/2) で追跡する．
 
@@ -39,7 +39,9 @@ Touch ID・Face IDによる解除は [Issue #3](https://github.com/shiftone-ai/p
 
 ## MacのDeveloper ID配布
 
-App Storeを通さずにMacへ渡す版は，Developer IDで署名し，公証チケットをstapleしたzipにする．Bundle IDは `ai.shiftone.plinth` で，`scripts/build-app.sh` の版と同じくSandboxを使わない．設定は `~/Library/Application Support/Plinth/`，パスコードの検証値はログインKeychainのservice `ai.shiftone.plinth` に置く．TestFlight版（`ai.shiftone.plinth.mobile`）とは保存先を共有しない．
+App Storeを通さずにMacへ渡す版は，Developer IDで署名し，公証チケットをstapleしたzipにする．Bundle IDは `ai.shiftone.plinth` で，`scripts/build-app.sh` の版と同じくSandboxを使わない．設定は `~/Library/Application Support/Plinth/`，管理者パスワードの検証値はログインKeychainのservice `ai.shiftone.plinth` に置く．TestFlight版（`ai.shiftone.plinth.mobile`）とは保存先を共有しない．
+
+生体認証の有効状態は別のData Protection Keychain項目に置く．Developer ID版ではKeychain access groupの権限を署名に含め，それを認めるprovisioning profileをアプリへ埋め込む必要がある．配布物の検査は権限・profileの欠落と，profileが権限を認めない場合を検出する．`scripts/build-app.sh` のad hoc署名にはその権限がないため，この版の管理画面では生体認証の設定を使えない理由を表示する．
 
 XcodeのApple Accountsで配布チームにサインインしてから，プロジェクトのルートで実行する．team IDは環境変数で渡す．build番号は版ごとに増やす．
 
@@ -55,4 +57,6 @@ PLINTH_TEAM_ID=<team ID> zsh scripts/build-notarized-app.sh 0.1.0 1
 
 配布先のMacではzipを展開し，`Plinth.app` を `/Applications` へ移してから起動する．
 
-`build-app.sh` の版で保存したパスコードを，署名の異なるこの版が確認画面なしで読めるかは未確認．
+展示用アカウントの通知設定と，外部画面への展示中に内蔵画面へ出る管理者解除の案内は，[Mac実機の受け入れ試験](native-acceptance.md#展示中の通知) に従って確認する．
+
+`build-app.sh` の版で保存した管理者パスワードを，署名の異なるこの版が確認画面なしで読めるかは未確認．

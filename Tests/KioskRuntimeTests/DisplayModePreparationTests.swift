@@ -60,6 +60,39 @@ private final class ModeDisplay: DisplayReadingPort {
 }
 
 @MainActor
+private final class DelayedBiometric: BiometricCredentialPort {
+  let initial = BiometricStatus(availability: .available(.touchID), enabled: false)
+  private var pending: CheckedContinuation<(BiometricStatus, BiometricChangeOutcome), Never>?
+  private var waiter: CheckedContinuation<Void, Never>?
+  private(set) var cancelled: [OperationToken] = []
+  private(set) var cancelAllCount = 0
+
+  func status() -> BiometricStatus { initial }
+  func changeEnabled(_ enabled: Bool, token: OperationToken) async
+    -> (BiometricStatus, BiometricChangeOutcome)
+  {
+    await withCheckedContinuation { continuation in
+      pending = continuation
+      waiter?.resume()
+      waiter = nil
+    }
+  }
+  func waitUntilStarted() async {
+    if pending != nil { return }
+    await withCheckedContinuation { waiter = $0 }
+  }
+  func finish() {
+    pending?.resume(
+      returning: (.init(availability: .available(.touchID), enabled: true), .succeeded))
+    pending = nil
+  }
+  func cancel(_ token: OperationToken) { cancelled.append(token) }
+  func cancelAll() {
+    cancelAllCount += 1
+  }
+}
+
+@MainActor
 struct DisplayModePreparationTests {
   private func executor(_ presentation: ModePresentation) -> EffectExecutor {
     let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
@@ -69,6 +102,9 @@ struct DisplayModePreparationTests {
         web: ModeWeb(), presentation: presentation,
         repository: ProfileRepository(fileURL: directory.appendingPathComponent("profile.json")),
         credentials: CredentialStore(service: "ai.shiftone.plinth.tests.\(UUID())"),
+        biometrics: BiometricCredentialAdapter(service: "ai.shiftone.plinth.tests.\(UUID())") {
+          "Enable administrator unlock with biometrics"
+        },
         clock: FakeClock(), displays: ModeDisplay()))
   }
 
@@ -114,5 +150,53 @@ struct DisplayModePreparationTests {
     #expect(presentation.applied.isEmpty)
     #expect(events.isEmpty)
     #expect(executor.registry.pendingCount == 0)
+  }
+
+  @Test func cancelledBiometricPortCannotDeliverALateSuccess() async {
+    let biometrics = DelayedBiometric()
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
+      "plinth-biometric-\(UUID())")
+    let executor = EffectExecutor(
+      port: NativeEffectPort(
+        web: ModeWeb(), presentation: ModePresentation(),
+        repository: ProfileRepository(fileURL: directory.appendingPathComponent("profile.json")),
+        credentials: CredentialStore(service: "ai.shiftone.plinth.tests.\(UUID())"),
+        biometrics: biometrics, clock: FakeClock(), displays: ModeDisplay()))
+    defer { executor.stop() }
+    var events: [Event] = []
+    executor.resultSink = { event, source in
+      #expect(source == .credentials)
+      events.append(event)
+    }
+    let token = OperationToken(owner: .credentials, operationID: 5)
+    executor.execute(.init(token, .changeBiometricUnlock(true)))
+    await biometrics.waitUntilStarted()
+    executor.execute(.init(.init(owner: .root, operationID: 6), .cancelOperation(token)))
+    biometrics.finish()
+    await executor.registry.waitForOperation(token)
+    #expect(biometrics.cancelled == [token])
+    #expect(events.isEmpty)
+  }
+
+  @Test func stoppingExecutorCancelsPendingBiometricEvaluation() async {
+    let biometrics = DelayedBiometric()
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
+      "plinth-biometric-stop-\(UUID())")
+    let executor = EffectExecutor(
+      port: NativeEffectPort(
+        web: ModeWeb(), presentation: ModePresentation(),
+        repository: ProfileRepository(fileURL: directory.appendingPathComponent("profile.json")),
+        credentials: CredentialStore(service: "ai.shiftone.plinth.tests.\(UUID())"),
+        biometrics: biometrics, clock: FakeClock(), displays: ModeDisplay()))
+    var events: [Event] = []
+    executor.resultSink = { event, _ in events.append(event) }
+    let token = OperationToken(owner: .credentials, operationID: 7)
+    executor.execute(.init(token, .changeBiometricUnlock(true)))
+    await biometrics.waitUntilStarted()
+    executor.stop()
+    #expect(biometrics.cancelAllCount == 1)
+    biometrics.finish()
+    await executor.registry.waitForOperation(token)
+    #expect(events.isEmpty)
   }
 }
