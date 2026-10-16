@@ -235,6 +235,15 @@ if options.app_store:
 elif options.developer_id:
     app_settings["CODE_SIGN_ENTITLEMENTS"] = "Resources/MacDeveloperID.entitlements"
 mac_assets_build = obj("MacAssetsBuild", "PBXBuildFile", fileRef=identifier("MobileAssets"))
+privacy = obj(
+    "PrivacyManifest",
+    "PBXFileReference",
+    lastKnownFileType="text.xml",
+    path="Resources/PrivacyInfo.xcprivacy",
+    sourceTree="SOURCE_ROOT",
+)
+objects[group]["children"].append(privacy)
+mac_privacy_build = obj("MacPrivacyBuild", "PBXBuildFile", fileRef=privacy)
 # Keep the wrapper's target name distinct from the package's Plinth executable.
 if options.mac_test_bundle_id:
     app_settings["PRODUCT_BUNDLE_IDENTIFIER"] = options.mac_test_bundle_id
@@ -252,7 +261,7 @@ app_target = obj(
     buildPhases=[
         phase("AppSources", "PBXSourcesBuildPhase", [main_build]),
         phase("AppFrameworks", "PBXFrameworksBuildPhase", [library_build]),
-        phase("AppResources", "PBXResourcesBuildPhase", [mac_assets_build]),
+        phase("AppResources", "PBXResourcesBuildPhase", [mac_assets_build, mac_privacy_build]),
     ],
 )
 proxy = obj(
@@ -422,16 +431,7 @@ face_id_group = obj(
 )
 face_id_build = obj("FaceIDStringsBuild", "PBXBuildFile", fileRef=face_id_strings)
 objects[group]["children"].append(face_id_group)
-# 無操作の経過時間をsystemUptimeで測るため，iOSでは利用理由をPrivacy Manifestで申告する．
-mobile_privacy = obj(
-    "MobilePrivacy",
-    "PBXFileReference",
-    lastKnownFileType="text.xml",
-    path="Resources/PrivacyInfo.xcprivacy",
-    sourceTree="SOURCE_ROOT",
-)
-mobile_privacy_build = obj("MobilePrivacyBuild", "PBXBuildFile", fileRef=mobile_privacy)
-objects[group]["children"].append(mobile_privacy)
+mobile_privacy_build = obj("MobilePrivacyBuild", "PBXBuildFile", fileRef=privacy)
 mobile_base = {
     "SDKROOT": "iphoneos",
     "IPHONEOS_DEPLOYMENT_TARGET": "18.4",

@@ -13,7 +13,7 @@ open -a Xcode Plinth.xcodeproj
 
 Scheme `PlinthMobile` を使用する．接続済み端末への署名はXcodeのApple AccountsとAutomatic Signingを使う．試験用のprofileとKeychain serviceはDebugだけで分離し，Releaseは通常の保存先だけを使う．アイコンは `Resources/Assets.xcassets` に置く．
 
-iOS版はPrivacy Manifest `Resources/PrivacyInfo.xcprivacy` で，理由の申告が必要なAPIの利用を申告する．今は無操作の経過時間を測る `systemUptime` だけを申告している．申告が必要な別のAPIを使うときは，その分類と理由を足す．[Appleの資料](https://developer.apple.com/documentation/bundleresources/describing-use-of-required-reason-api)
+iOS版とMac版はPrivacy Manifest `Resources/PrivacyInfo.xcprivacy` で，理由の申告が必要なAPIの利用を申告する．無操作の経過時間を測る `systemUptime` と，画面内の表示言語を保存する `UserDefaults` を申告している．申告が必要な別のAPIを使うときは，その分類と理由を足す．[Appleの資料](https://developer.apple.com/documentation/bundleresources/describing-use-of-required-reason-api)
 
 ## TestFlightと展示開始
 
