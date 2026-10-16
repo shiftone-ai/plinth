@@ -10,4 +10,4 @@
 | Core・Policy・Presenter・CoR・Adapter契約テスト，UI・実機試験 | [Testing](testing.md) |
 | Swift Skillの適用，toolchain，取得元の更新 | [Skillの適用条件](skills.md) |
 
-規約は従来の `AGENTS.md` から移したもの．型・target境界・テストで検出できる条件へ反映する．現在の検証範囲と未実行の項目は [開発と検証](../development.md) を参照する．
+現在の検証範囲と未実行の項目は [開発と検証](../development.md) を参照する．
