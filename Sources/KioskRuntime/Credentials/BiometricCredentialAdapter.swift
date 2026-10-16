@@ -9,6 +9,7 @@ public protocol BiometricCredentialPort: AnyObject {
   func changeEnabled(_ enabled: Bool, token: OperationToken) async
     -> (BiometricStatus, BiometricChangeOutcome)
   func cancel(_ token: OperationToken)
+  func cancelAll()
 }
 
 /// The protected Keychain item is the enabled flag. No biometric value enters profile JSON.
@@ -137,6 +138,10 @@ public final class BiometricCredentialAdapter: BiometricCredentialPort {
       _ = SecItemDelete(itemQuery() as CFDictionary)
       committedEnable = nil
     }
+  }
+
+  public func cancelAll() {
+    for token in Array(contexts.keys) { cancel(token) }
   }
 
   private func itemQuery() -> [CFString: Any] {

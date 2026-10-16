@@ -65,6 +65,7 @@ private final class DelayedBiometric: BiometricCredentialPort {
   private var pending: CheckedContinuation<(BiometricStatus, BiometricChangeOutcome), Never>?
   private var waiter: CheckedContinuation<Void, Never>?
   private(set) var cancelled: [OperationToken] = []
+  private(set) var cancelAllCount = 0
 
   func status() -> BiometricStatus { initial }
   func changeEnabled(_ enabled: Bool, token: OperationToken) async
@@ -86,6 +87,9 @@ private final class DelayedBiometric: BiometricCredentialPort {
     pending = nil
   }
   func cancel(_ token: OperationToken) { cancelled.append(token) }
+  func cancelAll() {
+    cancelAllCount += 1
+  }
 }
 
 @MainActor
@@ -171,6 +175,28 @@ struct DisplayModePreparationTests {
     biometrics.finish()
     await executor.registry.waitForOperation(token)
     #expect(biometrics.cancelled == [token])
+    #expect(events.isEmpty)
+  }
+
+  @Test func stoppingExecutorCancelsPendingBiometricEvaluation() async {
+    let biometrics = DelayedBiometric()
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
+      "plinth-biometric-stop-\(UUID())")
+    let executor = EffectExecutor(
+      port: NativeEffectPort(
+        web: ModeWeb(), presentation: ModePresentation(),
+        repository: ProfileRepository(fileURL: directory.appendingPathComponent("profile.json")),
+        credentials: CredentialStore(service: "ai.shiftone.plinth.tests.\(UUID())"),
+        biometrics: biometrics, clock: FakeClock(), displays: ModeDisplay()))
+    var events: [Event] = []
+    executor.resultSink = { event, _ in events.append(event) }
+    let token = OperationToken(owner: .credentials, operationID: 7)
+    executor.execute(.init(token, .changeBiometricUnlock(true)))
+    await biometrics.waitUntilStarted()
+    executor.stop()
+    #expect(biometrics.cancelAllCount == 1)
+    biometrics.finish()
+    await executor.registry.waitForOperation(token)
     #expect(events.isEmpty)
   }
 }

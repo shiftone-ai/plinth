@@ -129,6 +129,7 @@ public final class NativeEffectPort: EffectPort {
   }
 
   public func stop() {
+    biometrics.cancelAll()
     web.stop()
     presentation.release()
     presentation.releasePointer()
