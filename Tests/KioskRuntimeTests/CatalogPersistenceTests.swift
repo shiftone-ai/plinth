@@ -139,6 +139,79 @@ struct CatalogPersistenceTests {
     }
   }
 
+  @Test func wholeCollectionFileTransfersAvailableEntriesWithoutSharingThem() async throws {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
+      "plinth-catalog-whole-file-\(UUID())")
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let snapshot = try #require(CatalogSnapshot(RuntimeFixture().profile()))
+    let lobby = try #require(CatalogEntry(id: UUID(), name: "Lobby", snapshot: snapshot))
+    let gallery = try #require(CatalogEntry(id: UUID(), name: "Gallery", snapshot: snapshot))
+    let formerAccount = try #require(
+      CatalogEntry(
+        id: UUID(), name: "Former account", snapshot: snapshot, scope: .iCloud,
+        accountIdentifier: "previous-account"))
+    let sourceCatalog = CatalogRepository(
+      fileURL: directory.appendingPathComponent("source/catalog.json"))
+    try await sourceCatalog.save(
+      SettingsCatalog(revision: 1, entries: [lobby, gallery, formerAccount]))
+    let sourceExecutor = EffectExecutor(
+      port: CatalogPersistencePort(
+        profile: ProfileRepository(
+          fileURL: directory.appendingPathComponent("source/profile.json")),
+        catalog: sourceCatalog))
+    let source = RootRuntime(clock: FakeClock(), executor: sourceExecutor)
+    defer { source.stop() }
+    source.send(
+      .bootstrapped(profile: nil, credentialsConfigured: false, displayCount: 1), from: .root)
+    source.send(.catalogLoadRequested, from: .root)
+    await sourceExecutor.registry.waitForOperation(
+      try #require(source.snapshot.root.catalogLoadOperation))
+    let passphrase = "correct horse battery exhibition"
+    source.send(.catalogPassphraseEdited(passphrase), from: .settings)
+    source.send(.catalogConfirmPassphraseEdited(passphrase), from: .settings)
+    #expect(source.send(.catalogExportRequested(ids: []), from: .settings).reply == .accepted)
+    await sourceExecutor.registry.waitForOperation(
+      try #require(source.snapshot.root.catalogExportOperation))
+    let encrypted = try #require(source.snapshot.root.catalogExportData)
+    #expect(encrypted.range(of: Data("https://example.com/home".utf8)) == nil)
+    let fileURL = directory.appendingPathComponent("whole.plinthsettings")
+    try encrypted.write(to: fileURL)
+
+    let destinationCatalog = CatalogRepository(
+      fileURL: directory.appendingPathComponent("destination/catalog.json"))
+    let destinationExecutor = EffectExecutor(
+      port: CatalogPersistencePort(
+        profile: ProfileRepository(
+          fileURL: directory.appendingPathComponent("destination/profile.json")),
+        catalog: destinationCatalog))
+    let destination = RootRuntime(clock: FakeClock(), executor: destinationExecutor)
+    defer { destination.stop() }
+    destination.send(
+      .bootstrapped(profile: nil, credentialsConfigured: false, displayCount: 1), from: .root)
+    destination.send(.catalogLoadRequested, from: .root)
+    await destinationExecutor.registry.waitForOperation(
+      try #require(destination.snapshot.root.catalogLoadOperation))
+    destination.send(.catalogPassphraseEdited(passphrase), from: .settings)
+    #expect(
+      destination.send(.catalogImportFileRequested(fileURL), from: .settings).reply == .accepted)
+    await destinationExecutor.registry.waitForOperation(
+      try #require(destination.snapshot.root.catalogImportOperation))
+    let preview = try #require(destination.snapshot.root.catalogImportPreview)
+    #expect(Set(preview.map(\.name)) == ["Lobby", "Gallery"])
+    #expect(destination.snapshot.root.catalog.entries.isEmpty)
+    #expect(
+      destination.send(
+        .catalogImportConfirmed(replacementIDs: preview.map { _ in UUID() }), from: .settings
+      ).reply == .accepted)
+    await destinationExecutor.registry.waitForOperation(
+      try #require(destination.snapshot.root.catalogSaveOperation))
+    let reloaded = try await destinationCatalog.load()
+    #expect(Set(reloaded.entries.map(\.name)) == ["Lobby", "Gallery"])
+    #expect(reloaded.entries.allSatisfy { $0.scope == .device })
+    #expect(!reloaded.syncEnabled)
+    #expect(destination.snapshot.root.savedProfile == nil)
+  }
+
   @Test func registeredSettingsSurviveRestartThroughTheRealRepositories() async throws {
     let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
       "plinth-catalog-runtime-\(UUID())")
