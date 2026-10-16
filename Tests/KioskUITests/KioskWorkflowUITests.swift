@@ -88,7 +88,7 @@ final class KioskWorkflowUITests: XCTestCase {
     XCTAssertFalse(start.isEnabled)
     if projectionWindow {
       app.popUpButtons["mac-output-mode"].click()
-      app.menuItems["ウィンドウ表示"].click()
+      app.menuItems["mac-output-projection-window"].click()
       XCTAssertFalse(app.popUpButtons["mac-output-display"].exists)
     }
     replace(app.textFields["start-url"], with: server.origin + "/home")
@@ -163,7 +163,9 @@ final class KioskWorkflowUITests: XCTestCase {
     await waitFor(unlock)
     replace(unlock, with: "incorrect-passcode")
     app.buttons["verify-passcode"].click()
-    await waitFor(app.staticTexts["パスコードが一致しません"], timeout: 10)
+    await waitFor(app.staticTexts["incorrect-credential"], timeout: 10)
+    XCTAssertEqual(
+      app.staticTexts["incorrect-credential"].value as? String, "管理者パスワードが一致しません")
     XCTAssertFalse(start.exists)
     app.buttons["cancel-unlock"].click()
     await waitFor(app.webViews.links["Allowed"], timeout: 10)
@@ -212,7 +214,7 @@ final class KioskWorkflowUITests: XCTestCase {
       await waitFor(unlock)
       replace(unlock, with: "plinth-ui-staff-passcode")
       app.buttons["verify-passcode"].click()
-      await waitFor(app.staticTexts["パスコードが一致しません"], timeout: 10)
+      await waitFor(app.staticTexts["incorrect-credential"], timeout: 10)
       replace(unlock, with: "plinth-ui-replacement-passcode")
       app.buttons["verify-passcode"].click()
       await waitFor(start, timeout: 10)
@@ -260,14 +262,14 @@ final class KioskWorkflowUITests: XCTestCase {
   }
 
   @MainActor
-  private func waitFor(_ element: XCUIElement, timeout: TimeInterval = 5) async {
+  func waitFor(_ element: XCUIElement, timeout: TimeInterval = 5) async {
     // Release the main actor so the fixture's real HTTP listener can answer WebKit.
     let ready = expectation(for: NSPredicate(format: "exists == true"), evaluatedWith: element)
     await fulfillment(of: [ready], timeout: timeout)
   }
 
   @MainActor
-  private func replace(_ field: XCUIElement, with value: String) {
+  func replace(_ field: XCUIElement, with value: String) {
     XCTAssertTrue(field.waitForExistence(timeout: 5))
     field.click()
     field.typeKey("a", modifierFlags: .command)
@@ -275,7 +277,7 @@ final class KioskWorkflowUITests: XCTestCase {
   }
 
   @MainActor
-  private func attach(_ app: XCUIApplication, name: String) {
+  func attach(_ app: XCUIApplication, name: String) {
     let screenshot = XCTAttachment(screenshot: app.screenshot())
     screenshot.name = name
     screenshot.lifetime = .keepAlways

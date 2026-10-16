@@ -1,5 +1,6 @@
 import AppKit
 import KioskCore
+import KioskLocalization
 import KioskRuntime
 
 @MainActor
@@ -7,6 +8,7 @@ public final class PresentationAdapter: PresentationPort {
   private let window: NSWindow
   private let preview: Bool
   private let displays: any DisplayReadingPort
+  private let unlockTitle: @MainActor () -> String
   private var previousOptions: NSApplication.PresentationOptions?
   private var previousFrame: NSRect?
   private var previousStyle: NSWindow.StyleMask?
@@ -16,11 +18,14 @@ public final class PresentationAdapter: PresentationPort {
   public var pointerEvents: ((Event) -> Void)? {
     didSet { pointer.send = pointerEvents }
   }
-  public init(window: NSWindow, preview: Bool, displays: any DisplayReadingPort = DisplayAdapter())
-  {
+  public init(
+    window: NSWindow, preview: Bool, displays: any DisplayReadingPort = DisplayAdapter(),
+    unlockTitle: @escaping @MainActor () -> String = { L10n.string("Administrator unlock") }
+  ) {
     self.window = window
     self.preview = preview
     self.displays = displays
+    self.unlockTitle = unlockTitle
   }
 
   public func apply(_ request: PresentationRequest) -> Bool {
@@ -44,7 +49,8 @@ public final class PresentationAdapter: PresentationPort {
         guard let shieldFrame = displays.frame(for: display.id), shieldFrame != frame else {
           continue
         }
-        let shield = DisplayShieldWindow(frame: shieldFrame)
+        let shield = DisplayShieldWindow(
+          frame: shieldFrame, unlockTitle: display.builtIn ? unlockTitle() : nil)
         shields.append(shield)
         shield.orderFrontRegardless()
       }

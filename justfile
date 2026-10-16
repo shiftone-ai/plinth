@@ -35,6 +35,7 @@ secrets:
 
 # 警告をエラーとしてビルドし，Native結合試験を除くテストと，scriptsのテストを実行する
 test:
+    python3 scripts/check-localizations.py
     swift build -Xswiftc -warnings-as-errors
     swift test -Xswiftc -warnings-as-errors
     python3 -m unittest discover -s scripts -p 'test_*.py'

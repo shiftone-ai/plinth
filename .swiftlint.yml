@@ -25,3 +25,17 @@ identifier_name:
 # Mediatorの遷移関数はイベントごとのcaseを1つのswitchで裁定するため，caseの数を複雑さに数えない．
 cyclomatic_complexity:
   ignores_case_statements: true
+
+custom_rules:
+  localization_japanese_literal:
+    name: UI source must use English localization keys
+    included: "Sources/Kiosk(UI|MacApp|MobileApp|Presentation)/.*\\.swift"
+    regex: '"[^"\n]*[ぁ-ヿ一-龯][^"\n]*"'
+    message: Move the text to an English String Catalog key and add translations.
+    severity: error
+  ui_test_japanese_element_lookup:
+    name: UI tests must locate app controls by accessibility identifier
+    included: "Tests/Kiosk(UITests|MobileUITests)/.*\\.swift"
+    regex: '(?:\b(?:buttons|menuItems|staticTexts|switches|popUpButtons|textFields|secureTextFields)\s*\[\s*"|\bmatching\s*\(\s*identifier:\s*")[^"\n]*[ぁ-ヿ一-龯]'
+    message: Use an accessibility identifier to locate app UI elements; assert the visible label separately.
+    severity: error

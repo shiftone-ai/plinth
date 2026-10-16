@@ -34,7 +34,11 @@ struct ExhibitionSoakTests {
       web: web,
       presentation: PresentationAdapter(window: window, preview: true, displays: displays),
       repository: ProfileRepository(fileURL: directory.appendingPathComponent("profile.json")),
-      credentials: CredentialStore(service: "ai.shiftone.plinth.tests.\(UUID())"), clock: clock,
+      credentials: CredentialStore(service: "ai.shiftone.plinth.tests.\(UUID())"),
+      biometrics: BiometricCredentialAdapter(service: "ai.shiftone.plinth.tests.\(UUID())") {
+        "Enable administrator unlock with biometrics"
+      },
+      clock: clock,
       displays: displays)
     let executor = EffectExecutor(port: port)
     let runtime = RootRuntime(clock: clock, executor: executor)

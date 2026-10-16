@@ -71,6 +71,11 @@ public enum Event: Equatable, Sendable {
   case configurePasscodeRequested
   case credentialConfigurationRequested(String)
   case credentialConfigured(OperationToken, succeeded: Bool)
+  case biometricStatusRequested
+  case biometricStatusRead(OperationToken, BiometricStatus)
+  case biometricChangeRequested(Bool)
+  case biometricChangeCompleted(OperationToken, BiometricStatus, BiometricChangeOutcome)
+  case biometricChangeCancelled
   case passcodeEdited(String)
   case clearPasscode
   case cancelAuthentication
@@ -84,7 +89,8 @@ public enum Event: Equatable, Sendable {
       .navigationRequested, .profileCommitRequested, .draftChanged, .draftEdited,
       .saveDraftRequested, .passcodeSubmitted, .cancelAuthentication, .configurePasscodeRequested,
       .passcodeEdited, .discardDraftRequested, .webCapabilityRequested, .addOriginRuleRequested,
-      .removeOriginRuleRequested, .prepareExternalSceneRequested, .credentialConfigurationRequested:
+      .removeOriginRuleRequested, .prepareExternalSceneRequested, .credentialConfigurationRequested,
+      .biometricStatusRequested, .biometricChangeRequested, .biometricChangeCancelled:
       true
     default: false
     }

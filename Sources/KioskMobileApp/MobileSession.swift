@@ -1,4 +1,5 @@
 #if os(iOS)
+  import KioskLocalization
   import KioskCore
   import KioskPresentation
   import KioskRuntime
@@ -17,6 +18,7 @@
       let previousOverscanCompensation: UIScreen.OverscanCompensation?
     }
     private let web = WebKitAdapter()
+    private let language: LanguagePreference
     private let pointer = MobilePointerAdapter()
     private let displayModes = MobileDisplayModeAdapter()
     private var scenes: [String: SceneOwner] = [:]
@@ -40,6 +42,7 @@
         let storageNamespace = "Plinth"
         let credentialService = "ai.shiftone.plinth.mobile"
       #endif
+      language = LanguagePreference(storageNamespace: storageNamespace)
       let location = FileManager.default.urls(
         for: .applicationSupportDirectory, in: .userDomainMask)[0]
         .appendingPathComponent(storageNamespace, isDirectory: true)
@@ -49,6 +52,9 @@
       let port = NativeEffectPort(
         web: web, presentation: presentation, repository: ProfileRepository(fileURL: location),
         credentials: CredentialStore(service: credentialService),
+        biometrics: BiometricCredentialAdapter(service: credentialService) { [language] in
+          L10n.string("Enable administrator unlock with biometrics", locale: language.locale)
+        },
         clock: clock, displays: presentation)
       #if DEBUG
         if let value = ProcessInfo.processInfo.environment["PLINTH_TEST_IDLE_SECONDS"],
@@ -62,34 +68,7 @@
         executor = EffectExecutor(port: port)
       #endif
       runtime = RootRuntime(clock: clock, executor: executor, diagnostics: DiagnosticLogAdapter())
-      pointer.send = { [weak self] in self?.runtime.send($0, from: .platform).reply }
-      pointer.bodyScene = { [weak self] in self?.scenes.values.first { !$0.exhibition }?.scene }
-      pointer.requestLock = { [weak self] requested in
-        for owner in self?.scenes.values ?? [String: SceneOwner]().values where !owner.exhibition {
-          (owner.window.rootViewController as? MobileHostingController<MobileRootView>)?
-            .pointerLockRequested = requested
-        }
-      }
-      pointer.viewport = { [weak self] in self?.presentation.exhibitionFrame?.size }
-      pointer.generation = { [weak self] in self?.runtime.webProps.props.generation ?? 0 }
-      pointer.start()
-      web.send = { [weak self] in self?.runtime.send($0, from: .webSurface).reply }
-      presentation.selectedScene = { [weak self] in self?.selectedOwner()?.scene }
-      presentation.exhibitionChanged = { [weak self] active in self?.setPresentation(active) }
-      presentation.existingExhibitionScene = { [weak self] in
-        self?.scenes.values.first(where: \.exhibition)?.scene
-      }
-      displayModes.selectedWindow = { [weak self] in self?.selectedOwner()?.window }
-      displayModes.changed = { [weak self] in self?.displaysChanged() }
-      displayModes.canConfigure = { [weak self] in
-        self?.scenes.values.contains {
-          !$0.exhibition && $0.scene.activationState == .foregroundActive
-        } == true
-      }
-      presentation.prepareDisplayMode = { [weak self] mode, token in
-        await self?.displayModes.prepare(mode, token: token) ?? false
-      }
-      presentation.cancelDisplayMode = { [weak self] token in self?.displayModes.cancel(token) }
+      wireAdapters()
     }
 
     func connect(_ scene: UIWindowScene, exhibitionWindow: Bool) -> UIWindow {
@@ -110,18 +89,9 @@
       if scene.session.role == .windowExternalDisplayNonInteractive {
         if #available(iOS 27.0, *) {} else { window.frame = scene.screen.bounds }
       }
-      let rootView = MobileRootView(
-        root: runtime.rootProps, settings: runtime.settingsProps, unlock: runtime.unlockProps,
-        web: runtime.webProps, host: web.host, exhibitionWindow: exhibitionWindow,
-        displayOnly: scene.session.role == .windowExternalDisplayNonInteractive,
-        pointerSetupGuidance: MobilePointerSetupGuidance.instructions,
-        settingsIntent: { [weak self] in self?.settings($0) },
-        unlockIntent: { [weak self] in self?.unlock($0) },
-        rootIntent: { [weak self] _ in self?.runtime.send(.unlockRequested, from: .platform) },
-        externalControl: { [weak self] control, generation in
-          self?.runtime.send(
-            .externalWebControlRequested(control, generation: generation), from: .platform)
-        })
+      let rootView = makeRootView(
+        exhibitionWindow: exhibitionWindow,
+        displayOnly: scene.session.role == .windowExternalDisplayNonInteractive)
       window.rootViewController = MobileHostingController(rootView: rootView)
       window.scope = { [weak self] in
         switch self?.runtime.rootProps.props.mode {
@@ -229,6 +199,8 @@
       case .edit(let edit): event = .draftEdited(edit)
       case .editPasscode(let value): event = .passcodeEdited(value)
       case .configurePasscode: event = .configurePasscodeRequested
+      case .changeBiometricUnlock(let enabled): event = .biometricChangeRequested(enabled)
+      case .cancelBiometricChange: event = .biometricChangeCancelled
       case .save: event = .saveDraftRequested
       case .discard: event = .discardDraftRequested
       case .addOriginRule: event = .addOriginRuleRequested
@@ -271,6 +243,56 @@
         }
       }
       scenes.removeAll()
+    }
+  }
+
+  extension MobileSession {
+    private func wireAdapters() {
+      pointer.send = { [weak self] in self?.runtime.send($0, from: .platform).reply }
+      pointer.bodyScene = { [weak self] in self?.scenes.values.first { !$0.exhibition }?.scene }
+      pointer.requestLock = { [weak self] requested in
+        for owner in self?.scenes.values ?? [String: SceneOwner]().values where !owner.exhibition {
+          (owner.window.rootViewController as? MobileHostingController<MobileRootView>)?
+            .pointerLockRequested = requested
+        }
+      }
+      pointer.viewport = { [weak self] in self?.presentation.exhibitionFrame?.size }
+      pointer.generation = { [weak self] in self?.runtime.webProps.props.generation ?? 0 }
+      pointer.start()
+      web.send = { [weak self] in self?.runtime.send($0, from: .webSurface).reply }
+      presentation.selectedScene = { [weak self] in self?.selectedOwner()?.scene }
+      presentation.exhibitionChanged = { [weak self] active in self?.setPresentation(active) }
+      presentation.existingExhibitionScene = { [weak self] in
+        self?.scenes.values.first(where: \.exhibition)?.scene
+      }
+      displayModes.selectedWindow = { [weak self] in self?.selectedOwner()?.window }
+      displayModes.changed = { [weak self] in self?.displaysChanged() }
+      displayModes.canConfigure = { [weak self] in
+        self?.scenes.values.contains {
+          !$0.exhibition && $0.scene.activationState == .foregroundActive
+        } == true
+      }
+      presentation.prepareDisplayMode = { [weak self] mode, token in
+        await self?.displayModes.prepare(mode, token: token) ?? false
+      }
+      presentation.cancelDisplayMode = { [weak self] token in self?.displayModes.cancel(token) }
+    }
+
+    private func makeRootView(exhibitionWindow: Bool, displayOnly: Bool) -> MobileRootView {
+      MobileRootView(
+        root: runtime.rootProps, settings: runtime.settingsProps, unlock: runtime.unlockProps,
+        web: runtime.webProps, host: web.host,
+        language: language, selectLanguage: { [weak self] in self?.language.select($0) },
+        exhibitionWindow: exhibitionWindow,
+        displayOnly: displayOnly,
+        pointerSetupGuidance: MobilePointerSetupGuidance.instructions,
+        settingsIntent: { [weak self] in self?.settings($0) },
+        unlockIntent: { [weak self] in self?.unlock($0) },
+        rootIntent: { [weak self] _ in self?.runtime.send(.unlockRequested, from: .platform) },
+        externalControl: { [weak self] control, generation in
+          self?.runtime.send(
+            .externalWebControlRequested(control, generation: generation), from: .platform)
+        })
     }
   }
 #endif

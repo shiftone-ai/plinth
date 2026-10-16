@@ -10,6 +10,7 @@ Mac版と，iPadの本体・外部ディスプレイでWebコンテンツを展�
 | --- | --- |
 | 機能・状態遷移・所有関係・モジュール境界 | [設計の入口](ARCHITECTURE.md)，[構造と責務](docs/rules/architecture.md) |
 | SwiftUIの表示・入力・Presenter | [構造と責務](docs/rules/architecture.md)，[SwiftUI Pro](.agents/skills/swiftui-pro/SKILL.md) |
+| UIの文言・翻訳 | [翻訳の規約](docs/rules/localization.md)，[SwiftUI ProのLocalization](.agents/skills/swiftui-pro/references/localization.md) |
 | 非同期処理・Task・取消・WebKitのreply・保存 | [Concurrency](docs/rules/concurrency.md)，[Swift Concurrency Pro](.agents/skills/swift-concurrency-pro/SKILL.md) |
 | テスト・検証環境 | [Testing](docs/rules/testing.md)，[Swift Testing Pro](.agents/skills/swift-testing-pro/SKILL.md) |
 | 整形・静的検査・git hook・CI | [開発と検証](docs/development.md#実行する検査) |

@@ -9,6 +9,8 @@
 | アプリの機能・状態遷移・受け入れ条件 | [設計書v0.2](design-docs/macos-kiosk-design-v0.2.md) |
 | 所有関係・通信経路・モジュール境界 | [設計の入口](../ARCHITECTURE.md) |
 | 実装・Concurrency・テストの規約 | [実装規約](rules/index.md) |
+| 管理画面の表示言語・翻訳の判断 | [翻訳のADR](adr/0001-localization.md) |
+| 生体認証で管理者解除を有効にする条件 | [生体認証のADR](adr/0002-biometric-administrator-unlock.md) |
 | 文書と指示の整理方針・参考記事 | [文書の整理方針](references/agent-docs.md) |
 | 外部画面の縦置き・回転APIと既存アプリの前例 | [回転の調査](references/external-display-rotation-precedents.md) |
 | 外部出力の縦横比・モード切替・取得画像の限界 | [縦横比の調査](references/mobile-output-aspect-ratio.md) |

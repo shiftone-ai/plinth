@@ -1,5 +1,6 @@
 import AppKit
 import KioskCore
+import KioskLocalization
 import KioskPresentation
 import KioskRuntime
 import KioskUI
@@ -19,6 +20,7 @@ public final class MacApplication: NSObject, NSApplicationDelegate, NSWindowDele
   private let credentialKeychain: CredentialStore.Keychain
   private let legacyCredentialService: String?
   private let storageNamespace: String
+  private let language: LanguagePreference
 
   public init(
     preview: Bool = false, profileFileURL: URL? = nil, exhibitionInset: Double = 0,
@@ -33,36 +35,21 @@ public final class MacApplication: NSObject, NSApplicationDelegate, NSWindowDele
     self.credentialKeychain = credentialKeychain
     self.legacyCredentialService = legacyCredentialService
     self.storageNamespace = storageNamespace
+    self.language = LanguagePreference(storageNamespace: storageNamespace)
   }
 
   public func applicationDidFinishLaunching(_ notification: Notification) {
-    let window = ExhibitionWindow(
-      contentRect: NSRect(x: 0, y: 0, width: 800, height: 780),
-      styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false
-    )
-    window.title = preview ? "Plinth — Preview" : "Plinth"
-    window.isReleasedWhenClosed = false
-    window.delegate = self
-    window.center()
+    let window = makeWindow()
     let clock = MonotonicClock()
     let displays = DisplayAdapter(exhibitionInset: exhibitionInset)
     let web = WebKitAdapter()
-    let location =
-      profileFileURL
-      ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[
-        0
-      ]
-      .appendingPathComponent(storageNamespace, isDirectory: true).appendingPathComponent(
-        "profile.json")
-    let presentation = PresentationAdapter(window: window, preview: preview, displays: displays)
-    let port = NativeEffectPort(
-      web: web,
-      presentation: presentation,
-      repository: ProfileRepository(fileURL: location),
-      credentials: CredentialStore(
-        service: credentialService, keychain: credentialKeychain,
-        legacyService: legacyCredentialService), clock: clock, displays: displays
-    )
+    let presentation = PresentationAdapter(
+      window: window, preview: preview, displays: displays,
+      unlockTitle: { [language] in
+        L10n.string("Administrator unlock", locale: language.locale)
+      })
+    let port = makeEffectPort(
+      web: web, presentation: presentation, clock: clock, displays: displays)
     let executor = EffectExecutor(port: port)
     let runtime = RootRuntime(clock: clock, executor: executor, diagnostics: DiagnosticLogAdapter())
     presentation.pointerEvents = { [weak runtime] in runtime?.send($0, from: .platform) }
@@ -70,12 +57,7 @@ public final class MacApplication: NSObject, NSApplicationDelegate, NSWindowDele
     self.executor = executor
     self.runtime = runtime
     web.send = { [weak runtime] in runtime?.send($0, from: .webSurface).reply }
-    window.contentView = NSHostingView(
-      rootView: KioskRootView(
-        root: runtime.rootProps, settings: runtime.settingsProps, unlock: runtime.unlockProps,
-        web: runtime.webProps, host: PassiveWebHost(host: web.host),
-        settingsIntent: { [weak self] in self?.settings($0) },
-        unlockIntent: { [weak self] in self?.unlock($0) }))
+    window.contentView = makeContentView(runtime: runtime, web: web)
     input = NativeInputAdapter(
       window: window,
       scope: { [weak runtime] in
@@ -98,6 +80,53 @@ public final class MacApplication: NSObject, NSApplicationDelegate, NSWindowDele
     runtime.send(.bootstrapRequested, from: .root)
   }
 
+  private func makeEffectPort(
+    web: WebKitAdapter, presentation: PresentationAdapter, clock: MonotonicClock,
+    displays: DisplayAdapter
+  ) -> NativeEffectPort {
+    let location =
+      profileFileURL
+      ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+      .appendingPathComponent(storageNamespace, isDirectory: true).appendingPathComponent(
+        "profile.json")
+    return NativeEffectPort(
+      web: web, presentation: presentation,
+      repository: ProfileRepository(fileURL: location),
+      credentials: CredentialStore(
+        service: credentialService, keychain: credentialKeychain,
+        legacyService: legacyCredentialService),
+      biometrics: BiometricCredentialAdapter(service: credentialService) { [language] in
+        L10n.string("Enable administrator unlock with biometrics", locale: language.locale)
+      },
+      clock: clock, displays: displays)
+  }
+
+  private func makeWindow() -> ExhibitionWindow {
+    let window = ExhibitionWindow(
+      contentRect: NSRect(x: 0, y: 0, width: 800, height: 780),
+      styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false
+    )
+    window.title = preview ? "Plinth — Preview" : "Plinth"
+    window.isReleasedWhenClosed = false
+    window.delegate = self
+    window.center()
+    return window
+  }
+
+  private func makeContentView(runtime: RootRuntime, web: WebKitAdapter) -> NSView {
+    NSHostingView(
+      rootView: KioskRootView(
+        root: runtime.rootProps, settings: runtime.settingsProps, unlock: runtime.unlockProps,
+        web: runtime.webProps, host: PassiveWebHost(host: web.host),
+        language: language,
+        selectLanguage: { [weak self] selected in
+          self?.language.select(selected)
+          self?.installMenu()
+        },
+        settingsIntent: { [weak self] in self?.settings($0) },
+        unlockIntent: { [weak self] in self?.unlock($0) }))
+  }
+
   private func settings(_ intent: SettingsIntent) {
     let event: Event
     switch intent {
@@ -108,6 +137,8 @@ public final class MacApplication: NSObject, NSApplicationDelegate, NSWindowDele
     case .addOriginRule: event = .addOriginRuleRequested
     case .removeOriginRule(let id): event = .removeOriginRuleRequested(id)
     case .configurePasscode: event = .configurePasscodeRequested
+    case .changeBiometricUnlock(let enabled): event = .biometricChangeRequested(enabled)
+    case .cancelBiometricChange: event = .biometricChangeCancelled
     case .start: event = .startExhibitionRequested
     case .prepareExternalScene: event = .prepareExternalSceneRequested
     case .quit:
@@ -128,22 +159,34 @@ public final class MacApplication: NSObject, NSApplicationDelegate, NSWindowDele
   }
 
   private func installMenu() {
+    let locale = language.locale
     let menu = NSMenu()
     let root = NSMenuItem()
     let applicationMenu = NSMenu()
     applicationMenu.addItem(
-      withTitle: "Plinthを終了", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+      withTitle: L10n.string("Quit Plinth", locale: locale),
+      action: #selector(NSApplication.terminate(_:)),
+      keyEquivalent: "q")
     root.submenu = applicationMenu
     menu.addItem(root)
     let edit = NSMenuItem()
-    let editMenu = NSMenu(title: "編集")
-    editMenu.addItem(withTitle: "取り消す", action: Selector(("undo:")), keyEquivalent: "z")
-    editMenu.addItem(.separator())
-    editMenu.addItem(withTitle: "切り取り", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
-    editMenu.addItem(withTitle: "コピー", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
-    editMenu.addItem(withTitle: "貼り付け", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+    let editMenu = NSMenu(title: L10n.string("Edit", locale: locale))
     editMenu.addItem(
-      withTitle: "すべて選択", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+      withTitle: L10n.string("Undo", locale: locale), action: Selector(("undo:")),
+      keyEquivalent: "z")
+    editMenu.addItem(.separator())
+    editMenu.addItem(
+      withTitle: L10n.string("Cut", locale: locale), action: #selector(NSText.cut(_:)),
+      keyEquivalent: "x")
+    editMenu.addItem(
+      withTitle: L10n.string("Copy", locale: locale), action: #selector(NSText.copy(_:)),
+      keyEquivalent: "c")
+    editMenu.addItem(
+      withTitle: L10n.string("Paste", locale: locale), action: #selector(NSText.paste(_:)),
+      keyEquivalent: "v")
+    editMenu.addItem(
+      withTitle: L10n.string("Select All", locale: locale), action: #selector(NSText.selectAll(_:)),
+      keyEquivalent: "a")
     edit.submenu = editMenu
     menu.addItem(edit)
     NSApplication.shared.mainMenu = menu

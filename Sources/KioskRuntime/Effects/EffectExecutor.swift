@@ -29,7 +29,8 @@ public final class EffectExecutor: EffectExecuting {
     case .releaseExternalPointer, .confineNativePointer: return
     case .createSurface, .releaseSurface, .load, .controlExternalWeb: source = .webSurface
     case .scheduleIdle, .scheduleRetry, .scheduleUnlockTimeout: source = .idleClock
-    case .verifyPasscode, .configurePasscode: source = .credentials
+    case .verifyPasscode, .configurePasscode, .readBiometricStatus, .changeBiometricUnlock:
+      source = .credentials
     case .saveProfile, .bootstrap: source = .profileRepository
     case .cancelOperation: return
     }

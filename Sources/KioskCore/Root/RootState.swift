@@ -10,6 +10,10 @@ public enum ForegroundResumeState: Equatable, Sendable {
 public struct RootState: Equatable, Sendable {
   public var credentialOperation: OperationToken?
   public var credentialConfigurationFailed = false
+  public var biometricStatus: BiometricStatus?
+  public var biometricStatusOperation: OperationToken?
+  public var biometricOperation: OperationToken?
+  public var biometricChangeFailed = false
   public var bootstrapOperation: OperationToken?
   public var unlockTimeoutOperation: OperationToken?
   public var unlockDeadline: Double?

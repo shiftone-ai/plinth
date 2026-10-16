@@ -6,7 +6,8 @@ import XCUIAutomation
 final class MobileWorkflowUITests: XCTestCase {
   @MainActor func testExternalExhibitionAutomaticallyResumesAfterAppSwitch() async throws {
     try requireExternalTestDevice()
-    let app = try await configuredExternalExhibition(path: "/", rotation: "右90°")
+    let app = try await configuredExternalExhibition(
+      path: "/", rotation: "external-display-rotation-clockwise")
     app.buttons["start-exhibition"].tap()
     try await exists(app.webViews.staticTexts["/"], timeout: 20)
     let settings = XCUIApplication(bundleIdentifier: "com.apple.Preferences")
@@ -15,7 +16,7 @@ final class MobileWorkflowUITests: XCTestCase {
       XCTAssertTrue(settings.wait(for: .runningForeground, timeout: 10))
       app.activate()
       try await exists(app.webViews.staticTexts["/"], timeout: 20)
-      XCTAssertFalse(app.staticTexts["展示を停止しました"].exists)
+      XCTAssertFalse(app.staticTexts["exhibition-stopped"].exists)
       XCTAssertFalse(app.descendants(matching: .any)["pointer-setup-help"].exists)
       attach(app, "external-return-automatic-\(index)")
     }
@@ -37,8 +38,8 @@ final class MobileWorkflowUITests: XCTestCase {
     }
     XCTAssertTrue(destination.isHittable)
     destination.tap()
-    app.buttons["本体"].tap()
-    app.buttons["ルールを削除"].firstMatch.tap()
+    app.buttons["exhibition-destination-device"].tap()
+    app.buttons["remove-origin-1"].tap()
     XCTAssertFalse(app.textFields["origin-1"].exists)
     let automatic = app.descendants(matching: .any)["automatic-origin"]
     try await exists(automatic)
@@ -83,7 +84,8 @@ final class MobileWorkflowUITests: XCTestCase {
     #endif
     let app = try await configuredExternalExhibition(
       path: "/rotation", allowsScroll: true, allowsDrag: true,
-      displayMode: "\(width) × \(height)", rotation: "右90°")
+      displayMode: "external-display-mode-\(width)x\(height)",
+      rotation: "external-display-rotation-clockwise")
     let rotations = [("右90°", true), ("180°", false), ("左90°", true), ("標準（0°）", false)]
     for (index, rotation) in rotations.enumerated() {
       if index > 0 {
@@ -150,7 +152,8 @@ final class MobileWorkflowUITests: XCTestCase {
 
   @MainActor func testRotatedExternalVideoPlayback() async throws {
     try requireExternalTestDevice()
-    let app = try await configuredExternalExhibition(path: "/video", rotation: "右90°")
+    let app = try await configuredExternalExhibition(
+      path: "/video", rotation: "external-display-rotation-clockwise")
     app.buttons["start-exhibition"].tap()
     try await exists(app.webViews.staticTexts["Video playing"], timeout: 20)
     XCTAssertFalse(app.webViews.staticTexts["Video failed"].exists)
@@ -172,7 +175,8 @@ final class MobileWorkflowUITests: XCTestCase {
     #if !targetEnvironment(simulator)
       throw XCTSkip("Requires the Simulator's 720x480 external mode")
     #else
-      let app = try await configuredExternalExhibition(path: "/surface", displayMode: "720 × 480")
+      let app = try await configuredExternalExhibition(
+        path: "/surface", displayMode: "external-display-mode-720x480")
       app.buttons["start-exhibition"].tap()
       try await exists(app.webViews.staticTexts["Full display"])
       XCTAssertEqual(app.webViews.firstMatch.frame.width, 720)
@@ -191,7 +195,8 @@ final class MobileWorkflowUITests: XCTestCase {
 
   @MainActor func testExternalResolutionSelectionPersistsAcrossLaunches() async throws {
     try requireExternalTestDevice()
-    let app = try await configuredExternalExhibition(path: "/surface", displayMode: "1920 × 1200")
+    let app = try await configuredExternalExhibition(
+      path: "/surface", displayMode: "external-display-mode-1920x1200")
     app.buttons["start-exhibition"].tap()
     try await exists(app.webViews.staticTexts["Full display"])
     XCTAssertEqual(app.webViews.firstMatch.frame.height, 1200)
@@ -207,7 +212,7 @@ final class MobileWorkflowUITests: XCTestCase {
     let resolution = app.buttons["external-display-mode"]
     try await hittable(resolution)
     resolution.tap()
-    app.buttons["1920 × 1080"].tap()
+    app.buttons["external-display-mode-1920x1080"].tap()
     let save = app.buttons["save-profile"]
     try await enabled(save)
     save.tap()
@@ -238,7 +243,8 @@ final class MobileWorkflowUITests: XCTestCase {
       throw XCTSkip("Requires physical Full HD display inspection")
     #else
       try requireExternalTestDevice()
-      let app = try await configuredExternalExhibition(path: "/surface", displayMode: "1920 × 1080")
+      let app = try await configuredExternalExhibition(
+        path: "/surface", displayMode: "external-display-mode-1920x1080")
       app.buttons["start-exhibition"].tap()
       try await exists(app.webViews.staticTexts["Full display"])
       XCTAssertEqual(app.webViews.firstMatch.frame.width, 1920)
@@ -417,7 +423,7 @@ final class MobileWorkflowUITests: XCTestCase {
       attach(app, "external-video-playing-device")
       // The dedicated driver captures the external surface, then powers it off.
       print("EXTERNAL_VIDEO_DISCONNECT_READY")
-      try await exists(app.staticTexts["展示を停止しました"], timeout: 20)
+      try await exists(app.staticTexts["exhibition-stopped"], timeout: 20)
       XCTAssertFalse(app.webViews.firstMatch.exists)
       attach(app, "external-disconnected-device")
       // Reconnect after the actual stopped state, never after a fixed delay.
@@ -437,7 +443,7 @@ final class MobileWorkflowUITests: XCTestCase {
       attach(app, "external-video-restarted-device")
       print("EXTERNAL_VIDEO_RESTARTED")
       // A second disconnect keeps the surface alive until the driver has captured it.
-      try await exists(app.staticTexts["展示を停止しました"], timeout: 20)
+      try await exists(app.staticTexts["exhibition-stopped"], timeout: 20)
       XCTAssertFalse(app.webViews.firstMatch.exists)
     #endif
   }
@@ -466,14 +472,12 @@ final class MobileWorkflowUITests: XCTestCase {
     let start = app.buttons["start-exhibition"]
     try await exists(start)
     app.buttons["exhibition-destination"].tap()
-    app.buttons["外部ディスプレイ"].tap()
-    let selected = expectation(
-      for: NSPredicate(
-        format: "value == %@ OR label CONTAINS %@", "外部ディスプレイ", "外部ディスプレイ"),
-      evaluatedWith: app.buttons["exhibition-destination"])
-    await fulfillment(of: [selected], timeout: 5)
+    app.buttons["exhibition-destination-external"].tap()
+    try await exists(app.buttons["external-display-rotation"])
     XCTAssertTrue(app.buttons["exhibition-destination"].isHittable)
-    XCTAssertFalse(app.buttons["prepare-external-scene"].exists)
+    if app.buttons["prepare-external-scene"].exists {
+      throw XCTSkip("Requires an automatically connected external display scene")
+    }
     attach(app, "external-output-settings")
     if let displayMode {
       app.buttons["external-display-mode"].tap()
@@ -496,12 +500,12 @@ final class MobileWorkflowUITests: XCTestCase {
     reach(http, app: app)
     http.switches.firstMatch.tap()
     if allowsScroll {
-      let scroll = app.switches["スクロールを許可"].switches.firstMatch
+      let scroll = app.switches["allow-scroll"].switches.firstMatch
       reach(scroll, app: app)
       scroll.tap()
     }
     if allowsDrag {
-      let drag = app.switches["ドラッグを許可"].switches.firstMatch
+      let drag = app.switches["allow-drag"].switches.firstMatch
       reach(drag, app: app)
       drag.tap()
     }
@@ -647,7 +651,7 @@ final class MobileWorkflowUITests: XCTestCase {
     unlock.typeText("wrong-passcode")
     try await secureValue(unlock, count: "wrong-passcode".count)
     app.buttons["verify-passcode"].tap()
-    try await exists(app.staticTexts["パスコードが一致しません"])
+    try await exists(app.staticTexts["incorrect-credential"])
     app.buttons["cancel-unlock"].tap()
     try await exists(allowed)
     app.buttons["request-unlock"].tap()
@@ -665,7 +669,7 @@ final class MobileWorkflowUITests: XCTestCase {
     try await hittable(settings.windows.firstMatch)
     app.activate()
     try await exists(allowed)
-    XCTAssertFalse(app.staticTexts["展示を停止しました"].exists)
+    XCTAssertFalse(app.staticTexts["exhibition-stopped"].exists)
     attach(app, "resumed-after-background")
     app.buttons["request-unlock"].tap()
     try await exists(unlock)
@@ -680,7 +684,7 @@ final class MobileWorkflowUITests: XCTestCase {
   }
 
   @MainActor
-  private func reach(_ element: XCUIElement, app: XCUIApplication) {
+  func reach(_ element: XCUIElement, app: XCUIApplication) {
     for _ in 0..<5 where !element.exists || !element.isHittable {
       app.collectionViews.firstMatch.swipeUp()
     }
@@ -688,7 +692,7 @@ final class MobileWorkflowUITests: XCTestCase {
   }
 
   @MainActor
-  private func exists(_ element: XCUIElement, timeout: TimeInterval = 10) async throws {
+  func exists(_ element: XCUIElement, timeout: TimeInterval = 10) async throws {
     let ready = expectation(for: NSPredicate(format: "exists == true"), evaluatedWith: element)
     await fulfillment(of: [ready], timeout: timeout)
     _ = try XCTUnwrap(element.exists ? element : nil)
@@ -702,7 +706,7 @@ final class MobileWorkflowUITests: XCTestCase {
   }
 
   @MainActor
-  private func secureValue(_ element: XCUIElement, count: Int) async throws {
+  func secureValue(_ element: XCUIElement, count: Int) async throws {
     let ready = expectation(
       for: NSPredicate(format: "value.length == %d", count), evaluatedWith: element)
     await fulfillment(of: [ready], timeout: 5)
@@ -710,7 +714,7 @@ final class MobileWorkflowUITests: XCTestCase {
   }
 
   @MainActor
-  private func enabled(_ element: XCUIElement) async throws {
+  func enabled(_ element: XCUIElement) async throws {
     let ready = expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: element)
     await fulfillment(of: [ready], timeout: 15)
     _ = try XCTUnwrap(element.isEnabled ? element : nil)
@@ -732,7 +736,7 @@ final class MobileWorkflowUITests: XCTestCase {
   }
 
   @MainActor
-  private func attach(_ app: XCUIApplication, _ name: String) {
+  func attach(_ app: XCUIApplication, _ name: String) {
     let screenshot = XCTAttachment(screenshot: app.screenshot())
     screenshot.name = name
     screenshot.lifetime = .keepAlways
