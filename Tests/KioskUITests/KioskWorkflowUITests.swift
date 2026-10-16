@@ -164,7 +164,8 @@ final class KioskWorkflowUITests: XCTestCase {
     replace(unlock, with: "incorrect-passcode")
     app.buttons["verify-passcode"].click()
     await waitFor(app.staticTexts["incorrect-credential"], timeout: 10)
-    XCTAssertEqual(app.staticTexts["incorrect-credential"].label, "管理者パスワードが一致しません")
+    XCTAssertEqual(
+      app.staticTexts["incorrect-credential"].value as? String, "管理者パスワードが一致しません")
     XCTAssertFalse(start.exists)
     app.buttons["cancel-unlock"].click()
     await waitFor(app.webViews.links["Allowed"], timeout: 10)
