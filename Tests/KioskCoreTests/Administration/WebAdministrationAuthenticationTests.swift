@@ -2,6 +2,58 @@ import KioskCore
 import Testing
 
 struct WebAdministrationAuthenticationTests {
+  @Test func passwordChangeRevokesSessionAndPendingWebLogin() throws {
+    var profile = try fixtureProfile()
+    profile.webAdministrationEnabled = true
+    var root = RootState()
+    root.mode = .administration
+    root.savedProfile = profile
+    root.credentialsConfigured = true
+    root.webSession = WebAdministrationSession(token: "old", createdAt: 1)
+    let requested = try #require(
+      handled(
+        RootMediator.reduce(
+          root,
+          envelope(
+            .credentialConfigurationRequested("new-passcode"), source: .administration, id: 2))))
+    let configuration = try requireToken(requested.state.credentialOperation)
+    let changed = try #require(
+      handled(
+        RootMediator.reduce(
+          requested.state,
+          envelope(
+            .credentialConfigured(configuration, succeeded: true), source: .credentials, id: 3))))
+    #expect(changed.state.webSession == nil)
+    #expect(changed.childControls.contains(.init(.administration, .invalidateWebAuthentication)))
+
+    let pending = try #require(
+      handled(
+        AdministrationMediator.reduce(
+          .init(),
+          envelope(
+            .webLoginRequested(
+              password: "old-passcode", candidate: String(repeating: "a", count: 64)),
+            source: .webAdministration, id: 4),
+          mode: .administration, webEnabled: true)))
+    let verification = try requireToken(pending.state.webVerification)
+    let invalidated = try #require(
+      handled(
+        AdministrationMediator.reduce(
+          pending.state, envelope(.invalidateWebAuthentication, source: .root, id: 5),
+          mode: .administration, webEnabled: true)))
+    #expect(invalidated.state.webVerification == nil)
+    #expect(invalidated.state.pendingWebLogin == nil)
+    #expect(invalidated.effects.map(\.kind) == [.cancelOperation(verification)])
+    let late = try #require(
+      handled(
+        AdministrationMediator.reduce(
+          invalidated.state,
+          envelope(.credentialVerified(verification, succeeded: true), source: .credentials, id: 6),
+          mode: .administration, webEnabled: true)))
+    #expect(late.reply == .rejected(.staleOperation))
+    #expect(late.parentEvents.isEmpty)
+  }
+
   @Test func webFailuresShareTheLocalUnlockCooldown() throws {
     var state = AdministrationState()
     for attempt in 1...3 {

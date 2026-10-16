@@ -41,6 +41,7 @@ public struct RootState: Equatable, Sendable {
   public var credentialsConfigured = false
   public var displayCount = 1
   public var mobileDisplays: MobileDisplayAvailability?
+  public var mobileForeground = true
   public var macDisplays: [DisplayDescriptor]?
   public var externalSceneOperation: OperationToken?
   public var externalScenePreparationFailed = false

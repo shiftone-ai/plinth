@@ -2251,6 +2251,36 @@
         }
       }
     },
+    "Unlock administrator settings": {
+      "comment": "System biometric prompt when opening administrator settings.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unlock administrator settings"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "管理画面を開きます"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "관리자 설정 열기"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "打开管理员设置"
+          }
+        }
+      }
+    },
     "Unlock with Face ID": {
       "comment": "Administrator biometric unlock setting and authentication prompt.",
       "extractionState": "manual",

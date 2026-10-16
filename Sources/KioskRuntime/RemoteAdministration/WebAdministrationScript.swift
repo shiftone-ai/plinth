@@ -5,9 +5,7 @@ let webAdministrationScript =
         headers: { authorization: `Bearer ${sessionToken}` }, cache: 'no-store'
       });
       if (response.status === 401) {
-        sessionToken = null;
-        details.hidden = true;
-        form.hidden = false;
+        clearSession();
         throw new Error('unauthorized');
       }
       if (!response.ok) throw new Error('state');
@@ -23,6 +21,14 @@ let webAdministrationScript =
         }
       }
       return state;
+    }
+    function clearSession() {
+      sessionToken = null;
+      details.hidden = true;
+      form.hidden = false;
+      connectionLost = false;
+      saveOutcomeUnknown = false;
+      message.textContent = '';
     }
     async function fetchWithTimeout(path, options) {
       const controller = new AbortController();
@@ -67,10 +73,7 @@ let webAdministrationScript =
           const response = await post(path, body);
           if (response.status === 401) {
             mutationFailed = true;
-            sessionToken = null;
-            details.hidden = true;
-            form.hidden = false;
-            message.textContent = document.body.dataset.rejected;
+            clearSession();
           } else if (response.ok) {
             mutationFailed = false;
             const state = await response.json();
@@ -112,6 +115,10 @@ let webAdministrationScript =
         await pendingMutation;
         if (mutationFailed) return;
         const response = await post('/api/draft/save', {});
+        if (response.status === 401) {
+          clearSession();
+          return;
+        }
         if (response.status === 422) {
           await refresh();
           return;
@@ -129,7 +136,8 @@ let webAdministrationScript =
           }
         }
         message.textContent = document.body.dataset.connection;
-      } catch {
+      } catch (error) {
+        if (error?.message === 'unauthorized') return;
         connectionLost = true;
         saveOutcomeUnknown = true;
         message.textContent = document.body.dataset.saveUnknown;
@@ -139,6 +147,10 @@ let webAdministrationScript =
       try {
         await pendingMutation;
         const response = await post(path, {});
+        if (response.status === 401) {
+          clearSession();
+          return;
+        }
         if (!response.ok) {
           message.textContent = await rejectionMessage(response, 'restart');
           return;
@@ -156,7 +168,8 @@ let webAdministrationScript =
           }
         }
         message.textContent = document.body.dataset.connection;
-      } catch {
+      } catch (error) {
+        if (error?.message === 'unauthorized') return;
         connectionLost = true;
         message.textContent = document.body.dataset.connection;
       }
@@ -172,7 +185,8 @@ let webAdministrationScript =
     setInterval(async () => {
       if (!sessionToken || editor.contains(document.activeElement)) return;
       try { await refresh(); }
-      catch {
+      catch (error) {
+        if (error?.message === 'unauthorized') return;
         connectionLost = true;
         message.textContent = saveOutcomeUnknown
           ? document.body.dataset.saveUnknown : document.body.dataset.connection;
@@ -196,6 +210,10 @@ let webAdministrationScript =
         for (let attempt = 0; attempt < 100; attempt++) {
           await new Promise(resolve => setTimeout(resolve, 150));
           const result = await post('/api/login/status', ticket);
+          if (result.status === 401) {
+            message.textContent = document.body.dataset.failed;
+            return;
+          }
           if (!result.ok) throw new Error('login');
           const status = (await result.json()).status;
           if (status === 'pending') continue;
@@ -209,7 +227,8 @@ let webAdministrationScript =
           return;
         }
         message.textContent = document.body.dataset.connection;
-      } catch {
+      } catch (error) {
+        if (error?.message === 'unauthorized') return;
         message.textContent = document.body.dataset.connection;
       }
     });

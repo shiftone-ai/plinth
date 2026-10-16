@@ -104,21 +104,21 @@ public final class MacApplication: NSObject, NSApplicationDelegate, NSWindowDele
         MacBiometricTestPort.make(service: credentialService)
         ?? BiometricCredentialAdapter(
           service: credentialService,
-          reason: { [language] in
+          enableReason: { [language] in
             L10n.string("Enable administrator unlock with biometrics", locale: language.locale)
           },
           unlockReason: { [language] in
-            L10n.string("Administrator unlock", locale: language.locale)
+            L10n.string("Unlock administrator settings", locale: language.locale)
           },
           presentation: biometricDisplay)
     #else
       biometrics = BiometricCredentialAdapter(
         service: credentialService,
-        reason: { [language] in
+        enableReason: { [language] in
           L10n.string("Enable administrator unlock with biometrics", locale: language.locale)
         },
         unlockReason: { [language] in
-          L10n.string("Administrator unlock", locale: language.locale)
+          L10n.string("Unlock administrator settings", locale: language.locale)
         },
         presentation: biometricDisplay)
     #endif
