@@ -99,8 +99,13 @@ struct NativeLifecycleTests {
       handled(
         RootMediator.reduce(
           initial.state,
-          envelope(.bootstrapFailed(token, displayCount: 1), source: .profileRepository, id: 2))))
+          envelope(
+            .bootstrapFailed(
+              token, displayCount: 1, credentialsConfigured: true, profileCorrupt: true),
+            source: .profileRepository, id: 2))))
     #expect(failed.state.mode == .safeHold)
+    #expect(failed.state.credentialsConfigured)
+    #expect(failed.state.profileCorrupt)
     #expect(failed.childControls.isEmpty)
     #expect(failed.state.savedProfile == nil)
   }
