@@ -15,7 +15,7 @@
 | 外部画面の縦置き・回転APIと既存アプリの前例 | [回転の調査](references/external-display-rotation-precedents.md) |
 | 外部出力の縦横比・モード切替・取得画像の限界 | [縦横比の調査](references/mobile-output-aspect-ratio.md) |
 | 導入済みSwift Skillの取得元・commit | [Skillの取得元](../.agents/skills/SOURCES.md) |
-| Issue・triageラベル・用語集とADRの置き場（エンジニアリングSkill用） | [Skillの設定](agents/) |
+| Issue・triageラベル・用語とADRの参照先 | [Skillの設定](agents/) |
 
 ## 文書を更新する判断
 
