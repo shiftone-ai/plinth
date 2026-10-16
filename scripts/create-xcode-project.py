@@ -449,7 +449,7 @@ mobile_settings = {
     "INFOPLIST_FILE": "Resources/Mobile-Info.plist",
     "PRODUCT_BUNDLE_IDENTIFIER": "ai.shiftone.plinth.mobile",
     "PRODUCT_NAME": "PlinthMobile",
-    "MARKETING_VERSION": "0.1.0",
+    "MARKETING_VERSION": "1.0",
     "CURRENT_PROJECT_VERSION": "1",
     "ASSETCATALOG_COMPILER_APPICON_NAME": "AppIcon",
     "SWIFT_DEFAULT_ACTOR_ISOLATION": "MainActor",
