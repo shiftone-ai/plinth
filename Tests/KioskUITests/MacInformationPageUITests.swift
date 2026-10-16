@@ -44,7 +44,7 @@ extension KioskWorkflowUITests {
       app.activate()
       await waitFor(start)
     }
-    attach(app, name: "store-mac-settings")
+    attachStoreWindow(app, name: "store-mac-settings")
 
     scroll.scroll(byDeltaX: 0, deltaY: 700)
     replace(
@@ -56,6 +56,13 @@ extension KioskWorkflowUITests {
     XCTAssertTrue(start.isEnabled)
     start.click()
     await waitFor(app.webViews.links["Next exhibit"], timeout: 25)
-    attach(app, name: "store-mac-exhibition")
+    attachStoreWindow(app, name: "store-mac-exhibition")
+  }
+
+  @MainActor private func attachStoreWindow(_ app: XCUIApplication, name: String) {
+    let screenshot = XCTAttachment(screenshot: app.windows.firstMatch.screenshot())
+    screenshot.name = name
+    screenshot.lifetime = .keepAlways
+    add(screenshot)
   }
 }
