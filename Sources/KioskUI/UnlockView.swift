@@ -32,7 +32,19 @@ public struct UnlockView: View {
         .onSubmit { send(.submit) }
         .disabled(props.verifying)
         #if os(macOS)
-          if let label = props.biometricLabelKey {
+          if props.biometricVerifying {
+            if let biometricHost { biometricHost }
+            Button {
+              send(.cancelBiometricAuthentication)
+            } label: {
+              Image(systemName: "xmark.circle.fill")
+                .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.borderless)
+            .help(L10n.string("Cancel", locale: locale))
+            .accessibilityLabel(L10n.string("Cancel", locale: locale))
+            .accessibilityIdentifier("cancel-biometric-unlock")
+          } else if let label = props.biometricLabelKey {
             Button {
               send(.authenticateWithBiometrics)
             } label: {
@@ -59,17 +71,7 @@ public struct UnlockView: View {
       if props.cooldownRemaining > 0 {
         Label(L10n.string("Try again in 30 seconds", locale: locale), systemImage: "clock")
       }
-      #if os(macOS)
-        if props.biometricVerifying {
-          HStack {
-            if let biometricHost { biometricHost }
-            Button(L10n.string("Cancel", locale: locale)) {
-              send(.cancelBiometricAuthentication)
-            }
-            .accessibilityIdentifier("cancel-biometric-unlock")
-          }
-        }
-      #else
+      #if !os(macOS)
         if let label = props.biometricLabelKey {
           HStack {
             Button(L10n.string(label, locale: locale)) {
