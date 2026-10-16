@@ -3,6 +3,50 @@ import XCTest
 import XCUIAutomation
 
 final class SettingsCatalogUITests: XCTestCase {
+  @MainActor func testExportToLocalFiles() async throws {
+    guard ProcessInfo.processInfo.environment["PLINTH_TEST_FILE_PROVIDER_UI"] == "1" else {
+      throw XCTSkip(
+        "Run with TEST_RUNNER_PLINTH_TEST_FILE_PROVIDER_UI=1 on a dedicated iPad Simulator")
+    }
+    continueAfterFailure = false
+    let app = XCUIApplication()
+    app.launchEnvironment["PLINTH_TEST_CREDENTIAL_SERVICE"] =
+      "ai.shiftone.plinth.tests.catalog.file.\(UUID().uuidString)"
+    app.launchEnvironment["PLINTH_TEST_ISOLATED_CREDENTIALS"] = "1"
+    addTeardownBlock { await MainActor.run { app.terminate() } }
+    app.launch()
+    try await registerSavedSettings(in: app)
+    let passphrase = app.secureTextFields["catalog-passphrase"]
+    reach(passphrase, in: app)
+    passphrase.tap()
+    passphrase.typeText("abcdefghijklmnop")
+    try await secureCount(passphrase, count: 16)
+    let confirm = app.secureTextFields["catalog-confirm-passphrase"]
+    reach(confirm, in: app)
+    confirm.tap()
+    confirm.typeText("abcdefghijklmnop")
+    try await secureCount(confirm, count: 16)
+    let export = app.buttons["catalog-export-all"]
+    reach(export, in: app)
+    try await enabled(export)
+    export.tap()
+    let files = app.staticTexts["On My iPad"]
+    try await exists(files)
+    files.tap()
+    let screenshot = XCTAttachment(screenshot: app.screenshot())
+    screenshot.name = "catalog-files-before-save"
+    screenshot.lifetime = .keepAlways
+    add(screenshot)
+    let savePoint = app.coordinate(withNormalizedOffset: CGVector(dx: 0.96, dy: 0.055))
+    savePoint.tap()
+    let after = XCTAttachment(screenshot: app.screenshot())
+    after.name = "catalog-files-after-save"
+    after.lifetime = .keepAlways
+    add(after)
+    XCTAssertFalse(files.exists)
+    XCTAssertTrue(app.buttons["catalog-import-file"].waitForExistence(timeout: 10))
+  }
+
   @MainActor func testSavedEntrySurvivesRestartAndLoadsIntoEditor() async throws {
     continueAfterFailure = false
     let app = XCUIApplication()
