@@ -19,7 +19,8 @@ final class MacBiometricDisplay: BiometricUnlockPresentationPort {
 
   func prepare(_ context: LAContext, token: OperationToken) async -> Bool {
     if let current = request { dismiss(current.token) }
-    request = Request(token: token, view: LAAuthenticationView(context: context))
+    request = Request(
+      token: token, view: LAAuthenticationView(context: context, controlSize: .small))
     return await withCheckedContinuation { waiting = $0 }
   }
 
@@ -43,7 +44,7 @@ struct MacBiometricHost: View {
   var body: some View {
     if let request = display.request {
       MountedAuthenticationView(request: request) { display.attached(request.token) }
-        .frame(width: 56, height: 56)
+        .frame(width: 36, height: 36)
         .accessibilityIdentifier("embedded-touch-id")
     }
   }
@@ -78,8 +79,10 @@ private final class AuthenticationMount: NSView {
     addSubview(view)
     view.translatesAutoresizingMaskIntoConstraints = false
     NSLayoutConstraint.activate([
-      view.centerXAnchor.constraint(equalTo: centerXAnchor),
-      view.centerYAnchor.constraint(equalTo: centerYAnchor),
+      view.leadingAnchor.constraint(equalTo: leadingAnchor),
+      view.trailingAnchor.constraint(equalTo: trailingAnchor),
+      view.topAnchor.constraint(equalTo: topAnchor),
+      view.bottomAnchor.constraint(equalTo: bottomAnchor),
     ])
   }
 
