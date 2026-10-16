@@ -69,6 +69,7 @@ public struct CatalogProps: Equatable, Sendable {
   public let syncConsentPending: Bool
   public let shareCandidate: CatalogEntry?
   public let conflicts: [CatalogConflict]
+  public let conflictDifferences: [UUID: [CatalogDifference]]
   public let visibleEntries: [CatalogEntry]
   public let hiddenEntries: [CatalogEntry]
   public let loaded: Bool

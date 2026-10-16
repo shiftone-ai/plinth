@@ -15,6 +15,23 @@ extension Presenters {
       syncConsentPending: root.catalogSyncConsentPending,
       shareCandidate: root.catalog.entries.first { $0.id == root.catalogShareCandidateID },
       conflicts: root.catalog.conflicts,
+      conflictDifferences: Dictionary(
+        uniqueKeysWithValues: root.catalog.conflicts.compactMap { conflict in
+          guard let remote = conflict.remote else { return nil }
+          let local = root.catalog.entries.first { $0.id == conflict.id }
+          var differences = CatalogComparison.differences(
+            current: local?.snapshot.profile(revision: 1), selected: remote.snapshot)
+          if local?.name != remote.name {
+            differences.insert(
+              .init(
+                labelKey: "Name", current: local.map { .text($0.name) } ?? .absent,
+                selected: .text(remote.name)), at: 0)
+          }
+          if differences.isEmpty {
+            differences = CatalogComparison.differences(current: nil, selected: remote.snapshot)
+          }
+          return (conflict.id, differences)
+        }),
       visibleEntries: available.filter(\.isVisible),
       hiddenEntries: available.filter { !$0.isVisible },
       loaded: root.catalogLoaded,

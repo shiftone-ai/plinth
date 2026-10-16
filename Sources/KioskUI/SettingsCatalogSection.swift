@@ -153,6 +153,24 @@ struct SettingsCatalogSection: View {
                   : L10n.string("Changed on another device", locale: locale)
               )
               .font(.caption).foregroundStyle(.secondary)
+              if conflict.remote != nil {
+                DisclosureGroup(L10n.string("Changes", locale: locale)) {
+                  ForEach(props.conflictDifferences[conflict.id] ?? []) { difference in
+                    VStack(alignment: .leading, spacing: 4) {
+                      Text(L10n.string(difference.labelKey, locale: locale)).font(.headline)
+                      HStack(alignment: .top, spacing: 12) {
+                        conflictValue(difference.current)
+                          .frame(maxWidth: .infinity, alignment: .leading)
+                        Image(systemName: "arrow.right").foregroundStyle(.secondary)
+                          .accessibilityHidden(true)
+                        conflictValue(difference.selected)
+                          .frame(maxWidth: .infinity, alignment: .leading)
+                      }
+                    }
+                    .accessibilityElement(children: .combine)
+                  }
+                }
+              }
               Button(L10n.string("Keep this version", locale: locale)) {
                 send(.resolveCatalogConflict(conflict.id, useRemote: false))
               }
@@ -167,6 +185,15 @@ struct SettingsCatalogSection: View {
           }
         }
       }
+    }
+  }
+
+  @ViewBuilder
+  private func conflictValue(_ value: CatalogDisplayValue) -> some View {
+    switch value {
+    case .text(let text): Text(verbatim: text)
+    case .localized(let key): Text(L10n.string(key, locale: locale))
+    case .absent: Text(verbatim: "—")
     }
   }
 

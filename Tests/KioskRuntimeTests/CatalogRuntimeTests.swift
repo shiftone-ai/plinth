@@ -96,14 +96,23 @@ struct CatalogRuntimeTests {
     #expect(runtime.snapshot.root.catalogRenameCandidate?.name == "Local edit")
     runtime.send(.catalogRenameConfirmed(id), from: .settings)
     finishCatalogSave(fixture)
+    var remoteProfile = profile
+    remoteProfile.startURL = "https://example.com/other"
     let remote = try #require(
       CatalogEntry(
-        id: id, name: "Remote edit", snapshot: base.snapshot, version: 2,
+        id: id, name: "Remote edit", snapshot: CatalogSnapshot(remoteProfile)!, version: 2,
         scope: .iCloud, accountIdentifier: "account-a", syncedVersion: 2))
     runtime.send(.catalogCloudChanges(session, "account-a", [.upsert(remote)]), from: .cloudCatalog)
     finishCatalogSave(fixture)
     #expect(runtime.snapshot.root.catalog.entries[0].name == "Local edit")
     #expect(runtime.snapshot.root.catalog.conflicts.first?.remote?.name == "Remote edit")
+    #expect(
+      runtime.settingsProps.props.catalog.conflictDifferences[id]?.first?.selected
+        == .text("Remote edit"))
+    #expect(
+      runtime.settingsProps.props.catalog.conflictDifferences[id]?.contains {
+        $0.labelKey == "Start URL" && $0.selected == .text("https://example.com/other")
+      } == true)
     #expect(runtime.snapshot.root.savedProfile == saved)
     runtime.send(.catalogConflictResolved(id, useRemote: true), from: .settings)
     finishCatalogSave(fixture)
