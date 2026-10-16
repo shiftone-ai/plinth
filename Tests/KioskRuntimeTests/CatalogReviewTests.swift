@@ -141,6 +141,37 @@ struct CatalogReviewTests {
     #expect(fixture.runtime.settingsProps.props.canSave)
   }
 
+  @Test func cancelledFileImportRejectsALatePreview() throws {
+    let fixture = RuntimeFixture()
+    defer { fixture.runtime.stop() }
+    let profile = try fixture.profile()
+    let existing = try #require(
+      CatalogEntry(id: UUID(), name: "Existing", snapshot: CatalogSnapshot(profile)!))
+    let incoming = try #require(
+      CatalogEntry(id: UUID(), name: "Incoming", snapshot: CatalogSnapshot(profile)!))
+    try openAdministration(fixture, profile: profile)
+    fixture.runtime.send(.catalogLoadRequested, from: .root)
+    let load = try #require(fixture.runtime.snapshot.root.catalogLoadOperation)
+    fixture.port.deliver(
+      .catalogLoaded(load, SettingsCatalog(entries: [existing])), source: .catalogRepository)
+    fixture.runtime.send(.catalogPassphraseEdited("long-enough-file-passphrase"), from: .settings)
+    let fileURL = FileManager.default.temporaryDirectory.appendingPathComponent(
+      "cancelled.plinthsettings")
+    #expect(
+      fixture.runtime.send(.catalogImportFileRequested(fileURL), from: .settings).reply == .accepted
+    )
+    let importToken = try #require(fixture.runtime.snapshot.root.catalogImportOperation)
+    #expect(fixture.runtime.send(.catalogImportCancelled, from: .settings).reply == .accepted)
+    #expect(
+      fixture.runtime.send(
+        .catalogImportPreviewReady(importToken, [incoming]), from: .catalogRepository
+      ).reply == .rejected(.staleOperation))
+    #expect(fixture.runtime.snapshot.root.catalog.entries == [existing])
+    #expect(fixture.runtime.snapshot.root.catalogImportPreview == nil)
+    #expect(fixture.runtime.snapshot.root.savedProfile != nil)
+    #expect(fixture.runtime.snapshot.administration.catalogPassphrase.isEmpty)
+  }
+
   private func openAdministration(_ fixture: RuntimeFixture, profile: KioskProfile) throws {
     fixture.runtime.send(
       .bootstrapped(profile: nil, credentialsConfigured: false, displayCount: 1), from: .root)
