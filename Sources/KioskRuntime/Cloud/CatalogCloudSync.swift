@@ -239,7 +239,7 @@ extension CatalogCloudSync {
       await handleFetchedRecordZoneChanges(update, syncEngine: syncEngine, session: session)
 
     case .fetchedDatabaseChanges(let update):
-      if update.deletions.contains(where: { $0.zoneID.zoneName == Self.zoneName }) {
+      if update.deletions.contains(where: { $0.zoneID == Self.catalogZoneID }) {
         let changes = disk.entries.keys.map { CatalogCloudChange.delete($0) }
         disk.serverDeletions.formUnion(disk.entries.keys)
         disk.serverDeletions.formUnion(disk.serverEntries.keys)
@@ -260,7 +260,9 @@ extension CatalogCloudSync {
       await handleSentRecordZoneChanges(update, syncEngine: syncEngine, session: session)
 
     case .sentDatabaseChanges(let update):
-      if !update.failedZoneSaves.isEmpty || !update.failedZoneDeletes.isEmpty {
+      if update.failedZoneSaves.contains(where: { $0.zone.zoneID == Self.catalogZoneID })
+        || update.failedZoneDeletes[Self.catalogZoneID] != nil
+      {
         await sendEvent(.catalogCloudStatus(session, .failed))
       }
 
@@ -268,7 +270,7 @@ extension CatalogCloudSync {
       fetchFailed = false
 
     case .didFetchRecordZoneChanges(let update):
-      if let error = update.error {
+      if update.zoneID == Self.catalogZoneID, let error = update.error {
         fetchFailed = true
         await sendEvent(.catalogCloudStatus(session, Self.isOffline(error) ? .offline : .failed))
       }
@@ -293,7 +295,7 @@ extension CatalogCloudSync {
     for modification in update.modifications {
       let record = modification.record
       guard record.recordType == Self.recordType,
-        let id = UUID(uuidString: record.recordID.recordName),
+        let id = Self.catalogID(from: record.recordID),
         let payload = Self.entry(from: record, accountIdentifier: disk.accountIdentifier)
       else { continue }
       if syncEngine.state.pendingRecordZoneChanges.contains(.saveRecord(record.recordID)) {
@@ -306,7 +308,9 @@ extension CatalogCloudSync {
         }
       }
       if syncEngine.state.pendingRecordZoneChanges.contains(.deleteRecord(record.recordID)) {
-        if let knownTag = disk.recordSystemFields[id].flatMap(Self.record(from:))?.recordChangeTag,
+        if let knownTag = disk.recordSystemFields[id].flatMap({
+          Self.record(from: $0, matching: record.recordID)
+        })?.recordChangeTag,
           knownTag == record.recordChangeTag
         {
           continue
@@ -320,8 +324,8 @@ extension CatalogCloudSync {
       disk.serverDeletions.remove(id)
       changes.append(.upsert(payload))
     }
-    for deletion in update.deletions where deletion.recordID.zoneID.zoneName == Self.zoneName {
-      guard let id = UUID(uuidString: deletion.recordID.recordName) else { continue }
+    for deletion in update.deletions {
+      guard let id = Self.catalogID(from: deletion.recordID) else { continue }
       if syncEngine.state.pendingRecordZoneChanges.contains(.saveRecord(deletion.recordID)) {
         disk.conflicts.insert(id)
         syncEngine.state.remove(pendingRecordZoneChanges: [.saveRecord(deletion.recordID)])
@@ -356,7 +360,7 @@ extension CatalogCloudSync {
     var conflicts: [CatalogCloudChange] = []
     var failureStatus: CatalogSyncStatus?
     for record in update.savedRecords {
-      guard let id = UUID(uuidString: record.recordID.recordName),
+      guard let id = Self.catalogID(from: record.recordID),
         let entry = Self.entry(from: record, accountIdentifier: disk.accountIdentifier)
       else { continue }
       disk.recordSystemFields[id] = Self.systemFields(record)
@@ -364,17 +368,19 @@ extension CatalogCloudSync {
       disk.serverDeletions.remove(id)
       acknowledged[id] = entry.version
     }
-    for id in update.deletedRecordIDs.compactMap({ UUID(uuidString: $0.recordName) }) {
+    for id in update.deletedRecordIDs.compactMap(Self.catalogID(from:)) {
       disk.recordSystemFields.removeValue(forKey: id)
       disk.serverEntries.removeValue(forKey: id)
       disk.serverDeletions.insert(id)
       acknowledgedDeletions.append(id)
     }
     for failure in update.failedRecordSaves {
-      guard let id = UUID(uuidString: failure.record.recordID.recordName) else { continue }
+      guard let id = Self.catalogID(from: failure.record.recordID) else { continue }
       switch failure.error.code {
       case .serverRecordChanged:
-        if let server = failure.error.serverRecord {
+        if let server = failure.error.serverRecord,
+          Self.catalogID(from: server.recordID) == id
+        {
           disk.recordSystemFields[id] = Self.systemFields(server)
           if let remote = Self.entry(from: server, accountIdentifier: disk.accountIdentifier) {
             disk.serverEntries[id] = remote
@@ -401,7 +407,7 @@ extension CatalogCloudSync {
     }
     if !update.failedRecordDeletes.isEmpty {
       for (recordID, error) in update.failedRecordDeletes {
-        guard let id = UUID(uuidString: recordID.recordName) else { continue }
+        guard let id = Self.catalogID(from: recordID) else { continue }
         if error.code == .serverRecordChanged, let server = error.serverRecord,
           let remote = Self.entry(from: server, accountIdentifier: disk.accountIdentifier)
         {
@@ -440,8 +446,6 @@ extension CatalogCloudSync {
     }
     if !conflicts.isEmpty {
       await sendEvent(.catalogCloudChanges(session, disk.accountIdentifier, conflicts))
-    } else if update.failedRecordSaves.isEmpty && update.failedRecordDeletes.isEmpty {
-      await sendEvent(.catalogCloudStatus(session, .ready))
     }
 
   }
@@ -465,12 +469,12 @@ extension CatalogCloudSync {
     let entries = disk.entries
     let fields = disk.recordSystemFields
     return await CKSyncEngine.RecordZoneChangeBatch(pendingChanges: pending) { recordID in
-      guard let id = UUID(uuidString: recordID.recordName), let entry = entries[id],
+      guard let id = Self.catalogID(from: recordID), let entry = entries[id],
         let data = try? JSONEncoder().encode(CloudPayload(entry)),
         data.count <= Self.maximumPayloadBytes
       else { return nil }
       let record =
-        fields[id].flatMap(Self.record(from:))
+        fields[id].flatMap { Self.record(from: $0, matching: recordID) }
         ?? CKRecord(recordType: Self.recordType, recordID: recordID)
       record.encryptedValues[Self.payloadKey] = data
       return record
@@ -496,13 +500,21 @@ extension CatalogCloudSync {
     CKRecord.ID(recordName: id.uuidString, zoneID: CKRecordZone.ID(zoneName: zoneName))
   }
 
+  private static var catalogZoneID: CKRecordZone.ID { CKRecordZone.ID(zoneName: zoneName) }
+
+  private static func catalogID(from recordID: CKRecord.ID) -> UUID? {
+    guard recordID.zoneID == catalogZoneID else { return nil }
+    return UUID(uuidString: recordID.recordName)
+  }
+
   private static func isOffline(_ error: CKError) -> Bool {
     error.code == .networkUnavailable || error.code == .networkFailure
       || error.code == .serviceUnavailable || error.code == .zoneBusy
   }
 
   private static func entry(from record: CKRecord, accountIdentifier: String) -> CatalogEntry? {
-    guard let id = UUID(uuidString: record.recordID.recordName),
+    guard record.recordType == recordType,
+      let id = catalogID(from: record.recordID),
       let data = record.encryptedValues[payloadKey] as? Data,
       data.count <= maximumPayloadBytes,
       let payload = try? JSONDecoder().decode(CloudPayload.self, from: data)
@@ -524,5 +536,12 @@ extension CatalogCloudSync {
     guard let coder = try? NSKeyedUnarchiver(forReadingFrom: data) else { return nil }
     coder.requiresSecureCoding = true
     return CKRecord(coder: coder)
+  }
+
+  private static func record(from data: Data, matching id: CKRecord.ID) -> CKRecord? {
+    guard let record = record(from: data), record.recordID == id,
+      record.recordType == recordType
+    else { return nil }
+    return record
   }
 }
