@@ -160,11 +160,9 @@ def signing(app: Path) -> list[str]:
         if any(entitlements.get(key) for key in DEBUGGABLE):
             findings.append(f"デバッガの接続を許す署名（get-task-allow）: {label(app, bundle)}")
         info_path = bundle / "Contents/Info.plist"
-        mac_biometric = (
-            info_path.is_file()
-            and plistlib.loads(info_path.read_bytes()).get("CFBundleIdentifier")
-            == "ai.shiftone.plinth"
-        )
+        mac_biometric = info_path.is_file() and plistlib.loads(info_path.read_bytes()).get(
+            "CFBundleIdentifier"
+        ) in {"ai.shiftone.plinth", "ai.shiftone.plinth.mobile"}
         groups = entitlements.get("keychain-access-groups", [])
         if mac_biometric and not groups:
             findings.append(f"生体認証用Keychainの権限がない: {label(app, bundle)}")
