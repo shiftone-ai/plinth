@@ -264,6 +264,9 @@ extension CatalogCloudSync {
         await sendEvent(.catalogCloudStatus(session, .failed))
       }
 
+    case .willFetchChanges:
+      fetchFailed = false
+
     case .didFetchRecordZoneChanges(let update):
       if let error = update.error {
         fetchFailed = true
