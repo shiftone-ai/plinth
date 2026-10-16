@@ -22,6 +22,8 @@ iPadOS 26.4 SimulatorのTouch IDでは，有効化・無効化・再起動後の
 
 管理者解除画面の生体認証ボタンは，iOS 26.4のiPhone 17 Pro SimulatorとiPadOS 27.0のiPad Pro 13インチ（M5）Simulatorで，結果を差し替えたPortによる成功・失敗・取消・登録変更のUI試験が各4件成功した．方式名と管理者パスワードへの切替も画面から操作した．macOS 26.6.2のMacでは，結果を差し替えたPortによる成功・失敗・取消のUI試験が各1件成功し，パスワード欄の横にTouch IDのアイコンが出る位置と読み上げ名も検査した．これらの試験は実際のFace ID・Touch IDや外部ディスプレイを検証しない．
 
+iOSのFace IDで管理者解除できたと操作者から報告を受けた．端末，実行画面，展示方式，対象ビルドはこの試験では確認していない．
+
 Macでは，生体認証の設定を実装した際のソースをDeveloper IDで署名して書き出し，`keychain-access-groups` とそれを認めるprovisioning profileを確認した．同じ署名設定の診断用ビルドで，隔離したserviceに `.biometryCurrentSet` のData Protection Keychain項目を作成・削除した（`SecItemAdd = 0`，`SecItemDelete = 0`，削除後 `errSecItemNotFound`）．認証を許さない値の照会は `errSecInteractionNotAllowed` だった．配布用UIでのTouch ID操作と失敗時の表示，実機で登録済みの顔・指紋を別の登録に入れ替えたときの失効は未確認である．
 
 ## 環境とtarget
