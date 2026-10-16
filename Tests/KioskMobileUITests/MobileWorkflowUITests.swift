@@ -790,7 +790,7 @@ final class MobileWorkflowUITests: XCTestCase {
   }
 
   @MainActor
-  private func value(_ element: XCUIElement, equals text: String) async throws {
+  func value(_ element: XCUIElement, equals text: String) async throws {
     let ready = expectation(for: NSPredicate(format: "value == %@", text), evaluatedWith: element)
     await fulfillment(of: [ready], timeout: 5)
     XCTAssertEqual(element.value as? String, text)
@@ -819,7 +819,7 @@ final class MobileWorkflowUITests: XCTestCase {
   }
 
   @MainActor
-  private func configureStoreReviewDemo(_ app: XCUIApplication) async throws {
+  func configureStoreReviewDemo(_ app: XCUIApplication) async throws {
     let start = app.buttons["start-exhibition"]
     try await exists(start)
     let destination = app.buttons["exhibition-destination"]

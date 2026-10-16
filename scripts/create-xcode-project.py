@@ -344,6 +344,13 @@ mobile_test = obj(
     path="Tests/KioskMobileUITests/MobileWorkflowUITests.swift",
     sourceTree="SOURCE_ROOT",
 )
+mobile_information_test = obj(
+    "MobileInformationTest",
+    "PBXFileReference",
+    lastKnownFileType="sourcecode.swift",
+    path="Tests/KioskMobileUITests/MobileInformationPageUITests.swift",
+    sourceTree="SOURCE_ROOT",
+)
 mobile_product = obj(
     "MobileProduct",
     "PBXFileReference",
@@ -377,6 +384,7 @@ mobile_biometric_test = obj(
 objects[group]["children"] += [
     mobile_main,
     mobile_test,
+    mobile_information_test,
     mobile_localization_test,
     mobile_biometric_test,
 ]
@@ -390,6 +398,9 @@ mobile_library = obj(
 mobile_library_build = obj("MobileLibraryBuild", "PBXBuildFile", productRef=mobile_library)
 mobile_main_build = obj("MobileMainBuild", "PBXBuildFile", fileRef=mobile_main)
 mobile_test_build = obj("MobileTestBuild", "PBXBuildFile", fileRef=mobile_test)
+mobile_information_test_build = obj(
+    "MobileInformationTestBuild", "PBXBuildFile", fileRef=mobile_information_test
+)
 mobile_localization_test_build = obj(
     "MobileLocalizationTestBuild", "PBXBuildFile", fileRef=mobile_localization_test
 )
@@ -514,6 +525,7 @@ mobile_test_target = obj(
             "PBXSourcesBuildPhase",
             [
                 mobile_test_build,
+                mobile_information_test_build,
                 mobile_localization_test_build,
                 mobile_biometric_test_build,
                 fixture_build,

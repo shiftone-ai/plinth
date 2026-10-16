@@ -35,15 +35,7 @@ public final class NativeEffectPort: EffectPort {
     if Task.isCancelled { return nil }
     switch effect.kind {
     case .openInformationPage(let page, let locale):
-      let language = L10n.languageCode(for: Locale(identifier: locale))
-      let name = page == .privacy ? "privacy" : "support"
-      guard let url = URL(string: "https://shiftone-ai.github.io/plinth/\(language)/\(name).html")
-      else { return nil }
-      #if os(macOS)
-        _ = NSWorkspace.shared.open(url)
-      #else
-        _ = await UIApplication.shared.open(url)
-      #endif
+      await openInformationPage(page, locale: locale)
       return nil
     case .bootstrap:
       do {
@@ -108,6 +100,23 @@ public final class NativeEffectPort: EffectPort {
       } catch { return .profileSaveFailed(effect.token) }
     case .cancelOperation: return nil
     }
+  }
+
+  private func openInformationPage(_ page: InformationPage, locale: String) async {
+    let language = L10n.languageCode(for: Locale(identifier: locale))
+    let name = page == .privacy ? "privacy" : "support"
+    var address = "https://shiftone-ai.github.io/plinth/\(language)/\(name).html"
+    #if DEBUG
+      if let testAddress = ProcessInfo.processInfo.environment["PLINTH_TEST_INFORMATION_PAGE_URL"] {
+        address = testAddress
+      }
+    #endif
+    guard let url = URL(string: address) else { return }
+    #if os(macOS)
+      _ = NSWorkspace.shared.open(url)
+    #else
+      _ = await UIApplication.shared.open(url)
+    #endif
   }
 
   public nonisolated static func timerInterval(until deadline: Double, now: Double) -> Double {
