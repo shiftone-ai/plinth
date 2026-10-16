@@ -5,7 +5,7 @@ public enum RootMediator {
   ) -> Mediation<RootState> {
     switch envelope.event {
     case .webAuthenticationVerified, .webSessionRequested, .webServerStarted,
-      .webServerFailed, .webServerAddressChanged:
+      .webServerFailed, .webServerStoppedUnexpectedly, .webServerAddressChanged:
       return reduceWebAdministration(state, envelope)
     case .webRestartExhibitionRequested, .webStopExhibitionRequested,
       .webResumeExhibitionRequested:
@@ -55,6 +55,7 @@ public enum RootMediator {
 
     case .applicationDeactivated:
       guard envelope.source == .platform else { return .reject(state, .wrongSource) }
+      if state.mobileDisplays != nil { next.mobileForeground = false }
       let resumes =
         state.mobileDisplays != nil && !state.administratorSession
         && (state.mode == .exhibiting || state.mode == .enteringKiosk
@@ -71,6 +72,7 @@ public enum RootMediator {
 
     case .applicationActivated:
       guard envelope.source == .platform else { return .reject(state, .wrongSource) }
+      if state.mobileDisplays != nil { next.mobileForeground = true }
       if state.mode == .administration {
         guard state.biometricOperation == nil else { return .handled(.init(next)) }
         let statusToken = envelope.token(owner: .credentials, epoch: state.epoch)
@@ -81,7 +83,7 @@ public enum RootMediator {
         state.pointerCaptureFailed || state.foregroundResume == .awaitingActivation,
         state.foregroundResume != .awaitingStop, !state.administratorSession,
         let profile = state.activeProfile
-      else { return .handled(.init(state)) }
+      else { return .handled(.init(next)) }
       guard state.canPresent(profile) else {
         if profile.exhibitionDestination == .externalDisplay,
           state.mobileDisplays?.externalConnected == true
@@ -112,8 +114,18 @@ public enum RootMediator {
       }
       next.credentialOperation = nil
       next.credentialConfigurationFailed = !succeeded
-      if succeeded { next.credentialsConfigured = true }
-      return .handled(.init(next, childControls: [.init(.administration, .clearPasscode)]))
+      if succeeded {
+        next.credentialsConfigured = true
+        next.webSession = nil
+      }
+      let controls: [ChildControl] =
+        succeeded
+        ? [
+          .init(.administration, .clearPasscode),
+          .init(.administration, .invalidateWebAuthentication),
+        ]
+        : [.init(.administration, .clearPasscode)]
+      return .handled(.init(next, childControls: controls))
     case .startExhibitionRequested:
       guard [.settings, .administration, .webAdministration].contains(envelope.source) else {
         return .reject(state, .wrongSource)

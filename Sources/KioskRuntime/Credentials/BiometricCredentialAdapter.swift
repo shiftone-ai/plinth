@@ -17,14 +17,19 @@ public protocol BiometricCredentialPort: AnyObject {
 @MainActor
 public final class BiometricCredentialAdapter: BiometricCredentialPort {
   private let service: String
-  private let reason: @MainActor () -> String
+  private let enableReason: @MainActor () -> String
+  private let unlockReason: @MainActor () -> String
   private let account = "administrator-biometric-unlock"
   private var contexts: [OperationToken: LAContext] = [:]
   private var committedEnable: OperationToken?
 
-  public init(service: String, reason: @escaping @MainActor () -> String) {
+  public init(
+    service: String, enableReason: @escaping @MainActor () -> String,
+    unlockReason: @escaping @MainActor () -> String
+  ) {
     self.service = service
-    self.reason = reason
+    self.enableReason = enableReason
+    self.unlockReason = unlockReason
   }
 
   public func status() -> BiometricStatus {
@@ -102,7 +107,7 @@ public final class BiometricCredentialAdapter: BiometricCredentialPort {
     do {
       try await context.evaluatePolicy(
         .deviceOwnerAuthenticationWithBiometrics,
-        localizedReason: reason())
+        localizedReason: enableReason())
     } catch {
       let authenticationError = error as NSError
       let cancellationCodes = [
@@ -142,7 +147,7 @@ public final class BiometricCredentialAdapter: BiometricCredentialPort {
     defer { contexts.removeValue(forKey: token) }
     do {
       try await context.evaluatePolicy(
-        .deviceOwnerAuthenticationWithBiometrics, localizedReason: reason())
+        .deviceOwnerAuthenticationWithBiometrics, localizedReason: unlockReason())
     } catch {
       let authenticationError = error as NSError
       let cancellationCodes = [

@@ -56,13 +56,24 @@ public enum AdministrationMediator {
       guard envelope.source == .root else { return .reject(state, .wrongSource) }
       next.passcode = ""
       return .handled(.init(next))
+    case .invalidateWebAuthentication:
+      guard envelope.source == .root else { return .reject(state, .wrongSource) }
+      next.pendingWebLogin = nil
+      next.webVerification = nil
+      next.lastWebLogin = nil
+      return .handled(
+        .init(
+          next,
+          effects: state.webVerification.map {
+            [Effect(token, .cancelOperation($0))]
+          } ?? []))
     case .openAdministration(let profile):
       guard envelope.source == .root, mode == .administration else {
         return .reject(state, .invalidState)
       }
       next.savedProfile = profile
       next.passcode = ""
-      next.draft = profile.map(ProfileDraft.init)
+      if !state.hasUnsavedDraft { next.draft = profile.map(ProfileDraft.init) }
       next.saving = false
       next.saveFailed = false
       next.unlockID = nil

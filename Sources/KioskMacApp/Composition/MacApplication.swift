@@ -103,9 +103,14 @@ public final class MacApplication: NSObject, NSApplicationDelegate, NSWindowDele
       credentials: CredentialStore(
         service: credentialService, keychain: credentialKeychain,
         legacyService: legacyCredentialService),
-      biometrics: BiometricCredentialAdapter(service: credentialService) { [language] in
-        L10n.string("Enable administrator unlock with biometrics", locale: language.locale)
-      },
+      biometrics: BiometricCredentialAdapter(
+        service: credentialService,
+        enableReason: { [language] in
+          L10n.string("Enable administrator unlock with biometrics", locale: language.locale)
+        },
+        unlockReason: { [language] in
+          L10n.string("Unlock administrator settings", locale: language.locale)
+        }),
       clock: clock, displays: displays, webServer: webServer)
   }
 
