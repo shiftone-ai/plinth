@@ -86,6 +86,10 @@ def configurations(name, settings):
             "dwarf" if configuration == "Debug" else "dwarf-with-dsym"
         )
         values["ONLY_ACTIVE_ARCH"] = "YES" if configuration == "Debug" else "NO"
+        if settings.get("CODE_SIGN_ENTITLEMENTS"):
+            values["PLINTH_APS_ENVIRONMENT"] = (
+                "development" if configuration == "Debug" else "production"
+            )
         values["SWIFT_ACTIVE_COMPILATION_CONDITIONS"] = (
             ["DEBUG"] if configuration == "Debug" else []
         )
@@ -335,6 +339,13 @@ mobile_test = obj(
     path="Tests/KioskMobileUITests/MobileWorkflowUITests.swift",
     sourceTree="SOURCE_ROOT",
 )
+mobile_catalog_test = obj(
+    "MobileCatalogTest",
+    "PBXFileReference",
+    lastKnownFileType="sourcecode.swift",
+    path="Tests/KioskMobileUITests/SettingsCatalogUITests.swift",
+    sourceTree="SOURCE_ROOT",
+)
 mobile_product = obj(
     "MobileProduct",
     "PBXFileReference",
@@ -368,6 +379,7 @@ mobile_biometric_test = obj(
 objects[group]["children"] += [
     mobile_main,
     mobile_test,
+    mobile_catalog_test,
     mobile_localization_test,
     mobile_biometric_test,
 ]
@@ -381,6 +393,9 @@ mobile_library = obj(
 mobile_library_build = obj("MobileLibraryBuild", "PBXBuildFile", productRef=mobile_library)
 mobile_main_build = obj("MobileMainBuild", "PBXBuildFile", fileRef=mobile_main)
 mobile_test_build = obj("MobileTestBuild", "PBXBuildFile", fileRef=mobile_test)
+mobile_catalog_test_build = obj(
+    "MobileCatalogTestBuild", "PBXBuildFile", fileRef=mobile_catalog_test
+)
 mobile_localization_test_build = obj(
     "MobileLocalizationTestBuild", "PBXBuildFile", fileRef=mobile_localization_test
 )
@@ -447,6 +462,7 @@ mobile_base = {
 mobile_settings = {
     **mobile_base,
     "INFOPLIST_FILE": "Resources/Mobile-Info.plist",
+    "CODE_SIGN_ENTITLEMENTS": "Resources/Mobile.entitlements",
     "PRODUCT_BUNDLE_IDENTIFIER": "ai.shiftone.plinth.mobile",
     "PRODUCT_NAME": "PlinthMobile",
     "MARKETING_VERSION": "0.1.0",
@@ -514,6 +530,7 @@ mobile_test_target = obj(
             "PBXSourcesBuildPhase",
             [
                 mobile_test_build,
+                mobile_catalog_test_build,
                 mobile_localization_test_build,
                 mobile_biometric_test_build,
                 fixture_build,

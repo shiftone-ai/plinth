@@ -1,3 +1,5 @@
+import Foundation
+
 public enum AdministrationMediator {
   public static func reduce(
     _ state: AdministrationState, _ envelope: EventEnvelope,
@@ -28,6 +30,9 @@ public enum AdministrationMediator {
       next.savedProfile = profile
       next.passcode = ""
       next.draft = profile.map(ProfileDraft.init)
+      next.catalogSelection = nil
+      next.catalogSelectionNameDraft = ""
+      next.catalogRequiresAvailableOutput = false
       next.saving = false
       next.saveFailed = false
       next.unlockID = nil
@@ -59,7 +64,15 @@ public enum AdministrationMediator {
         return .reject(state, .invalidState)
       }
       next.draft = state.savedProfile.map(ProfileDraft.init)
+      next.catalogRequiresAvailableOutput = false
       return .handled(.init(next, reply: .accepted))
+
+    case .catalogPassphraseEdited, .catalogConfirmPassphraseEdited,
+      .catalogPassphraseCleared, .catalogExportRequested, .catalogImportFileRequested,
+      .catalogRegisterRequested, .catalogNameEdited, .catalogSelectionNameEdited,
+      .catalogRegistrationSucceeded, .catalogSelectionOpened, .catalogSelectionDismissed,
+      .catalogSelectionApplied:
+      return reduceCatalog(state, envelope, mode: mode)
 
     case .addOriginRuleRequested, .removeOriginRuleRequested:
       guard [.settings, .navigationRules].contains(envelope.source),
@@ -101,6 +114,7 @@ public enum AdministrationMediator {
       guard envelope.source == .root, state.saving else { return .reject(state, .invalidState) }
       next.savedProfile = profile
       next.draft = ProfileDraft(profile: profile)
+      next.catalogRequiresAvailableOutput = false
       next.saving = false
       return .handled(.init(next))
 

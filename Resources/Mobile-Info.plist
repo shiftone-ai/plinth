@@ -14,7 +14,15 @@
   <key>CFBundleShortVersionString</key><string>$(MARKETING_VERSION)</string>
   <key>CFBundleVersion</key><string>$(CURRENT_PROJECT_VERSION)</string>
   <key>LSRequiresIPhoneOS</key><true/>
+  <key>UIBackgroundModes</key><array><string>remote-notification</string></array>
   <key>ITSAppUsesNonExemptEncryption</key><false/>
+  <key>UTExportedTypeDeclarations</key><array><dict>
+    <key>UTTypeIdentifier</key><string>ai.shiftone.plinth.settings</string>
+    <key>UTTypeConformsTo</key><array><string>public.data</string></array>
+    <key>UTTypeTagSpecification</key><dict>
+      <key>public.filename-extension</key><array><string>plinthsettings</string></array>
+    </dict>
+  </dict></array>
   <key>UIApplicationSupportsIndirectInputEvents</key><true/>
   <key>UILaunchScreen</key><dict/>
   <key>UIApplicationSceneManifest</key><dict>

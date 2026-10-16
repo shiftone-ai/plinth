@@ -4,6 +4,7 @@ import KioskCore
 public final class EffectExecutor: EffectExecuting {
   public var resultSink: (@MainActor (Event, NodeID) -> Void)?
   public let registry = EffectTaskRegistry()
+  private var nextCatalogTaskID: UInt64 = 0
   private let port: any EffectPort
   public init(port: any EffectPort) { self.port = port }
 
@@ -32,10 +33,26 @@ public final class EffectExecutor: EffectExecuting {
     case .verifyPasscode, .configurePasscode, .readBiometricStatus, .changeBiometricUnlock:
       source = .credentials
     case .saveProfile, .bootstrap: source = .profileRepository
+    case .loadCatalog, .saveCatalog, .prepareCatalogExport, .importCatalogFile:
+      source = .catalogRepository
+    case .checkCatalogAccount, .checkCatalogAccountAfterStopping,
+      .startCatalogCloudSync, .stopCatalogCloudSync,
+      .publishCatalogChanges:
+      source = .cloudCatalog
     case .cancelOperation: return
     }
+    let registrationToken: OperationToken
+    if source == .cloudCatalog {
+      nextCatalogTaskID &+= 1
+      precondition(nextCatalogTaskID != 0)
+      registrationToken = OperationToken(
+        owner: .cloudCatalog, ownerEpoch: effect.token.ownerEpoch,
+        operationID: nextCatalogTaskID)
+    } else {
+      registrationToken = effect.token
+    }
     registry.start(
-      effect.token, operation: { [port] in await port.perform(effect) },
+      registrationToken, operation: { [port] in await port.perform(effect) },
       completion: { [weak self] event in self?.resultSink?(event, source) })
   }
 

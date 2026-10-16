@@ -1,3 +1,5 @@
+import Foundation
+
 public enum AppMode: String, Equatable, Sendable {
   case bootstrapping, administration, enteringKiosk, exhibiting, unlocking, leavingKiosk, safeHold,
     terminating
@@ -21,6 +23,35 @@ public struct RootState: Equatable, Sendable {
   public var mode: AppMode = .bootstrapping
   public var savedProfile: KioskProfile?
   public var activeProfile: KioskProfile?
+  public var catalog = SettingsCatalog()
+  public var catalogLoaded = false
+  public var catalogLoadFailed = false
+  public var catalogLoadOperation: OperationToken?
+  public var catalogSaveOperation: OperationToken?
+  public var pendingCatalog: SettingsCatalog?
+  public var pendingCatalogRegistrationID: UUID?
+  public var catalogRemovalCandidateID: UUID?
+  public var catalogRenameCandidate: CatalogRenameCandidate?
+  public var catalogUpdateCandidateID: UUID?
+  public var catalogSaveFailed = false
+  public var catalogExportOperation: OperationToken?
+  public var catalogExportData: Data?
+  public var catalogExportFailed = false
+  public var catalogImportOperation: OperationToken?
+  public var catalogImportPreview: [CatalogEntry]?
+  public var catalogImportFailed = false
+  public var pendingCatalogImport = false
+  public var catalogSyncStatus: CatalogSyncStatus = .disabled
+  public var catalogAccountCheckOperation: OperationToken?
+  public var catalogCloudSessionOperation: OperationToken?
+  public var catalogSyncConsentPending = false
+  public var catalogShareCandidateID: UUID?
+  public var pendingCatalogPublishes = true
+  public var catalogCheckAfterSave = false
+  public var catalogStartAfterSave = false
+  public var queuedCatalogCloudChanges: [CatalogCloudChange] = []
+  public var queuedCatalogAcknowledgements: [UUID: UInt64] = [:]
+  public var queuedCatalogDeletionAcknowledgements: Set<UUID> = []
   public var credentialsConfigured = false
   public var displayCount = 1
   public var mobileDisplays: MobileDisplayAvailability?
@@ -51,6 +82,13 @@ public struct RootState: Equatable, Sendable {
       return true
     }
     return displayCount > 0 && profile.exhibitionDestination != .externalDisplay
+  }
+  public func catalogEntryAvailable(_ entry: CatalogEntry) -> Bool {
+    entry.scope == .device
+      || (entry.accountIdentifier == catalog.accountIdentifier
+        && catalogSyncStatus != .checking
+        && catalogSyncStatus != .accountChanged
+        && catalogSyncStatus != .signInRequired)
   }
   public var administratorSession = false
   public var presentationAcquired = false

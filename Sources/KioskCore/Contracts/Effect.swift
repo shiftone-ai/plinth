@@ -1,3 +1,5 @@
+import Foundation
+
 public struct Effect: Equatable, Sendable {
   public enum Kind: Equatable, Sendable {
     case bootstrap
@@ -19,6 +21,19 @@ public struct Effect: Equatable, Sendable {
     case readBiometricStatus
     case changeBiometricUnlock(Bool)
     case saveProfile(KioskProfile)
+    case loadCatalog
+    case saveCatalog(SettingsCatalog)
+    case checkCatalogAccount
+    case checkCatalogAccountAfterStopping
+    case startCatalogCloudSync(
+      String, entries: [CatalogEntry], conflicts: [UUID],
+      pendingDeletions: [CatalogPendingDeletion])
+    case stopCatalogCloudSync
+    case publishCatalogChanges(
+      session: OperationToken, resolvedConflicts: [UUID], saves: [CatalogEntry],
+      deletions: [UUID])
+    case prepareCatalogExport([CatalogEntry], passphrase: String)
+    case importCatalogFile(URL, passphrase: String)
     case cancelOperation(OperationToken)
   }
   public let token: OperationToken

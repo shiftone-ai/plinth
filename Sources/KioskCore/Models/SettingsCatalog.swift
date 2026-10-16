@@ -1,0 +1,152 @@
+import Foundation
+
+public struct CatalogRenameCandidate: Equatable, Sendable {
+  public let id: UUID
+  public let name: String
+  public init(id: UUID, name: String) {
+    self.id = id
+    self.name = name
+  }
+}
+
+public enum CatalogScope: String, Codable, Sendable {
+  case device, iCloud
+}
+
+public enum CatalogSyncStatus: Equatable, Sendable {
+  case disabled, checking, ready, pending, offline, signInRequired, accountChanged, failed
+}
+
+public enum CatalogCloudChange: Equatable, Sendable {
+  case upsert(CatalogEntry)
+  case delete(UUID)
+}
+
+public struct CatalogConflict: Equatable, Codable, Sendable, Identifiable {
+  public let id: UUID
+  public let remote: CatalogEntry?
+  public init(id: UUID, remote: CatalogEntry?) {
+    self.id = id
+    self.remote = remote
+  }
+}
+
+public struct CatalogPendingDeletion: Equatable, Codable, Sendable, Identifiable {
+  public let id: UUID
+  public let accountIdentifier: String
+  public var attempt: UInt64
+  public var baseVersion: UInt64?
+
+  public init(
+    id: UUID, accountIdentifier: String, attempt: UInt64 = 1, baseVersion: UInt64? = nil
+  ) {
+    self.id = id
+    self.accountIdentifier = accountIdentifier
+    self.attempt = attempt
+    self.baseVersion = baseVersion
+  }
+}
+
+public struct CatalogEntry: Equatable, Codable, Sendable, Identifiable {
+  public let id: UUID
+  public let formatVersion: Int
+  public var name: String
+  public var snapshot: CatalogSnapshot
+  public var version: UInt64
+  public var scope: CatalogScope
+  public var isVisible: Bool
+  public var accountIdentifier: String?
+  public var syncedVersion: UInt64?
+
+  public init?(
+    id: UUID, name: String, snapshot: CatalogSnapshot, version: UInt64 = 1,
+    scope: CatalogScope = .device, isVisible: Bool = true,
+    accountIdentifier: String? = nil, syncedVersion: UInt64? = nil
+  ) {
+    let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard Self.validName(name), version > 0, snapshot.isValid,
+      (scope == .device && accountIdentifier == nil)
+        || (scope == .iCloud && !(accountIdentifier ?? "").isEmpty)
+    else { return nil }
+    self.id = id
+    formatVersion = 1
+    self.name = name
+    self.snapshot = snapshot
+    self.version = version
+    self.scope = scope
+    self.isVisible = isVisible
+    self.accountIdentifier = accountIdentifier
+    self.syncedVersion = syncedVersion
+  }
+
+  public func sameCloudContents(as other: CatalogEntry) -> Bool {
+    id == other.id && formatVersion == other.formatVersion
+      && name == other.name && snapshot == other.snapshot
+      && version == other.version && scope == other.scope
+      && accountIdentifier == other.accountIdentifier
+  }
+
+  public static func validName(_ value: String) -> Bool {
+    !value.isEmpty && value.utf8.count <= 120
+      && value.unicodeScalars.allSatisfy { !CharacterSet.controlCharacters.contains($0) }
+  }
+}
+
+public struct SettingsCatalog: Equatable, Codable, Sendable {
+  public let schemaVersion: Int
+  public var revision: UInt64
+  public var syncEnabled: Bool
+  public var accountIdentifier: String?
+  public var entries: [CatalogEntry]
+  public var conflicts: [CatalogConflict]
+  public var pendingDeletions: [CatalogPendingDeletion]
+
+  public init(
+    revision: UInt64 = 0, syncEnabled: Bool = false, accountIdentifier: String? = nil,
+    entries: [CatalogEntry] = [], conflicts: [CatalogConflict] = [],
+    pendingDeletions: [CatalogPendingDeletion] = []
+  ) {
+    schemaVersion = 1
+    self.revision = revision
+    self.syncEnabled = syncEnabled
+    self.accountIdentifier = accountIdentifier
+    self.entries = entries
+    self.conflicts = conflicts
+    self.pendingDeletions = pendingDeletions
+  }
+
+  private enum CodingKeys: String, CodingKey {
+    case schemaVersion, revision, syncEnabled, accountIdentifier, entries, conflicts,
+      pendingDeletions
+  }
+
+  public init(from decoder: Decoder) throws {
+    let values = try decoder.container(keyedBy: CodingKeys.self)
+    schemaVersion = try values.decode(Int.self, forKey: .schemaVersion)
+    revision = try values.decode(UInt64.self, forKey: .revision)
+    syncEnabled = try values.decode(Bool.self, forKey: .syncEnabled)
+    accountIdentifier = try values.decodeIfPresent(String.self, forKey: .accountIdentifier)
+    entries = try values.decode([CatalogEntry].self, forKey: .entries)
+    conflicts = try values.decodeIfPresent([CatalogConflict].self, forKey: .conflicts) ?? []
+    pendingDeletions =
+      try values.decodeIfPresent(
+        [CatalogPendingDeletion].self, forKey: .pendingDeletions) ?? []
+  }
+
+  public var isValid: Bool {
+    schemaVersion == 1 && Set(entries.map(\.id)).count == entries.count
+      && Set(conflicts.map(\.id)).count == conflicts.count
+      && Set(pendingDeletions.map(\.id)).count == pendingDeletions.count
+      && Set(entries.map(\.id)).isDisjoint(with: pendingDeletions.map(\.id))
+      && entries.allSatisfy {
+        $0.formatVersion == 1 && CatalogEntry.validName($0.name)
+          && $0.version > 0 && $0.snapshot.isValid
+          && (($0.scope == .device && $0.accountIdentifier == nil)
+            || ($0.scope == .iCloud && !($0.accountIdentifier ?? "").isEmpty))
+      }
+      && conflicts.allSatisfy {
+        $0.remote == nil || ($0.remote?.id == $0.id && $0.remote?.scope == .iCloud)
+      }
+      && pendingDeletions.allSatisfy { !$0.accountIdentifier.isEmpty && $0.attempt > 0 }
+  }
+}

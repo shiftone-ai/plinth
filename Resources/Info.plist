@@ -16,6 +16,13 @@
   <key>LSMinimumSystemVersion</key><string>14.0</string>
   <key>LSApplicationCategoryType</key><string>public.app-category.utilities</string>
   <key>ITSAppUsesNonExemptEncryption</key><false/>
+  <key>UTExportedTypeDeclarations</key><array><dict>
+    <key>UTTypeIdentifier</key><string>ai.shiftone.plinth.settings</string>
+    <key>UTTypeConformsTo</key><array><string>public.data</string></array>
+    <key>UTTypeTagSpecification</key><dict>
+      <key>public.filename-extension</key><array><string>plinthsettings</string></array>
+    </dict>
+  </dict></array>
   <key>NSHighResolutionCapable</key><true/>
   <key>NSAppTransportSecurity</key><dict>
     <key>NSAllowsArbitraryLoadsInWebContent</key><true/>
