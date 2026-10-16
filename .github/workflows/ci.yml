@@ -42,6 +42,8 @@ jobs:
       # 全ファイルにcommit前hookを実行してから，devenv.nixのenterTestでビルドとテストを行う．
       - name: Lint and test
         run: devenv test
+      - name: Web administration page interactions
+        run: devenv shell -- env PLINTH_NATIVE_TESTS=1 swift test --filter WebAdministrationPageInteractionTests -Xswiftc -warnings-as-errors
       # commit前hookのgitleaksはstageした変更だけを見るため，CIでは履歴を調べる．
       - name: Scan secrets
         run: devenv shell -- just secrets
