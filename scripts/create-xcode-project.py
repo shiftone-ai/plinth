@@ -300,13 +300,22 @@ test_target = obj(
         phase("UIResources", "PBXResourcesBuildPhase", [fixture_video_build]),
     ],
 )
+cloud_capabilities = {
+    "SystemCapabilities": {
+        "com.apple.iCloud": {"enabled": 1},
+        "com.apple.Push": {"enabled": 1},
+    }
+}
 project = obj(
     "Project",
     "PBXProject",
     attributes={
         "LastUpgradeCheck": "2700",
         "TargetAttributes": {
-            app_target: {"CreatedOnToolsVersion": "27.0"},
+            app_target: {
+                "CreatedOnToolsVersion": "27.0",
+                **(cloud_capabilities if options.app_store or options.developer_id else {}),
+            },
             test_target: {"CreatedOnToolsVersion": "27.0", "TestTargetID": app_target},
         },
     },
@@ -543,7 +552,10 @@ mobile_test_target = obj(
 objects[project]["targets"] += [mobile_target, mobile_test_target]
 objects[project]["attributes"]["TargetAttributes"].update(
     {
-        mobile_target: {"CreatedOnToolsVersion": "27.0"},
+        mobile_target: {
+            "CreatedOnToolsVersion": "27.0",
+            **cloud_capabilities,
+        },
         mobile_test_target: {"CreatedOnToolsVersion": "27.0", "TestTargetID": mobile_target},
     }
 )
