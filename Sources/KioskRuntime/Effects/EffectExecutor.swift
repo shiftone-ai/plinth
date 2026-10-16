@@ -24,7 +24,8 @@ public final class EffectExecutor: EffectExecuting {
     }
     let source: NodeID
     switch effect.kind {
-    case .applyPresentation, .releasePresentation, .prepareExternalScene, .captureExternalPointer:
+    case .applyPresentation, .releasePresentation, .prepareExternalScene, .captureExternalPointer,
+      .openInformationPage:
       source = .platform
     case .releaseExternalPointer, .confineNativePointer: return
     case .createSurface, .releaseSurface, .load, .controlExternalWeb: source = .webSurface

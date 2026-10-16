@@ -1,17 +1,24 @@
+import KioskCore
 import KioskLocalization
+import KioskPresentation
 import SwiftUI
 
 struct SettingsInformationSection: View {
   @Environment(\.locale) private var locale
   @State private var showingLicenses = false
+  let send: (SettingsIntent) -> Void
 
   var body: some View {
     Section(L10n.string("About", locale: locale)) {
-      Link(destination: pageURL("privacy")) {
+      Button {
+        send(.openInformationPage(.privacy, locale: locale.identifier))
+      } label: {
         Label(L10n.string("Privacy Policy", locale: locale), systemImage: "hand.raised")
       }
       .accessibilityIdentifier("privacy-policy")
-      Link(destination: pageURL("support")) {
+      Button {
+        send(.openInformationPage(.support, locale: locale.identifier))
+      } label: {
         Label(L10n.string("Support", locale: locale), systemImage: "questionmark.circle")
       }
       .accessibilityIdentifier("support")
@@ -25,14 +32,4 @@ struct SettingsInformationSection: View {
     }
   }
 
-  private func pageURL(_ page: String) -> URL {
-    let language: String
-    switch locale.language.languageCode?.identifier {
-    case "ja": language = "ja"
-    case "ko": language = "ko"
-    case "zh": language = "zh-Hans"
-    default: language = "en"
-    }
-    return URL(string: "https://shiftone-ai.github.io/plinth/\(language)/\(page).html")!
-  }
 }

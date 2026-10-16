@@ -1,5 +1,12 @@
 import Foundation
 import KioskCore
+import KioskLocalization
+
+#if os(macOS)
+  import AppKit
+#else
+  import UIKit
+#endif
 
 @MainActor
 public final class NativeEffectPort: EffectPort {
@@ -27,6 +34,17 @@ public final class NativeEffectPort: EffectPort {
   public func perform(_ effect: Effect) async -> Event? {
     if Task.isCancelled { return nil }
     switch effect.kind {
+    case .openInformationPage(let page, let locale):
+      let language = L10n.languageCode(for: Locale(identifier: locale))
+      let name = page == .privacy ? "privacy" : "support"
+      guard let url = URL(string: "https://shiftone-ai.github.io/plinth/\(language)/\(name).html")
+      else { return nil }
+      #if os(macOS)
+        _ = NSWorkspace.shared.open(url)
+      #else
+        _ = await UIApplication.shared.open(url)
+      #endif
+      return nil
     case .bootstrap:
       do {
         async let profile = repository.load()

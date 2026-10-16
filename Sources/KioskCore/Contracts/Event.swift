@@ -60,6 +60,7 @@ public enum Event: Equatable, Sendable {
   case draftChanged(ProfileDraft)
   case draftEdited(ProfileDraftEdit)
   case saveDraftRequested
+  case openInformationPageRequested(InformationPage, locale: String)
   case discardDraftRequested
   case addOriginRuleRequested
   case removeOriginRuleRequested(UInt64)
@@ -87,7 +88,8 @@ public enum Event: Equatable, Sendable {
       .nativeInput, .externalWebControlRequested, .externalWebControlExecutionRequested,
       .externalMouseInput,
       .navigationRequested, .profileCommitRequested, .draftChanged, .draftEdited,
-      .saveDraftRequested, .passcodeSubmitted, .cancelAuthentication, .configurePasscodeRequested,
+      .saveDraftRequested, .openInformationPageRequested, .passcodeSubmitted,
+      .cancelAuthentication, .configurePasscodeRequested,
       .passcodeEdited, .discardDraftRequested, .webCapabilityRequested, .addOriginRuleRequested,
       .removeOriginRuleRequested, .prepareExternalSceneRequested, .credentialConfigurationRequested,
       .biometricStatusRequested, .biometricChangeRequested, .biometricChangeCancelled:

@@ -143,7 +143,7 @@ public struct SettingsView: View {
           }
         }
         SettingsPasscodeSection(props: props, send: send)
-        SettingsInformationSection()
+        SettingsInformationSection(send: send)
         if !props.validationMessages.isEmpty {
           Section {
             ForEach(props.validationMessages) { message in

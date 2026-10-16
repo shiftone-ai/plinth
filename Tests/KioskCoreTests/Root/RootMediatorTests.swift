@@ -2,6 +2,30 @@ import KioskCore
 import Testing
 
 struct RootMediatorTests {
+  @Test func informationPagesOpenOnlyFromAdministration() throws {
+    var state = RootState()
+    state.mode = .administration
+    let request = envelope(
+      .openInformationPageRequested(.privacy, locale: "zh-Hant"), source: .settings)
+    let accepted = try #require(handled(RootMediator.reduce(state, request)))
+    #expect(accepted.reply == .accepted)
+    #expect(accepted.state == state)
+    #expect(accepted.effects.map(\.kind) == [.openInformationPage(.privacy, locale: "zh-Hant")])
+
+    let forged = try #require(
+      handled(
+        RootMediator.reduce(
+          state,
+          envelope(.openInformationPageRequested(.support, locale: "en"), source: .webSurface))))
+    #expect(forged.reply == .rejected(.wrongSource))
+    #expect(forged.effects.isEmpty)
+
+    state.mode = .exhibiting
+    let unavailable = try #require(handled(RootMediator.reduce(state, request)))
+    #expect(unavailable.reply == .rejected(.invalidState))
+    #expect(unavailable.effects.isEmpty)
+  }
+
   @Test func missingProfileWithExistingCredentialsRequiresAuthentication() throws {
     let value = try #require(
       handled(

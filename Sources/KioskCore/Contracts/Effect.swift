@@ -19,6 +19,7 @@ public struct Effect: Equatable, Sendable {
     case readBiometricStatus
     case changeBiometricUnlock(Bool)
     case saveProfile(KioskProfile)
+    case openInformationPage(InformationPage, locale: String)
     case cancelOperation(OperationToken)
   }
   public let token: OperationToken
