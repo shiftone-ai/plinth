@@ -127,6 +127,13 @@ localization_test = obj(
     path="Tests/KioskUITests/MacLocalizationUITests.swift",
     sourceTree="SOURCE_ROOT",
 )
+information_test = obj(
+    "MacInformationUISource",
+    "PBXFileReference",
+    lastKnownFileType="sourcecode.swift",
+    path="Tests/KioskUITests/MacInformationPageUITests.swift",
+    sourceTree="SOURCE_ROOT",
+)
 shield_test = obj(
     "MacDisplayShieldUISource",
     "PBXFileReference",
@@ -175,7 +182,16 @@ group = obj(
     "MainGroup",
     "PBXGroup",
     sourceTree="<group>",
-    children=[main, test, localization_test, shield_test, fixture, fixture_video, products],
+    children=[
+        main,
+        test,
+        localization_test,
+        information_test,
+        shield_test,
+        fixture,
+        fixture_video,
+        products,
+    ],
 )
 package = obj("LocalPackage", "XCLocalSwiftPackageReference", relativePath=".")
 library = obj(
@@ -185,6 +201,7 @@ library_build = obj("MacLibraryBuild", "PBXBuildFile", productRef=library)
 main_build = obj("MainBuild", "PBXBuildFile", fileRef=main)
 test_build = obj("TestBuild", "PBXBuildFile", fileRef=test)
 localization_test_build = obj("MacLocalizationTestBuild", "PBXBuildFile", fileRef=localization_test)
+information_test_build = obj("MacInformationTestBuild", "PBXBuildFile", fileRef=information_test)
 shield_test_build = obj("MacDisplayShieldTestBuild", "PBXBuildFile", fileRef=shield_test)
 fixture_build = obj("FixtureBuild", "PBXBuildFile", fileRef=fixture)
 fixture_video_build = obj("FixtureVideoBuild", "PBXBuildFile", fileRef=fixture_video)
@@ -299,7 +316,13 @@ test_target = obj(
         phase(
             "UISources",
             "PBXSourcesBuildPhase",
-            [test_build, localization_test_build, shield_test_build, fixture_build],
+            [
+                test_build,
+                localization_test_build,
+                information_test_build,
+                shield_test_build,
+                fixture_build,
+            ],
         ),
         phase("UIFrameworks", "PBXFrameworksBuildPhase", []),
         phase("UIResources", "PBXResourcesBuildPhase", [fixture_video_build]),
