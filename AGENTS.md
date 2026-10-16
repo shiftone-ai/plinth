@@ -17,7 +17,7 @@ Mac版と，iPadの本体・外部ディスプレイでWebコンテンツを展�
 | SDK・deployment target・Skillの導入や更新 | [Skillの適用条件](docs/rules/skills.md)，[取得元とcommit](.agents/skills/SOURCES.md) |
 | iPad対応・OS別の入力と端末制限 | [iPad対応の方針](docs/design-docs/ipad-support.md) |
 
-文書の配置と更新判断は [資料一覧](docs/index.md) を参照する．長期作業の途中状態は `docs/exec-plans/active/` に置き，完了した計画は削除する．
+文書の配置・更新と長期作業の記録は [資料一覧](docs/index.md) を参照する．
 
 ## 実装の境界
 
@@ -29,16 +29,8 @@ Skillの一般例より本プロジェクトの責務境界を優先し，コン
 
 依頼された範囲の実装・検証・検証で見つかった問題の修正まで進める．変更した責務境界，実行したビルド／テストと環境，未実行の項目を分けて報告する．設計レビューだけで動作確認済みとしない．
 
-## Agent skills
+## Issueと用語の参照先
 
-### Issue tracker
-
-IssueはGitHub（`shiftone-ai/plinth`）のIssuesで管理し，`gh` で操作する．[docs/agents/issue-tracker.md](docs/agents/issue-tracker.md) を参照する．
-
-### Triage labels
-
-triageの5つの役割には，同じ名前のラベル（`needs-triage` など）をそのまま使う．[docs/agents/triage-labels.md](docs/agents/triage-labels.md) を参照する．
-
-### Domain docs
-
-single-context構成（ルートの `GLOSSARY.md` と `docs/adr/`）．[docs/agents/domain.md](docs/agents/domain.md) を参照する．
+- Issueを扱うときは [Issue tracker](docs/agents/issue-tracker.md) を読む．
+- triageラベルを扱うときは [Triage labels](docs/agents/triage-labels.md) を読む．
+- 用語や設計判断を確認するときは [Domain docs](docs/agents/domain.md) を読む．
