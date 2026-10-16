@@ -21,7 +21,8 @@ extension RootMediator {
     switch envelope.event {
     case .biometricStatusRequested:
       guard envelope.source == .settings || envelope.source == .platform,
-        [.administration, .unlocking].contains(state.mode), state.biometricOperation == nil
+        [.administration, .unlocking].contains(state.mode), state.biometricOperation == nil,
+        state.biometricUnlockOperation == nil
       else {
         return .reject(state, .invalidState)
       }
@@ -35,80 +36,15 @@ extension RootMediator {
       }
       next.biometricStatusOperation = nil
       next.biometricStatus = status
+      if state.mode == .unlocking, state.biometricStatus?.enabled == true,
+        !status.enabled, status.availability != .unavailable(.storageUnavailable)
+      {
+        next.biometricEnrollmentChanged = true
+      }
       return .handled(.init(next))
 
     default: return .bubble
     }
-  }
-
-  private static func reduceBiometricUnlock(
-    _ state: RootState, _ envelope: EventEnvelope
-  ) -> Mediation<RootState> {
-    var next = state
-    let token = envelope.token(owner: .credentials, epoch: state.epoch)
-    switch envelope.event {
-    case .biometricUnlockRequested:
-      guard envelope.source == .unlock else { return .reject(state, .wrongSource) }
-      guard state.mode == .unlocking, state.unlockID != nil,
-        state.biometricUnlockOperation == nil, state.biometricStatusOperation == nil,
-        state.biometricStatus?.enabled == true,
-        state.credentialsConfigured
-      else { return .reject(state, .invalidState) }
-      guard case .available = state.biometricStatus?.availability else {
-        return .reject(state, .invalidState)
-      }
-      next.biometricUnlockOperation = token
-      next.biometricUnlockFailed = false
-      return .handled(
-        .init(
-          next, reply: .accepted,
-          effects: [Effect(token, .performBiometricUnlock)]))
-
-    case .biometricUnlockCancelled:
-      guard envelope.source == .unlock else { return .reject(state, .wrongSource) }
-      guard state.mode == .unlocking, let operation = state.biometricUnlockOperation else {
-        return .reject(state, .invalidState)
-      }
-      next.biometricUnlockOperation = nil
-      next.biometricUnlockFailed = false
-      return .handled(
-        .init(
-          next, reply: .accepted,
-          effects: [Effect(token, .cancelOperation(operation))]))
-
-    case .biometricUnlockCompleted(let completed, let status, let outcome):
-      return completeBiometricUnlock(
-        state, envelope, completed: completed, status: status, outcome: outcome)
-
-    default: return .bubble
-    }
-  }
-
-  private static func completeBiometricUnlock(
-    _ state: RootState, _ envelope: EventEnvelope, completed: OperationToken,
-    status: BiometricStatus, outcome: BiometricUnlockOutcome
-  ) -> Mediation<RootState> {
-    guard envelope.source == .credentials else { return .reject(state, .wrongSource) }
-    guard state.mode == .unlocking, state.biometricUnlockOperation == completed,
-      state.unlockID != nil
-    else { return .reject(state, .staleOperation) }
-    var next = state
-    next.biometricUnlockOperation = nil
-    next.biometricStatus = status
-    switch outcome {
-    case .succeeded:
-      guard status.enabled else { return .reject(state, .staleOperation) }
-      let token = envelope.token(owner: .credentials, epoch: state.epoch)
-      return completeAuthentication(next, token: token)
-    case .cancelled:
-      next.biometricUnlockFailed = false
-    case .failed:
-      next.biometricUnlockFailed = true
-    case .enrollmentChanged:
-      next.biometricEnrollmentChanged = true
-      next.biometricUnlockFailed = true
-    }
-    return .handled(.init(next))
   }
 
   private static func reduceBiometricChange(
@@ -133,6 +69,61 @@ extension RootMediator {
 
     case .biometricChangeCancelled:
       return cancelBiometricChange(state, envelope)
+
+    default: return .bubble
+    }
+  }
+
+  private static func reduceBiometricUnlock(
+    _ state: RootState, _ envelope: EventEnvelope
+  ) -> Mediation<RootState> {
+    let token = envelope.token(owner: .credentials, epoch: state.epoch)
+    switch envelope.event {
+    case .biometricUnlockRequested:
+      guard envelope.source == .unlock else { return .reject(state, .wrongSource) }
+      guard state.mode == .unlocking, state.unlockID != nil, state.credentialsConfigured,
+        state.biometricUnlockOperation == nil, state.biometricStatusOperation == nil,
+        let status = state.biometricStatus, status.enabled
+      else { return .reject(state, .invalidState) }
+      guard case .available = status.availability else { return .reject(state, .invalidState) }
+      var next = state
+      next.biometricUnlockOperation = token
+      next.biometricUnlockFailed = false
+      return .handled(
+        .init(next, reply: .accepted, effects: [Effect(token, .performBiometricUnlock)]))
+
+    case .biometricUnlockCancelled:
+      guard envelope.source == .unlock else { return .reject(state, .wrongSource) }
+      guard state.mode == .unlocking, let operation = state.biometricUnlockOperation else {
+        return .reject(state, .invalidState)
+      }
+      var next = state
+      next.biometricUnlockOperation = nil
+      next.biometricUnlockFailed = false
+      return .handled(
+        .init(next, reply: .accepted, effects: [Effect(token, .cancelOperation(operation))]))
+
+    case .biometricUnlockCompleted(let completed, let status, let outcome):
+      guard envelope.source == .credentials else { return .reject(state, .wrongSource) }
+      guard state.mode == .unlocking, state.unlockID != nil,
+        state.biometricUnlockOperation == completed
+      else { return .reject(state, .staleOperation) }
+      var next = state
+      next.biometricUnlockOperation = nil
+      next.biometricStatus = status
+      switch outcome {
+      case .succeeded:
+        guard status.enabled else { return .reject(state, .staleOperation) }
+        return RootMediator.completeAuthentication(
+          next, token: envelope.token(owner: .root, epoch: state.epoch),
+          fromBiometrics: true)
+      case .cancelled: next.biometricUnlockFailed = false
+      case .failed: next.biometricUnlockFailed = true
+      case .enrollmentChanged:
+        next.biometricEnrollmentChanged = true
+        next.biometricUnlockFailed = true
+      }
+      return .handled(.init(next))
 
     default: return .bubble
     }

@@ -112,6 +112,8 @@ extension RootMediator {
     next.unlockID = envelope.eventID
     next.unlockTimeoutOperation = token
     next.unlockDeadline = envelope.timestamp + 60
+    next.biometricUnlockOperation = nil
+    next.biometricUnlockFailed = false
     next.mode = .unlocking
     next.biometricUnlockFailed = false
     let statusToken = envelope.token(owner: .credentials, epoch: state.epoch)

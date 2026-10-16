@@ -48,6 +48,14 @@ struct SettingsPasscodeSection: View {
         Text(L10n.string(reason, locale: locale)).font(.caption).foregroundStyle(.secondary)
           .accessibilityIdentifier("biometric-unavailable")
       }
+      if props.biometricEnrollmentChanged {
+        Label(
+          L10n.string("Biometric enrollment changed. Enable unlock again", locale: locale),
+          systemImage: "exclamationmark.circle"
+        )
+        .foregroundStyle(.orange)
+        .accessibilityIdentifier("biometric-enrollment-changed")
+      }
       Text(
         L10n.string(
           "Everyone with a registered fingerprint or face on this device can open administrator settings. Changes to enrollment turn this off.",
