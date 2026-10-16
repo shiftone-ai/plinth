@@ -38,6 +38,38 @@ struct InputPolicyTests {
     #expect(fresh.recordsVisitorActivity == false)
   }
 
+  @Test func anotherAdministrationClickWorksWhenAControlConsumesMouseUp() {
+    let firstDown = InputPolicy.evaluate(
+      .primaryDown, scope: .administration, mode: .administration,
+      webAvailable: false, generation: 1, policy: .init(), state: .init())
+    let nextDown = InputPolicy.evaluate(
+      .primaryDown, scope: .administration, mode: .administration,
+      webAvailable: false, generation: 1, policy: .init(), state: firstDown.state)
+    let nextUp = InputPolicy.evaluate(
+      .primaryUp, scope: .administration, mode: .administration,
+      webAvailable: false, generation: 1, policy: .init(), state: nextDown.state)
+    #expect(firstDown.passes)
+    #expect(nextDown.passes)
+    #expect(nextUp.passes)
+    #expect(nextUp.state.pressedScope == nil)
+  }
+
+  @Test func anotherWebClickWorksInTheSameGenerationWhenMouseUpIsConsumed() {
+    let firstDown = InputPolicy.evaluate(
+      .primaryDown, scope: .web, mode: .exhibiting,
+      webAvailable: true, generation: 1, policy: .init(), state: .init())
+    let nextDown = InputPolicy.evaluate(
+      .primaryDown, scope: .web, mode: .exhibiting,
+      webAvailable: true, generation: 1, policy: .init(), state: firstDown.state)
+    let nextUp = InputPolicy.evaluate(
+      .primaryUp, scope: .web, mode: .exhibiting,
+      webAvailable: true, generation: 1, policy: .init(), state: nextDown.state)
+    #expect(firstDown.passes)
+    #expect(nextDown.passes)
+    #expect(nextUp.passes)
+    #expect(nextUp.state.pressedScope == nil)
+  }
+
   struct Case: Sendable {
     let input: NativeInput
     let passes: Bool
