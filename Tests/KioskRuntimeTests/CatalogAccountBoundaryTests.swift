@@ -96,6 +96,28 @@ struct CatalogAccountBoundaryTests {
     #expect(fixture.runtime.snapshot.root.catalog.entries == [local])
   }
 
+  @Test func anotherAccountsDeletionDoesNotClearAnOlderConflict() throws {
+    let fixture = RuntimeFixture()
+    defer { fixture.runtime.stop() }
+    let id = UUID()
+    let old = try #require(
+      CatalogEntry(
+        id: id, name: "Old", snapshot: CatalogSnapshot(fixture.profile())!,
+        scope: .iCloud, accountIdentifier: "account-a"))
+    try load(
+      fixture,
+      SettingsCatalog(
+        syncEnabled: true, accountIdentifier: "account-b", entries: [old],
+        conflicts: [.init(id: id, remote: old)]),
+      account: "account-b")
+    let session = try #require(fixture.runtime.snapshot.root.catalogCloudSessionOperation)
+    fixture.runtime.send(
+      .catalogCloudChanges(session, "account-b", [.delete(id)]), from: .cloudCatalog)
+    #expect(fixture.runtime.snapshot.root.catalogSaveOperation == nil)
+    if fixture.runtime.snapshot.root.catalogSaveOperation != nil { try finishSave(fixture) }
+    #expect(fixture.runtime.snapshot.root.catalog.conflicts.map(\.id) == [id])
+  }
+
   @Test func anAcknowledgementDoesNotClearOfflineStatus() throws {
     let fixture = RuntimeFixture()
     defer { fixture.runtime.stop() }
