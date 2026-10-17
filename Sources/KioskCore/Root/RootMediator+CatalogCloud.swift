@@ -94,7 +94,7 @@ extension RootMediator {
               token,
               .startCatalogCloudSync(
                 accountID, entries: state.catalog.entries,
-                conflicts: state.catalog.conflicts.map(\.id),
+                conflicts: state.catalog.conflictIDs(for: accountID),
                 pendingDeletions: state.catalog.pendingDeletions))
           ]))
 
@@ -173,8 +173,7 @@ extension RootMediator {
       return commitCatalog(state, document, token: token, publish: false)
 
     case .catalogSharePromptRequested(let id):
-      guard canEditCatalog(state, envelope), state.catalog.syncEnabled,
-        state.catalog.accountIdentifier != nil,
+      guard canEditCatalog(state, envelope), state.catalogCanShare,
         state.catalog.entries.contains(where: { $0.id == id && $0.scope == .device })
       else { return .reject(state, .invalidState) }
       next.catalogShareCandidateID = id
@@ -188,7 +187,7 @@ extension RootMediator {
       return .handled(.init(next, reply: .accepted))
 
     case .catalogShareConfirmed(let id):
-      guard canEditCatalog(state, envelope), state.catalog.syncEnabled,
+      guard canEditCatalog(state, envelope), state.catalogCanShare,
         state.catalogShareCandidateID == id, let accountID = state.catalog.accountIdentifier,
         let index = state.catalog.entries.firstIndex(where: { $0.id == id && $0.scope == .device })
       else { return .reject(state, .invalidState) }

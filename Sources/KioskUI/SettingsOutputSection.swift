@@ -88,16 +88,18 @@ struct SettingsOutputSection: View {
             ) {
               Text(L10n.string("Automatic", locale: locale)).tag(ExternalDisplayMode?.none)
               ForEach(props.externalDisplayModes) { mode in
-                Text(verbatim: "\(mode.width) × \(mode.height)").tag(
+                Text(verbatim: displayModeLabel(mode)).tag(
                   ExternalDisplayMode?.some(mode)
-                ).accessibilityIdentifier("external-display-mode-\(mode.width)x\(mode.height)")
+                ).accessibilityIdentifier(
+                  "external-display-mode-\(mode.width)x\(mode.height)"
+                    + (mode.pixelAspectRatio == 1 ? "" : "@\(mode.pixelAspectRatio)"))
               }
               if let mode = props.draft.profile.externalDisplayMode,
                 !props.externalDisplayModes.contains(mode)
               {
                 Text(
                   verbatim:
-                    "\(mode.width) × \(mode.height) \(L10n.string("Disconnected", locale: locale))"
+                    "\(displayModeLabel(mode)) \(L10n.string("Disconnected", locale: locale))"
                 ).tag(
                   ExternalDisplayMode?.some(mode))
               }
@@ -140,5 +142,10 @@ struct SettingsOutputSection: View {
     _ path: KeyPath<ProfileDraft, Value>, edit: @escaping (Value) -> ProfileDraftEdit
   ) -> Binding<Value> {
     Binding(get: { props.draft[keyPath: path] }, set: { send(.edit(edit($0))) })
+  }
+
+  private func displayModeLabel(_ mode: ExternalDisplayMode) -> String {
+    let size = "\(mode.width) × \(mode.height)"
+    return mode.pixelAspectRatio == 1 ? size : "\(size) @\(mode.pixelAspectRatio)"
   }
 }

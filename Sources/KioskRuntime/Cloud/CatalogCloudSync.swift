@@ -177,6 +177,9 @@ public actor CatalogCloudSync: CKSyncEngineDelegate {
     }
     do {
       disk.conflicts.subtract(resolvedConflicts)
+      let fetchedConflicts = Self.fetchedConflicts(
+        saves: saves, disk: disk, resolvedConflicts: Set(resolvedConflicts))
+      disk.conflicts.formUnion(fetchedConflicts.map(\.id))
       let permittedSaves = saves.filter { !disk.conflicts.contains($0.id) }
       let permittedDeletions = deletions.filter { !disk.conflicts.contains($0) }
       for entry in permittedSaves {
@@ -197,6 +200,9 @@ public actor CatalogCloudSync: CKSyncEngineDelegate {
       let pending =
         !engine.state.pendingRecordZoneChanges.isEmpty
         || !engine.state.pendingDatabaseChanges.isEmpty || !disk.conflicts.isEmpty
+      if !fetchedConflicts.isEmpty {
+        await sendEvent(.catalogCloudChanges(session, disk.accountIdentifier, fetchedConflicts))
+      }
       await sendEvent(.catalogCloudStatus(session, pending ? .pending : .ready))
     } catch {
       await sendEvent(.catalogCloudStatus(session, .failed))

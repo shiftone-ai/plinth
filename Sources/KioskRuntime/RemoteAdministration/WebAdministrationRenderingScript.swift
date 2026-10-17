@@ -64,7 +64,7 @@ let webAdministrationRenderingScript = #"""
       setText('reset', localValue(profile.resetMode));
       setText('destination', localValue(profile.exhibitionDestination ?? 'device'));
       const resolution = profile.externalDisplayMode;
-      setText('resolution', resolution ? `${resolution.width} × ${resolution.height}` : null);
+      setText('resolution', resolution ? resolutionLabel(resolution) : null);
       setText('rotation', profile.externalDisplayRotation);
       setText('mac-output', localValue(profile.macOutput?.mode ?? 'fixedFullscreen'));
       const selectedDisplay = state.macDisplays?.find(item => item.id === profile.macOutput?.displayID);
@@ -157,6 +157,10 @@ let webAdministrationRenderingScript = #"""
   function resolutionID(mode) {
     return `${mode.width}x${mode.height}@${mode.pixelAspectRatio}`;
   }
+  function resolutionLabel(mode) {
+    const size = `${mode.width} × ${mode.height}`;
+    return mode.pixelAspectRatio === 1 ? size : `${size} @${mode.pixelAspectRatio}`;
+  }
   function renderOutput(state, draft) {
     const mac = document.querySelector('#mac-output-editor');
     mac.hidden = !Array.isArray(state.macDisplays);
@@ -191,11 +195,11 @@ let webAdministrationRenderingScript = #"""
         ? resolution.value : saved ? resolutionID(saved) : '';
       resolution.replaceChildren(option('', document.body.dataset.automatic));
       for (const mode of state.externalDisplayModes) {
-        resolution.append(option(resolutionID(mode), `${mode.width} × ${mode.height}`));
+        resolution.append(option(resolutionID(mode), resolutionLabel(mode)));
       }
       if (saved && !state.externalDisplayModes.some(mode => resolutionID(mode) === resolutionID(saved))) {
         resolution.append(option(resolutionID(saved),
-          `${saved.width} × ${saved.height} ${document.body.dataset.disconnectedDisplay}`, true));
+          `${resolutionLabel(saved)} ${document.body.dataset.disconnectedDisplay}`, true));
       }
       resolution.value = resolutionValue;
       document.querySelector('#external-preparation').hidden =

@@ -72,7 +72,10 @@ enum CatalogComparison {
       "Resolution", current.map { $0.externalDisplayMode },
       selected.externalDisplayMode
     ) {
-      $0.map { .text("\($0.width) × \($0.height)") } ?? .localized("Automatic")
+      $0.map {
+        let size = "\($0.width) × \($0.height)"
+        return .text($0.pixelAspectRatio == 1 ? size : "\(size) @\($0.pixelAspectRatio)")
+      } ?? .localized("Automatic")
     }
     append(
       &values,

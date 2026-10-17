@@ -243,7 +243,8 @@ extension RootMediator {
           Effect(
             token,
             .startCatalogCloudSync(
-              accountID, entries: document.entries, conflicts: document.conflicts.map(\.id),
+              accountID, entries: document.entries,
+              conflicts: document.conflictIDs(for: accountID),
               pendingDeletions: document.pendingDeletions)))
       }
       next.catalogCheckAfterSave = false
@@ -253,15 +254,7 @@ extension RootMediator {
       {
         let resolvedConflicts = Set(state.catalog.conflicts.map(\.id))
           .subtracting(document.conflicts.map(\.id))
-        let priorConflicts = Dictionary(
-          uniqueKeysWithValues: state.catalog.conflicts.map { ($0.id, $0) })
-        let queuedIDs = Set(
-          state.queuedCatalogCloudChanges.map { change in
-            switch change {
-            case .upsert(let entry): entry.id
-            case .delete(let id): id
-            }
-          })
+        let queuedIDs = Set(state.queuedCatalogCloudChanges.map(\.id))
         let oldShared = Dictionary(
           uniqueKeysWithValues: state.catalog.entries.compactMap { entry in
             entry.scope == .iCloud && entry.accountIdentifier == accountID
@@ -274,11 +267,7 @@ extension RootMediator {
           })
         let saves = newShared.values.filter {
           guard !queuedIDs.contains($0.id) else { return false }
-          if let remote = priorConflicts[$0.id]?.remote,
-            resolvedConflicts.contains($0.id), $0.sameCloudContents(as: remote)
-          {
-            return false
-          }
+          if resolvedConflicts.contains($0.id) { return true }
           guard let previous = oldShared[$0.id] else { return true }
           return !$0.sameCloudContents(as: previous)
         }
