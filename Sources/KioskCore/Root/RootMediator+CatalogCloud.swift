@@ -189,7 +189,8 @@ extension RootMediator {
       }
       guard let document = receiveCloudChanges(changes, into: state.catalog, accountID: accountID)
       else { return .handled(.init(state)) }
-      return commitCatalog(state, document, token: token, publish: false)
+      next.queuedCatalogCloudChanges.append(contentsOf: changes)
+      return commitCatalog(next, document, token: token, publish: false)
 
     case .catalogCloudAcknowledged(let session, let accountID, let versions):
       guard envelope.source == .cloudCatalog, state.catalog.syncEnabled,
@@ -213,6 +214,7 @@ extension RootMediator {
         }
       }
       guard changed else { return .handled(.init(state)) }
+      next.queuedCatalogAcknowledgements.merge(versions) { _, newer in newer }
       return commitCatalog(next, document, token: token, publish: false)
 
     case .catalogCloudDeletionsAcknowledged(let session, let accountID, let ids):
@@ -229,11 +231,15 @@ extension RootMediator {
         $0.accountIdentifier == accountID && ids.contains($0.id)
       }
       guard document != state.catalog else { return .handled(.init(state)) }
-      return commitCatalog(state, document, token: token, publish: false)
+      next.queuedCatalogDeletionAcknowledgements.formUnion(ids)
+      return commitCatalog(next, document, token: token, publish: false)
 
     case .catalogSharePromptRequested(let id):
       guard canEditCatalog(state, envelope), state.catalogCanShare,
-        state.catalog.entries.contains(where: { $0.id == id && $0.scope == .device })
+        state.catalog.entries.contains(where: { $0.id == id && $0.scope == .device }),
+        !state.catalog.pendingDeletions.contains(where: {
+          $0.id == id && $0.accountIdentifier == state.catalog.accountIdentifier
+        })
       else { return .reject(state, .invalidState) }
       next.catalogShareCandidateID = id
       return .handled(.init(next, reply: .accepted))
@@ -248,7 +254,10 @@ extension RootMediator {
     case .catalogShareConfirmed(let id):
       guard canEditCatalog(state, envelope), state.catalogCanShare,
         state.catalogShareCandidateID == id, let accountID = state.catalog.accountIdentifier,
-        let index = state.catalog.entries.firstIndex(where: { $0.id == id && $0.scope == .device })
+        let index = state.catalog.entries.firstIndex(where: { $0.id == id && $0.scope == .device }),
+        !state.catalog.pendingDeletions.contains(where: {
+          $0.id == id && $0.accountIdentifier == accountID
+        })
       else { return .reject(state, .invalidState) }
       var document = state.catalog
       document.entries[index].scope = .iCloud

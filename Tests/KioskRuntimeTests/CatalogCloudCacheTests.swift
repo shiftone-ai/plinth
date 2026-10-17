@@ -146,4 +146,29 @@ struct CatalogCloudCacheTests {
     #expect(CatalogCloudSync.isTransient(CKError(.operationCancelled)))
     #expect(!CatalogCloudSync.isTransient(CKError(.permissionFailure)))
   }
+
+  @Test func unreadableFetchedRecordIsBlockedAcrossCacheReloads() throws {
+    let id = UUID()
+    let recordID = CKRecord.ID(
+      recordName: id.uuidString, zoneID: CKRecordZone.ID(zoneName: "SettingsCatalog"))
+    let record = CKRecord(recordType: "CatalogEntry", recordID: recordID)
+    record.encryptedValues["payload"] = Data("{\"formatVersion\":2}".utf8)
+    #expect(
+      CatalogCloudSync.classifyFetchedRecord(record, accountIdentifier: "account-a")
+        == .opaque(id))
+    let disk = CatalogCloudSync.DiskState(
+      accountIdentifier: "account-a", engineState: nil, entries: [:], serverEntries: [:],
+      serverDeletions: [], recordSystemFields: [:], conflicts: [], opaqueRecordIDs: [id])
+    let reloaded = try JSONDecoder().decode(
+      CatalogCloudSync.DiskState.self, from: JSONEncoder().encode(disk))
+    #expect(reloaded.opaqueRecordIDs == [id])
+    var legacy = try #require(
+      JSONSerialization.jsonObject(with: JSONEncoder().encode(disk))
+        as? [String: Any])
+    legacy.removeValue(forKey: "opaqueRecordIDs")
+    let oldCache = try JSONSerialization.data(withJSONObject: legacy)
+    #expect(
+      try JSONDecoder().decode(CatalogCloudSync.DiskState.self, from: oldCache)
+        .opaqueRecordIDs.isEmpty)
+  }
 }

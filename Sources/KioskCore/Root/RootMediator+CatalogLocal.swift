@@ -240,7 +240,8 @@ extension RootMediator {
       next.pendingCatalogRegistrationID = nil
       var effects: [Effect] = []
       if state.catalog.syncEnabled && !document.syncEnabled {
-        next.catalogSyncStatus = .disabled
+        next.catalogSyncStatus =
+          state.catalogSyncStatus == .accountChanged ? .accountChanged : .disabled
         next.catalogCloudSessionOperation = nil
         effects.append(Effect(token, .stopCatalogCloudSync))
       }

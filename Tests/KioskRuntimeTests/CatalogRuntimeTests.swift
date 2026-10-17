@@ -155,6 +155,7 @@ struct CatalogRuntimeTests {
     fixture.port.deliver(.catalogAccountChecked(nextCheck, "account-b"), source: .cloudCatalog)
     finishCatalogSave(fixture)
     #expect(!runtime.snapshot.root.catalog.syncEnabled)
+    #expect(runtime.snapshot.root.catalogSyncStatus == .accountChanged)
     #expect(runtime.snapshot.root.catalog.accountIdentifier == "account-b")
     #expect(runtime.settingsProps.props.catalog.visibleEntries.isEmpty)
     #expect(runtime.snapshot.root.savedProfile == profile)
