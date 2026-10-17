@@ -77,7 +77,7 @@ extension RootMediator {
       if let index = document.entries.firstIndex(where: { $0.id == id }) {
         let local = document.entries[index]
         guard local.scope == .iCloud, local.accountIdentifier == accountID else {
-          recordScopeCollision(remote, id: id, in: &document)
+          recordScopeCollision(remote, id: id, accountID: accountID, in: &document)
           continue
         }
         if let remote, local.sameCloudContents(as: remote) {
@@ -123,9 +123,11 @@ extension RootMediator {
   }
 
   private static func recordScopeCollision(
-    _ remote: CatalogEntry?, id: UUID, in document: inout SettingsCatalog
+    _ remote: CatalogEntry?, id: UUID, accountID: String, in document: inout SettingsCatalog
   ) {
-    document.conflicts.removeAll { $0.id == id }
+    document.conflicts.removeAll {
+      $0.id == id && (remote != nil || $0.remote?.accountIdentifier == accountID)
+    }
     guard let remote else { return }
     document.conflicts.append(CatalogConflict(id: id, remote: remote))
   }
