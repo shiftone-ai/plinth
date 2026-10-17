@@ -34,7 +34,7 @@ public struct Effect: Equatable, Sendable {
     case stopCatalogCloudSync
     case publishCatalogChanges(
       session: OperationToken, resolvedConflicts: [UUID], saves: [CatalogEntry],
-      deletions: [UUID])
+      deletions: [CatalogPendingDeletion])
     case prepareCatalogExport([CatalogEntry], passphrase: String)
     case importCatalogFile(URL, passphrase: String)
     case startWebServer

@@ -1,6 +1,19 @@
 import Foundation
 
 extension RootMediator {
+  static func cancelCatalogFileOperations(
+    _ state: inout RootState, token: OperationToken
+  ) -> [Effect] {
+    let operations = [state.catalogExportOperation, state.catalogImportOperation].compactMap { $0 }
+    state.catalogExportOperation = nil
+    state.catalogExportData = nil
+    state.catalogExportFailed = false
+    state.catalogImportOperation = nil
+    state.catalogImportPreview = nil
+    state.catalogImportFailed = false
+    return operations.map { Effect(token, .cancelOperation($0)) }
+  }
+
   static func reduceCatalogFile(_ state: RootState, _ envelope: EventEnvelope)
     -> Mediation<RootState>
   {

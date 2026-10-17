@@ -49,7 +49,7 @@ struct CatalogRuntimeTests {
     #expect(
       fixture.port.effects.contains { effect in
         if case .publishCatalogChanges(_, _, _, let deletions) = effect.kind {
-          return deletions == [id]
+          return deletions.map(\.id) == [id] && deletions.first?.baseVersion == 2
         }
         return false
       })

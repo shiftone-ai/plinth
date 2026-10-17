@@ -73,6 +73,7 @@ public struct RootState: Equatable, Sendable {
   public var queuedCatalogCloudChanges: [CatalogCloudChange] = []
   public var queuedCatalogAcknowledgements: [UUID: UInt64] = [:]
   public var queuedCatalogDeletionAcknowledgements: Set<UUID> = []
+  public var catalogQueuedReconcileAttempted = false
   public var credentialsConfigured = false
   public var displayCount = 1
   public var mobileDisplays: MobileDisplayAvailability?

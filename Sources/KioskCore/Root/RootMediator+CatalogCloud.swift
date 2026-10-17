@@ -55,9 +55,21 @@ extension RootMediator {
     case .catalogSyncRetryRequested:
       guard canEditCatalog(state, envelope), state.catalogCloudAvailable,
         state.catalog.syncEnabled,
-        [.signInRequired, .offline].contains(state.catalogSyncStatus),
+        [.signInRequired, .offline, .failed].contains(state.catalogSyncStatus),
         state.catalogAccountCheckOperation == nil
       else { return .reject(state, .invalidState) }
+      if hasQueuedCloudFacts(state) {
+        let followup = reconcileQueuedCloudFacts(state, into: state.catalog)
+        if followup != state.catalog {
+          var result = commitCatalog(state, followup, token: token, publish: false)
+          if case .handled(var transition) = result {
+            transition.state.catalogQueuedReconcileAttempted = true
+            transition.state.catalogCheckAfterSave = true
+            result = .handled(transition)
+          }
+          return result
+        }
+      }
       clearCatalogCandidates(&next)
       clearQueuedCatalogCloudFacts(&next)
       next.catalogSyncStatus = .checking
@@ -158,6 +170,11 @@ extension RootMediator {
       guard envelope.source == .cloudCatalog, state.catalog.syncEnabled,
         state.catalog.accountIdentifier != nil, state.catalogCloudSessionOperation == session
       else { return .reject(state, .invalidState) }
+      if state.catalogQueuedReconcileAttempted && state.catalogSaveOperation == nil
+        && hasQueuedCloudFacts(state)
+      {
+        return .handled(.init(state))
+      }
       next.catalogSyncStatus = status
       return .handled(.init(next))
 
@@ -303,5 +320,6 @@ extension RootMediator {
     state.queuedCatalogCloudChanges = []
     state.queuedCatalogAcknowledgements = [:]
     state.queuedCatalogDeletionAcknowledgements = []
+    state.catalogQueuedReconcileAttempted = false
   }
 }

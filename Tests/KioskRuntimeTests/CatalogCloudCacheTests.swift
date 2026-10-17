@@ -1,3 +1,4 @@
+import CloudKit
 import Foundation
 import KioskCore
 import Testing
@@ -5,6 +6,46 @@ import Testing
 @testable import KioskRuntime
 
 struct CatalogCloudCacheTests {
+  @Test @MainActor func publicationsQueuedDuringStartAreAppliedInOrder() throws {
+    let fixture = RuntimeFixture()
+    defer { fixture.runtime.stop() }
+    let snapshot = try #require(CatalogSnapshot(fixture.profile()))
+    let id = UUID()
+    let first = try #require(
+      CatalogEntry(
+        id: id, name: "First", snapshot: snapshot, scope: .iCloud,
+        accountIdentifier: "account-a"))
+    let second = try #require(
+      CatalogEntry(
+        id: id, name: "Second", snapshot: snapshot, version: 2, scope: .iCloud,
+        accountIdentifier: "account-a"))
+    let session = OperationToken(owner: .root, operationID: 1)
+    var buffer = CatalogPublicationBuffer()
+    buffer.append(
+      .init(
+        command: .init(owner: .root, operationID: 3), session: session,
+        resolvedConflicts: [], saves: [second], deletions: []))
+    buffer.append(
+      .init(
+        command: .init(owner: .root, operationID: 2), session: session,
+        resolvedConflicts: [], saves: [first], deletions: []))
+    #expect(buffer.takeNext(for: session)?.saves == [first])
+    #expect(buffer.takeNext(for: session)?.saves == [second])
+    buffer.append(
+      .init(
+        command: .init(owner: .root, operationID: 2), session: session,
+        resolvedConflicts: [], saves: [first], deletions: []))
+    #expect(buffer.takeNext(for: session) == nil)
+    let another = try #require(
+      CatalogEntry(
+        id: UUID(), name: "Another", snapshot: snapshot, scope: .iCloud,
+        accountIdentifier: "account-a"))
+    buffer.append(
+      .init(
+        command: .init(owner: .root, operationID: 2), session: session,
+        resolvedConflicts: [], saves: [another], deletions: []))
+    #expect(buffer.takeNext(for: session)?.saves == [another])
+  }
   @Test @MainActor func aFetchedChangeBlocksAnUnreconciledLocalSave() throws {
     let fixture = RuntimeFixture()
     defer { fixture.runtime.stop() }
@@ -59,5 +100,50 @@ struct CatalogCloudCacheTests {
       serverDeletions: [], recordSystemFields: [:], conflicts: [])
     try JSONEncoder().encode(fresh).write(to: file)
     #expect(try CatalogCloudSync.loadDisk(at: file)?.accountIdentifier == "account-a")
+  }
+
+  @Test @MainActor func aFetchedEditBlocksDeletionOfAnOlderVersion() throws {
+    let fixture = RuntimeFixture()
+    defer { fixture.runtime.stop() }
+    let snapshot = try #require(CatalogSnapshot(fixture.profile()))
+    let id = UUID()
+    let remote = try #require(
+      CatalogEntry(
+        id: id, name: "Changed elsewhere", snapshot: snapshot, version: 3,
+        scope: .iCloud, accountIdentifier: "account-a", syncedVersion: 3))
+    let deletion = CatalogPendingDeletion(
+      id: id, accountIdentifier: "account-a", baseVersion: 2)
+    #expect(
+      CatalogCloudSync.fetchedChangeConflictingWithDeletion(
+        deletion, serverEntries: [id: remote]) == .upsert(remote))
+    let resolved = CatalogPendingDeletion(
+      id: id, accountIdentifier: "account-a", baseVersion: 3)
+    #expect(
+      CatalogCloudSync.fetchedChangeConflictingWithDeletion(
+        resolved, serverEntries: [id: remote]) == nil)
+  }
+
+  @Test @MainActor func acceptingAServerDeletionRemovesTheCachedEntry() throws {
+    let fixture = RuntimeFixture()
+    defer { fixture.runtime.stop() }
+    let snapshot = try #require(CatalogSnapshot(fixture.profile()))
+    let id = UUID()
+    let stale = try #require(
+      CatalogEntry(
+        id: id, name: "Stale", snapshot: snapshot, scope: .iCloud,
+        accountIdentifier: "account-a"))
+    var disk = CatalogCloudSync.DiskState(
+      accountIdentifier: "account-a", engineState: nil, entries: [id: stale],
+      serverEntries: [:], serverDeletions: [id], recordSystemFields: [:], conflicts: [id])
+    let removed = CatalogCloudSync.dropResolvedServerDeletions(
+      resolvedConflicts: [id], saves: [], disk: &disk)
+    #expect(removed == [id])
+    #expect(disk.entries[id] == nil)
+  }
+
+  @Test func temporaryDeleteFailuresKeepTheOfflineStatus() {
+    #expect(CatalogCloudSync.isTransient(CKError(.networkUnavailable)))
+    #expect(CatalogCloudSync.isTransient(CKError(.operationCancelled)))
+    #expect(!CatalogCloudSync.isTransient(CKError(.permissionFailure)))
   }
 }

@@ -31,4 +31,23 @@ extension CatalogCloudSync {
     }
     return nil
   }
+
+  static func fetchedChangeConflictingWithDeletion(
+    _ deletion: CatalogPendingDeletion, serverEntries: [UUID: CatalogEntry]
+  ) -> CatalogCloudChange? {
+    guard let remote = serverEntries[deletion.id],
+      deletion.baseVersion != remote.version
+    else { return nil }
+    return .upsert(remote)
+  }
+
+  static func dropResolvedServerDeletions(
+    resolvedConflicts: [UUID], saves: [CatalogEntry], disk: inout DiskState
+  ) -> [UUID] {
+    let accepted = resolvedConflicts.filter { id in
+      disk.serverDeletions.contains(id) && !saves.contains(where: { $0.id == id })
+    }
+    for id in accepted { disk.entries.removeValue(forKey: id) }
+    return accepted
+  }
 }
