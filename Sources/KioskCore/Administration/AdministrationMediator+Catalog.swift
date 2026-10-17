@@ -94,14 +94,14 @@ extension AdministrationMediator {
       next.catalogSelectionNameDraft = ""
       return .handled(.init(next, reply: .accepted))
 
-    case .catalogSelectionApplied(let entry, let requiresOutputReview):
+    case .catalogSelectionApplied(let entry):
       guard envelope.source == .root, mode == .administration, !state.saving,
         !state.hasUnsavedDraft, state.catalogSelection?.id == entry.id
       else { return .reject(state, .invalidState) }
-      next.draft = ProfileDraft(
-        profile: entry.snapshot.profile(
-          revision: state.savedProfile?.revision ?? 1))
-      next.catalogRequiresAvailableOutput = requiresOutputReview
+      var profile = entry.snapshot.profile(revision: state.savedProfile?.revision ?? 1)
+      profile.webAdministrationEnabled = state.savedProfile?.webAdministrationEnabled ?? false
+      next.draft = ProfileDraft(profile: profile)
+      next.catalogRequiresAvailableOutput = true
       next.catalogSelection = nil
       next.catalogSelectionNameDraft = ""
       return .handled(.init(next, reply: .accepted))

@@ -43,6 +43,16 @@ extension RootMediator {
       document.syncEnabled = false
       return commitCatalog(state, document, token: token, publish: false)
 
+    case .catalogSyncRetryRequested:
+      guard canEditCatalog(state, envelope), state.catalog.syncEnabled,
+        state.catalogSyncStatus == .signInRequired,
+        state.catalogAccountCheckOperation == nil, state.catalogCloudSessionOperation == nil
+      else { return .reject(state, .invalidState) }
+      next.catalogSyncStatus = .checking
+      next.catalogAccountCheckOperation = token
+      return .handled(
+        .init(next, reply: .accepted, effects: [Effect(token, .checkCatalogAccount)]))
+
     case .catalogAccountChecked(let completed, let accountID):
       guard envelope.source == .cloudCatalog,
         state.catalogAccountCheckOperation == completed

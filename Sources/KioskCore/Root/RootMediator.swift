@@ -26,7 +26,7 @@ public enum RootMediator {
       .catalogImportFailed, .catalogImportConfirmed, .catalogImportCancelled:
       return reduceCatalog(state, envelope, context: context)
     case .catalogSyncEnableRequested, .catalogSyncEnableConfirmed,
-      .catalogSyncEnableCancelled, .catalogSyncDisableRequested,
+      .catalogSyncEnableCancelled, .catalogSyncDisableRequested, .catalogSyncRetryRequested,
       .catalogAccountChecked, .catalogCloudStatus, .catalogCloudChanges,
       .catalogCloudAcknowledged, .catalogCloudDeletionsAcknowledged,
       .catalogCloudAccountChanged,
@@ -409,8 +409,13 @@ public enum RootMediator {
       usesExternalDisplay: usesExternalDisplay,
       externalDisplayRotation: usesExternalDisplay
         ? profile.externalDisplayRotation ?? .standard : .standard)
+    let controls: [ChildControl] =
+      state.mode == .administration
+      ? [.init(.administration, .catalogPassphraseCleared)] : []
     return .handled(
-      .init(next, reply: reply, effects: [Effect(token, .applyPresentation(request))]))
+      .init(
+        next, reply: reply, effects: [Effect(token, .applyPresentation(request))],
+        childControls: controls))
   }
 
   static func administration(_ state: RootState, token: OperationToken) -> Mediation<

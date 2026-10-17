@@ -23,6 +23,19 @@ struct AdministrationMediatorTests {
     #expect(opened.state.hasUnsavedDraft)
   }
 
+  @Test func reopeningAdministrationClearsFilePassphrases() throws {
+    var state = AdministrationState()
+    state.catalogPassphrase = "previous import passphrase"
+    state.catalogConfirmPassphrase = "previous export passphrase"
+    let opened = try #require(
+      handled(
+        AdministrationMediator.reduce(
+          state, envelope(.openAdministration(nil), source: .root),
+          mode: .administration)))
+    #expect(opened.state.catalogPassphrase.isEmpty)
+    #expect(opened.state.catalogConfirmPassphrase.isEmpty)
+  }
+
   @Test(arguments: ["", "-", "NaN", "inf", "0", "-1", "1e309"])
   func retainsInvalidIntermediateDraftInput(_ text: String) throws {
     var draft = ProfileDraft(profile: try fixtureProfile())

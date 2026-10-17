@@ -61,6 +61,7 @@ extension RootMediator {
 
     case .catalogSelectRequested(let id):
       guard envelope.source == .settings, state.mode == .administration,
+        state.catalogSaveOperation == nil,
         let entry = state.catalog.entries.first(where: {
           $0.id == id && $0.isVisible && state.catalogEntryAvailable($0)
         })
@@ -73,6 +74,7 @@ extension RootMediator {
 
     case .catalogApplyRequested:
       guard envelope.source == .settings, state.mode == .administration,
+        state.catalogSaveOperation == nil,
         !context.hasUnsavedDraft, let id = context.catalogSelectionID,
         let entry = state.catalog.entries.first(where: {
           $0.id == id && $0.isVisible && state.catalogEntryAvailable($0)
@@ -84,10 +86,7 @@ extension RootMediator {
           childControls: [
             .init(
               .administration,
-              .catalogSelectionApplied(
-                entry,
-                requiresOutputReview: !state.canPresent(
-                  entry.snapshot.profile(revision: state.savedProfile?.revision ?? 1))))
+              .catalogSelectionApplied(entry))
           ]))
 
     case .catalogRenameRequested(let id, let name):

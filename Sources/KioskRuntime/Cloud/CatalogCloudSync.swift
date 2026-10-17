@@ -177,7 +177,7 @@ public actor CatalogCloudSync: CKSyncEngineDelegate {
     session requestedSession: OperationToken, resolvedConflicts: [UUID],
     saves: [CatalogEntry], deletions: [UUID]
   ) async {
-    guard active, let engine, var disk, let session,
+    guard active, let engine, let session,
       session == requestedSession
     else { return }
     let queuedGeneration = generation
@@ -185,6 +185,7 @@ public actor CatalogCloudSync: CKSyncEngineDelegate {
     guard generation == queuedGeneration, active, self.engine === engine,
       self.session == session, !Task.isCancelled
     else { return }
+    guard var disk = self.disk else { return }
     guard currentAccount == disk.accountIdentifier else {
       await sendEvent(.catalogCloudAccountChanged(session))
       return
@@ -245,19 +246,38 @@ extension CatalogCloudSync {
 
     case .fetchedDatabaseChanges(let update):
       if update.deletions.contains(where: { $0.zoneID == Self.catalogZoneID }) {
-        let changes = disk.entries.keys.map { CatalogCloudChange.delete($0) }
-        disk.serverDeletions.formUnion(disk.entries.keys)
-        disk.serverDeletions.formUnion(disk.serverEntries.keys)
+        let pending = syncEngine.state.pendingRecordZoneChanges.filter { change in
+          switch change {
+          case .saveRecord(let id), .deleteRecord(let id):
+            return id.zoneID == Self.catalogZoneID
+          @unknown default: return false
+          }
+        }
+        let completedDeletions = pending.compactMap { change -> UUID? in
+          if case .deleteRecord(let id) = change { return Self.catalogID(from: id) }
+          return nil
+        }
         disk.serverEntries = [:]
-        disk.entries = [:]
+        disk.serverDeletions = []
         disk.recordSystemFields = [:]
         self.disk = disk
+        syncEngine.state.remove(pendingRecordZoneChanges: pending)
+        syncEngine.state.add(pendingDatabaseChanges: [
+          .saveZone(CKRecordZone(zoneID: Self.catalogZoneID))
+        ])
+        syncEngine.state.add(
+          pendingRecordZoneChanges: disk.entries.values.filter {
+            !disk.conflicts.contains($0.id)
+          }.map { .saveRecord(Self.recordID($0.id)) })
         do { try persistDisk() } catch {
           await sendEvent(.catalogCloudStatus(session, .failed))
           return
         }
-        if !changes.isEmpty {
-          await sendEvent(.catalogCloudChanges(session, disk.accountIdentifier, changes))
+        await sendEvent(.catalogCloudStatus(session, .pending))
+        if !completedDeletions.isEmpty {
+          await sendEvent(
+            .catalogCloudDeletionsAcknowledged(
+              session, disk.accountIdentifier, completedDeletions))
         }
       }
 
@@ -458,12 +478,13 @@ extension CatalogCloudSync {
   public func nextRecordZoneChangeBatch(
     _ context: CKSyncEngine.SendChangesContext, syncEngine: CKSyncEngine
   ) async -> CKSyncEngine.RecordZoneChangeBatch? {
-    guard active, engine === syncEngine, let disk, let session else { return nil }
+    guard active, engine === syncEngine, let session else { return nil }
     let batchGeneration = generation
     let currentAccount = await accountIdentifier()
     guard active, engine === syncEngine, generation == batchGeneration,
       self.session == session, !Task.isCancelled
     else { return nil }
+    guard let disk = self.disk else { return nil }
     guard currentAccount == disk.accountIdentifier else {
       await sendEvent(.catalogCloudAccountChanged(session))
       return nil
