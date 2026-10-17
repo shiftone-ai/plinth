@@ -10,7 +10,8 @@ extension RootMediator {
     case .catalogExportOperationRequested(let ids, let passphrase):
       guard envelope.source == .administration, state.mode == .administration,
         state.catalogLoaded, state.catalogSaveOperation == nil,
-        state.catalogExportOperation == nil,
+        state.catalogExportOperation == nil, state.catalogExportData == nil,
+        state.catalogImportOperation == nil, state.catalogImportPreview == nil,
         Set(ids).count == ids.count
       else { return .reject(state, .invalidState) }
       let entries: [CatalogEntry]
@@ -78,6 +79,8 @@ extension RootMediator {
     case .catalogImportOperationRequested(let url, let passphrase):
       guard envelope.source == .administration, state.mode == .administration,
         state.catalogLoaded, state.catalogImportOperation == nil,
+        state.catalogImportPreview == nil, state.catalogExportOperation == nil,
+        state.catalogExportData == nil,
         state.catalogSaveOperation == nil, url.isFileURL
       else { return .reject(state, .invalidState) }
       next.catalogImportOperation = token

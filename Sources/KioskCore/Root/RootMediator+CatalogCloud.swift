@@ -56,12 +56,18 @@ extension RootMediator {
       guard canEditCatalog(state, envelope), state.catalogCloudAvailable,
         state.catalog.syncEnabled,
         [.signInRequired, .offline].contains(state.catalogSyncStatus),
-        state.catalogAccountCheckOperation == nil, state.catalogCloudSessionOperation == nil
+        state.catalogAccountCheckOperation == nil
       else { return .reject(state, .invalidState) }
+      clearCatalogCandidates(&next)
+      clearQueuedCatalogCloudFacts(&next)
       next.catalogSyncStatus = .checking
+      next.catalogCloudSessionOperation = nil
       next.catalogAccountCheckOperation = token
+      let kind: Effect.Kind =
+        state.catalogCloudSessionOperation == nil
+        ? .checkCatalogAccount : .checkCatalogAccountAfterStopping
       return .handled(
-        .init(next, reply: .accepted, effects: [Effect(token, .checkCatalogAccount)]))
+        .init(next, reply: .accepted, effects: [Effect(token, kind)]))
 
     case .catalogAccountChecked(let completed, let accountID):
       guard envelope.source == .cloudCatalog,

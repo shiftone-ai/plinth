@@ -149,9 +149,7 @@ public struct SettingsCatalog: Equatable, Codable, Sendable {
   public func conflictBelongsToAccount(
     _ conflict: CatalogConflict, accountIdentifier: String
   ) -> Bool {
-    if let owner = conflict.accountIdentifier ?? conflict.remote?.accountIdentifier,
-      owner != accountIdentifier
-    {
+    if let owner = conflictOwner(conflict), owner != accountIdentifier {
       return false
     }
     if let remote = conflict.remote,
@@ -173,6 +171,12 @@ public struct SettingsCatalog: Equatable, Codable, Sendable {
   public func conflictIDs(for accountIdentifier: String) -> [UUID] {
     conflicts.filter { conflictBelongsToAccount($0, accountIdentifier: accountIdentifier) }
       .map(\.id)
+  }
+
+  private func conflictOwner(_ conflict: CatalogConflict) -> String? {
+    conflict.accountIdentifier ?? conflict.remote?.accountIdentifier
+      ?? entries.first(where: { $0.id == conflict.id && $0.scope == .iCloud })?.accountIdentifier
+      ?? pendingDeletions.first(where: { $0.id == conflict.id })?.accountIdentifier
   }
 
   private enum CodingKeys: String, CodingKey {
@@ -201,8 +205,7 @@ public struct SettingsCatalog: Equatable, Codable, Sendable {
           && Set(group.compactMap(\.accountIdentifier)).count == group.count)
     }
     let conflictKeys = conflicts.map {
-      CatalogAccountKey(
-        id: $0.id, accountIdentifier: $0.accountIdentifier ?? $0.remote?.accountIdentifier)
+      CatalogAccountKey(id: $0.id, accountIdentifier: conflictOwner($0))
     }
     let deletionKeys = pendingDeletions.map {
       CatalogAccountKey(id: $0.id, accountIdentifier: $0.accountIdentifier)
