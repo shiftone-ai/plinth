@@ -86,6 +86,7 @@
         runtime?.send(.webServerAddressChanged(endpoint), from: .webAdministration)
       }
       wireAdapters()
+      runtime.send(.catalogLoadRequested, from: .root)
     }
 
     private static func credentialConfiguration() -> CredentialConfiguration {
@@ -158,7 +159,6 @@
       displaysChanged()
       if !bootstrapped {
         bootstrapped = true
-        runtime.send(.catalogLoadRequested, from: .root)
         runtime.send(.bootstrapRequested, from: .root)
       }
       return window
@@ -168,7 +168,7 @@
       scenes[scene.session.persistentIdentifier]?.exhibition == true
     }
 
-    func disconnect(_ scene: UIWindowScene) -> Bool {
+    func disconnect(_ scene: UIWindowScene) {
       displayModes.disconnect(scene)
       if let owner = scenes.removeValue(forKey: scene.session.persistentIdentifier) {
         owner.registration?.stop()
@@ -181,7 +181,6 @@
         }
       }
       displaysChanged()
-      return scenes.isEmpty
     }
 
     func continueActivity(_ activity: NSUserActivity, in scene: UIScene) {

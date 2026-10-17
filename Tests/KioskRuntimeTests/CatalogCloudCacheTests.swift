@@ -1,9 +1,42 @@
 import Foundation
+import KioskCore
 import Testing
 
 @testable import KioskRuntime
 
 struct CatalogCloudCacheTests {
+  @Test @MainActor func aFetchedChangeBlocksAnUnreconciledLocalSave() throws {
+    let fixture = RuntimeFixture()
+    defer { fixture.runtime.stop() }
+    let snapshot = try #require(CatalogSnapshot(fixture.profile()))
+    let id = UUID()
+    let local = try #require(
+      CatalogEntry(
+        id: id, name: "Local", snapshot: snapshot, version: 2, scope: .iCloud,
+        accountIdentifier: "account-a", syncedVersion: 1))
+    let remote = try #require(
+      CatalogEntry(
+        id: id, name: "Remote", snapshot: snapshot, version: 2, scope: .iCloud,
+        accountIdentifier: "account-a", syncedVersion: 2))
+    #expect(
+      CatalogCloudSync.fetchedChangeConflictingWithSave(
+        local, serverEntries: [id: remote], serverDeletions: [], resolvedConflicts: [])
+        == .upsert(remote))
+    #expect(
+      CatalogCloudSync.fetchedChangeConflictingWithSave(
+        local, serverEntries: [:], serverDeletions: [id], resolvedConflicts: [])
+        == .delete(id))
+    #expect(
+      CatalogCloudSync.fetchedChangeConflictingWithSave(
+        local, serverEntries: [:], serverDeletions: [], resolvedConflicts: []) == nil)
+    var chosenLocal = local
+    chosenLocal.version = 3
+    #expect(
+      CatalogCloudSync.fetchedChangeConflictingWithSave(
+        chosenLocal, serverEntries: [id: remote], serverDeletions: [],
+        resolvedConflicts: [id]) == nil)
+  }
+
   @Test func unreadableCloudCacheIsPreservedBeforeFreshStateIsLoaded() throws {
     let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
       "plinth-cloud-cache-\(UUID())", isDirectory: true)

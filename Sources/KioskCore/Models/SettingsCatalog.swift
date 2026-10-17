@@ -20,6 +20,13 @@ public enum CatalogSyncStatus: Equatable, Sendable {
 public enum CatalogCloudChange: Equatable, Sendable {
   case upsert(CatalogEntry)
   case delete(UUID)
+
+  public var id: UUID {
+    switch self {
+    case .upsert(let entry): entry.id
+    case .delete(let id): id
+    }
+  }
 }
 
 public struct CatalogConflict: Equatable, Codable, Sendable, Identifiable {
@@ -135,6 +142,27 @@ public struct SettingsCatalog: Equatable, Codable, Sendable {
     self.entries = entries
     self.conflicts = conflicts
     self.pendingDeletions = pendingDeletions
+  }
+
+  public func conflictBelongsToAccount(
+    _ conflict: CatalogConflict, accountIdentifier: String
+  ) -> Bool {
+    if let remote = conflict.remote,
+      remote.scope != .iCloud || remote.accountIdentifier != accountIdentifier
+    {
+      return false
+    }
+    if let entry = entries.first(where: { $0.id == conflict.id }) {
+      return entry.scope == .iCloud && entry.accountIdentifier == accountIdentifier
+    }
+    return pendingDeletions.contains {
+      $0.id == conflict.id && $0.accountIdentifier == accountIdentifier
+    }
+  }
+
+  public func conflictIDs(for accountIdentifier: String) -> [UUID] {
+    conflicts.filter { conflictBelongsToAccount($0, accountIdentifier: accountIdentifier) }
+      .map(\.id)
   }
 
   private enum CodingKeys: String, CodingKey {

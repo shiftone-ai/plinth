@@ -75,8 +75,8 @@ extension Presenters {
         && !administration.hasUnsavedDraft && !administration.saving,
       canManage: root.mode == .administration && root.catalogLoaded
         && root.catalogSaveOperation == nil,
-      canShare: selection?.scope == .device && root.catalog.syncEnabled
-        && root.catalog.accountIdentifier != nil && root.catalogSaveOperation == nil
+      canShare: selection?.scope == .device && root.catalogCanShare
+        && root.catalogSaveOperation == nil
         && !shareTooLarge,
       shareTooLarge: shareTooLarge,
       canRename: selection != nil && root.catalogSaveOperation == nil

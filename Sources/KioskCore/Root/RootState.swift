@@ -113,15 +113,18 @@ public struct RootState: Equatable, Sendable {
   public func catalogConflictAvailable(_ conflict: CatalogConflict) -> Bool {
     guard catalog.syncEnabled, let accountID = catalog.accountIdentifier,
       catalogSyncStatus != .checking, catalogSyncStatus != .accountChanged,
-      catalogSyncStatus != .signInRequired,
-      conflict.remote?.accountIdentifier == nil
-        || conflict.remote?.accountIdentifier == accountID
+      catalogSyncStatus != .signInRequired
     else { return false }
-    if let entry = catalog.entries.first(where: { $0.id == conflict.id }) {
-      return entry.scope == .iCloud && entry.accountIdentifier == accountID
-    }
-    return catalog.pendingDeletions.contains {
-      $0.id == conflict.id && $0.accountIdentifier == accountID
+    return catalog.conflictBelongsToAccount(conflict, accountIdentifier: accountID)
+  }
+
+  public var catalogCanShare: Bool {
+    guard catalog.syncEnabled, catalog.accountIdentifier != nil,
+      catalogCloudSessionOperation != nil
+    else { return false }
+    switch catalogSyncStatus {
+    case .ready, .pending, .offline: return true
+    case .disabled, .checking, .signInRequired, .accountChanged, .failed: return false
     }
   }
   public var administratorSession = false

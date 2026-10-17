@@ -129,6 +129,9 @@ struct CatalogFollowupReviewTests {
         SettingsCatalog(
           syncEnabled: true, accountIdentifier: "account-a", entries: [entry])),
       source: .catalogRepository)
+    let accountCheck = try #require(fixture.runtime.snapshot.root.catalogAccountCheckOperation)
+    fixture.port.deliver(
+      .catalogAccountChecked(accountCheck, "account-a"), source: .cloudCatalog)
     #expect(
       fixture.runtime.send(.catalogSelectRequested(entry.id), from: .settings).reply == .accepted)
     #expect(fixture.runtime.settingsProps.props.catalog.shareTooLarge)
