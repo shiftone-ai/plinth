@@ -105,12 +105,118 @@ struct CatalogReviewTests {
       Issue.record("Expected catalog save")
       return
     }
+    #expect(!fixture.runtime.settingsProps.props.catalog.canApply)
+    #expect(
+      fixture.runtime.send(.catalogApplyRequested, from: .settings).reply
+        == .rejected(.invalidState))
     fixture.port.deliver(.catalogSaved(saveToken, document), source: .catalogRepository)
     #expect(
       fixture.runtime.settingsProps.props.catalog.selectedEntry?.snapshot.startURL
         == updated.startURL)
     #expect(fixture.runtime.send(.catalogApplyRequested, from: .settings).reply == .accepted)
     #expect(fixture.runtime.snapshot.administration.draft?.profile.startURL == updated.startURL)
+  }
+
+  @Test func applyingCatalogEntryPreservesDeviceWebAdministrationSetting() throws {
+    let fixture = RuntimeFixture()
+    defer { fixture.runtime.stop() }
+    var profile = try fixture.profile()
+    profile.webAdministrationEnabled = true
+    try openAdministration(fixture, profile: profile)
+    var selected = profile
+    selected.startURL = "https://example.com/selected"
+    let entry = try #require(
+      CatalogEntry(id: UUID(), name: "Lobby", snapshot: CatalogSnapshot(selected)!))
+    fixture.runtime.send(.catalogLoadRequested, from: .root)
+    let load = try #require(fixture.runtime.snapshot.root.catalogLoadOperation)
+    fixture.port.deliver(
+      .catalogLoaded(load, SettingsCatalog(entries: [entry])), source: .catalogRepository)
+    #expect(
+      fixture.runtime.send(.catalogSelectRequested(entry.id), from: .settings).reply
+        == .accepted)
+    #expect(fixture.runtime.send(.catalogApplyRequested, from: .settings).reply == .accepted)
+    #expect(fixture.runtime.snapshot.administration.draft?.profile.webAdministrationEnabled == true)
+    #expect(fixture.runtime.send(.saveDraftRequested, from: .settings).reply == .accepted)
+    let save = try #require(fixture.runtime.snapshot.root.saveOperation)
+    let effect = try #require(fixture.port.effects.last(where: { $0.token == save }))
+    guard case .saveProfile(let saved) = effect.kind else {
+      Issue.record("Expected profile save")
+      return
+    }
+    fixture.port.deliver(.profileSaved(save, saved), source: .profileRepository)
+    #expect(fixture.runtime.snapshot.root.savedProfile?.webAdministrationEnabled == true)
+  }
+}
+
+@MainActor
+struct CatalogSafetyReviewTests {
+  @Test func catalogOutputIsRecheckedIfTheDisplayDisconnectsBeforeSave() throws {
+    let fixture = RuntimeFixture()
+    defer { fixture.runtime.stop() }
+    let profile = try fixture.profile()
+    var selected = profile
+    selected.macOutput = .init(displayID: "chosen-display")
+    let entry = try #require(
+      CatalogEntry(id: UUID(), name: "Other display", snapshot: CatalogSnapshot(selected)!))
+    try openAdministration(fixture, profile: profile)
+    fixture.runtime.send(
+      .macDisplaysChanged([.init(id: "chosen-display", name: "Chosen", builtIn: true)]),
+      from: .platform)
+    fixture.runtime.send(.catalogLoadRequested, from: .root)
+    let load = try #require(fixture.runtime.snapshot.root.catalogLoadOperation)
+    fixture.port.deliver(
+      .catalogLoaded(load, SettingsCatalog(entries: [entry])), source: .catalogRepository)
+    #expect(
+      fixture.runtime.send(.catalogSelectRequested(entry.id), from: .settings).reply
+        == .accepted)
+    #expect(fixture.runtime.send(.catalogApplyRequested, from: .settings).reply == .accepted)
+    #expect(!fixture.runtime.settingsProps.props.catalogOutputUnavailable)
+    fixture.runtime.send(
+      .macDisplaysChanged([.init(id: "another-display", name: "Other", builtIn: true)]),
+      from: .platform)
+    #expect(fixture.runtime.settingsProps.props.catalogOutputUnavailable)
+    #expect(!fixture.runtime.settingsProps.props.canSave)
+    #expect(
+      fixture.runtime.send(.saveDraftRequested, from: .settings).reply
+        == .rejected(.invalidProfile))
+  }
+
+  @Test func iCloudSyncCanBeRetriedAfterSignIn() throws {
+    let fixture = RuntimeFixture()
+    defer { fixture.runtime.stop() }
+    fixture.runtime.send(
+      .bootstrapped(profile: nil, credentialsConfigured: false, displayCount: 1), from: .root)
+    fixture.runtime.send(.catalogLoadRequested, from: .root)
+    let load = try #require(fixture.runtime.snapshot.root.catalogLoadOperation)
+    fixture.port.deliver(
+      .catalogLoaded(load, SettingsCatalog(syncEnabled: true)), source: .catalogRepository)
+    let firstCheck = try #require(fixture.runtime.snapshot.root.catalogAccountCheckOperation)
+    fixture.port.deliver(.catalogAccountChecked(firstCheck, nil), source: .cloudCatalog)
+    #expect(fixture.runtime.snapshot.root.catalogSyncStatus == .signInRequired)
+    #expect(
+      fixture.runtime.send(.catalogSyncRetryRequested, from: .settings).reply == .accepted)
+    let retry = try #require(fixture.runtime.snapshot.root.catalogAccountCheckOperation)
+    #expect(retry != firstCheck)
+    fixture.port.deliver(.catalogAccountChecked(retry, "account-a"), source: .cloudCatalog)
+    #expect(fixture.runtime.snapshot.root.catalogSaveOperation != nil)
+  }
+
+  @Test func leavingAdministrationClearsFilePassphrases() throws {
+    let fixture = RuntimeFixture()
+    defer { fixture.runtime.stop() }
+    try openAdministration(fixture, profile: fixture.profile())
+    fixture.runtime.send(.passcodeEdited("correct-passcode"), from: .settings)
+    #expect(
+      fixture.runtime.send(.configurePasscodeRequested, from: .settings).reply == .accepted)
+    let credential = try #require(fixture.runtime.snapshot.root.credentialOperation)
+    fixture.port.deliver(.credentialConfigured(credential, succeeded: true), source: .credentials)
+    fixture.runtime.send(.catalogPassphraseEdited("long-enough-file-passphrase"), from: .settings)
+    fixture.runtime.send(
+      .catalogConfirmPassphraseEdited("long-enough-file-passphrase"), from: .settings)
+    #expect(
+      fixture.runtime.send(.startExhibitionRequested, from: .settings).reply == .accepted)
+    #expect(fixture.runtime.snapshot.administration.catalogPassphrase.isEmpty)
+    #expect(fixture.runtime.snapshot.administration.catalogConfirmPassphrase.isEmpty)
   }
 
   @Test func importedUnavailableOutputRequiresAUsableSelectionBeforeSave() throws {
@@ -171,18 +277,19 @@ struct CatalogReviewTests {
     #expect(fixture.runtime.snapshot.root.savedProfile != nil)
     #expect(fixture.runtime.snapshot.administration.catalogPassphrase.isEmpty)
   }
+}
 
-  private func openAdministration(_ fixture: RuntimeFixture, profile: KioskProfile) throws {
-    fixture.runtime.send(
-      .bootstrapped(profile: nil, credentialsConfigured: false, displayCount: 1), from: .root)
-    fixture.runtime.send(.draftChanged(ProfileDraft(profile: profile)), from: .settings)
-    #expect(fixture.runtime.send(.saveDraftRequested, from: .settings).reply == .accepted)
-    let effect = try #require(fixture.port.effects.last)
-    guard case .saveProfile(let saved) = effect.kind else {
-      Issue.record("Expected profile save")
-      return
-    }
-    fixture.port.deliver(.profileSaved(effect.token, saved), source: .profileRepository)
-    try #require(fixture.runtime.snapshot.root.mode == .administration)
+@MainActor
+private func openAdministration(_ fixture: RuntimeFixture, profile: KioskProfile) throws {
+  fixture.runtime.send(
+    .bootstrapped(profile: nil, credentialsConfigured: false, displayCount: 1), from: .root)
+  fixture.runtime.send(.draftChanged(ProfileDraft(profile: profile)), from: .settings)
+  #expect(fixture.runtime.send(.saveDraftRequested, from: .settings).reply == .accepted)
+  let effect = try #require(fixture.port.effects.last)
+  guard case .saveProfile(let saved) = effect.kind else {
+    Issue.record("Expected profile save")
+    return
   }
+  fixture.port.deliver(.profileSaved(effect.token, saved), source: .profileRepository)
+  try #require(fixture.runtime.snapshot.root.mode == .administration)
 }

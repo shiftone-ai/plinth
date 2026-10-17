@@ -37,7 +37,8 @@ public enum SettingsIntent: Sendable {
   case confirmCatalogImport
   case cancelCatalogImport
   case retryCatalogLoad
-  case requestCatalogSync, confirmCatalogSync, cancelCatalogSync, disableCatalogSync
+  case requestCatalogSync, confirmCatalogSync, cancelCatalogSync, disableCatalogSync,
+    retryCatalogSync
   case requestCatalogShare(UUID)
   case confirmCatalogShare(UUID)
   case cancelCatalogShare

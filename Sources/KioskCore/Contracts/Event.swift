@@ -53,7 +53,7 @@ public enum Event: Equatable, Sendable {
   case catalogSelectionOpened(CatalogEntry)
   case catalogSelectionDismissed
   case catalogApplyRequested
-  case catalogSelectionApplied(CatalogEntry, requiresOutputReview: Bool)
+  case catalogSelectionApplied(CatalogEntry)
   case catalogRenameRequested(id: UUID, name: String)
   case catalogRenameConfirmed(UUID)
   case catalogRenameCancelled
@@ -88,6 +88,7 @@ public enum Event: Equatable, Sendable {
   case catalogSyncEnableConfirmed
   case catalogSyncEnableCancelled
   case catalogSyncDisableRequested
+  case catalogSyncRetryRequested
   case catalogAccountChecked(OperationToken, String?)
   case catalogCloudStatus(OperationToken, CatalogSyncStatus)
   case catalogCloudChanges(OperationToken, String, [CatalogCloudChange])
@@ -187,7 +188,7 @@ public enum Event: Equatable, Sendable {
       .catalogImportConfirmed, .catalogImportCancelled:
       true
     case .catalogSyncEnableRequested, .catalogSyncEnableConfirmed,
-      .catalogSyncEnableCancelled, .catalogSyncDisableRequested,
+      .catalogSyncEnableCancelled, .catalogSyncDisableRequested, .catalogSyncRetryRequested,
       .catalogSharePromptRequested, .catalogSharePromptCancelled,
       .catalogShareConfirmed, .catalogConflictResolved:
       true

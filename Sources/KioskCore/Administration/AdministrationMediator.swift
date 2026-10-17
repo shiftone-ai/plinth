@@ -79,6 +79,8 @@ public enum AdministrationMediator {
       next.catalogSelection = nil
       next.catalogSelectionNameDraft = ""
       next.catalogRequiresAvailableOutput = false
+      next.catalogPassphrase = ""
+      next.catalogConfirmPassphrase = ""
       next.saving = false
       next.saveFailed = false
       next.unlockID = nil

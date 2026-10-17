@@ -53,6 +53,7 @@ extension Presenters {
         CatalogComparison.differences(current: nil, selected: $0.snapshot)
       } ?? [],
       canApply: selection != nil && root.mode == .administration
+        && root.catalogSaveOperation == nil
         && !administration.hasUnsavedDraft && !administration.saving,
       canManage: root.mode == .administration && root.catalogLoaded
         && root.catalogSaveOperation == nil,

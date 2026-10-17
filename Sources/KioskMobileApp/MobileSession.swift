@@ -276,6 +276,7 @@
       case .confirmCatalogSync: event = .catalogSyncEnableConfirmed
       case .cancelCatalogSync: event = .catalogSyncEnableCancelled
       case .disableCatalogSync: event = .catalogSyncDisableRequested
+      case .retryCatalogSync: event = .catalogSyncRetryRequested
       case .requestCatalogShare(let id): event = .catalogSharePromptRequested(id)
       case .confirmCatalogShare(let id): event = .catalogShareConfirmed(id)
       case .cancelCatalogShare: event = .catalogSharePromptCancelled

@@ -19,7 +19,7 @@ extension RootMediator {
       .catalogImportFailed, .catalogImportConfirmed, .catalogImportCancelled:
       return reduceCatalogFile(state, envelope)
     case .catalogSyncEnableRequested, .catalogSyncEnableCancelled,
-      .catalogSyncEnableConfirmed, .catalogSyncDisableRequested,
+      .catalogSyncEnableConfirmed, .catalogSyncDisableRequested, .catalogSyncRetryRequested,
       .catalogAccountChecked, .catalogCloudAccountChanged, .catalogCloudStatus,
       .catalogCloudChanges, .catalogCloudAcknowledged,
       .catalogCloudDeletionsAcknowledged, .catalogSharePromptRequested,

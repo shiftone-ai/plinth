@@ -212,9 +212,15 @@ struct SettingsCatalogSection: View {
     case .offline:
       Label(L10n.string("Sync waiting for a connection", locale: locale), systemImage: "wifi.slash")
     case .signInRequired:
-      Label(
-        L10n.string("Sign in to iCloud to sync", locale: locale),
-        systemImage: "person.crop.circle.badge.exclamationmark")
+      HStack {
+        Label(
+          L10n.string("Sign in to iCloud to sync", locale: locale),
+          systemImage: "person.crop.circle.badge.exclamationmark")
+        Spacer()
+        Button(L10n.string("Try again", locale: locale)) { send(.retryCatalogSync) }
+          .disabled(!props.canManage)
+          .accessibilityIdentifier("catalog-sync-retry")
+      }
     case .accountChanged:
       Label(
         L10n.string("iCloud account changed; sync is off", locale: locale),
