@@ -77,6 +77,21 @@ struct CatalogPersistenceTests {
       ).reply == .accepted)
   }
 
+  @Test func unreadableCatalogPathDoesNotOfferDamagedFileRecovery() async throws {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
+      "plinth-unreadable-catalog-\(UUID())")
+    let fileURL = directory.appendingPathComponent("catalog.json")
+    try FileManager.default.createDirectory(at: fileURL, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let repository = CatalogRepository(fileURL: fileURL)
+    do {
+      _ = try await repository.load()
+      Issue.record("Expected a read error")
+    } catch CatalogRepository.Failure.corruptCatalog {
+      Issue.record("A read error must not be reported as damaged JSON")
+    } catch {}
+  }
+
   @Test func importingTheSameIdentifierWithADifferentNameKeepsBothEntries() throws {
     let fixture = RuntimeFixture()
     defer { fixture.runtime.stop() }
