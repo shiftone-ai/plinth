@@ -9,6 +9,7 @@ public final class RootRuntime {
   public let settingsProps: RenderPropsStore<SettingsProps>
   public let webProps: RenderPropsStore<WebSurfaceProps>
   public let unlockProps: RenderPropsStore<UnlockProps>
+  public let webAdministrationProps: RenderPropsStore<WebAdministrationProps>
   public private(set) var reports: [DispatchReport] = []
   public var snapshot: TreeSnapshot { store.snapshot }
   private let store = ScopedStateStore()
@@ -42,7 +43,11 @@ public final class RootRuntime {
     rootProps = RenderPropsStore(Presenters.root(store.root))
     settingsProps = RenderPropsStore(Presenters.settings(store.root, store.administration))
     webProps = RenderPropsStore(Presenters.web(store.root, store.exhibition))
-    unlockProps = RenderPropsStore(Presenters.unlock(store.administration, now: clock.now))
+    unlockProps = RenderPropsStore(
+      Presenters.unlock(
+        store.root, store.administration, now: clock.now))
+    webAdministrationProps = RenderPropsStore(
+      Presenters.webAdministration(store.root, store.administration))
     executor.resultSink = { [weak self] event, source in self?.send(event, from: source) }
   }
 
@@ -83,7 +88,8 @@ public final class RootRuntime {
     rootProps.apply(Presenters.root(store.root))
     settingsProps.apply(Presenters.settings(store.root, store.administration))
     webProps.apply(Presenters.web(store.root, store.exhibition))
-    unlockProps.apply(Presenters.unlock(store.administration, now: clock.now))
+    unlockProps.apply(Presenters.unlock(store.root, store.administration, now: clock.now))
+    webAdministrationProps.apply(Presenters.webAdministration(store.root, store.administration))
   }
 
   public func stop() {
@@ -119,6 +125,8 @@ public final class RootRuntime {
       store.root.epoch == effect.token.ownerEpoch
     case .prepareCatalogExport: store.root.catalogExportOperation == effect.token
     case .importCatalogFile: store.root.catalogImportOperation == effect.token
+    case .startWebServer: store.root.webServerOperation == effect.token
+    case .stopWebServer: true
     case .createSurface, .load: store.exhibition.operation == effect.token
     case .controlExternalWeb:
       store.root.mode == .exhibiting && store.root.epoch == effect.token.ownerEpoch
@@ -128,10 +136,13 @@ public final class RootRuntime {
     case .scheduleIdle: store.exhibition.idleOperation == effect.token
     case .scheduleRetry: store.exhibition.retryOperation == effect.token
     case .scheduleUnlockTimeout: store.root.unlockTimeoutOperation == effect.token
-    case .verifyPasscode: store.administration.verification == effect.token
+    case .verifyPasscode:
+      store.administration.verification == effect.token
+        || store.administration.webVerification == effect.token
     case .configurePasscode: store.root.credentialOperation == effect.token
     case .readBiometricStatus: store.root.biometricStatusOperation == effect.token
     case .changeBiometricUnlock: store.root.biometricOperation == effect.token
+    case .performBiometricUnlock: store.root.biometricUnlockOperation == effect.token
     case .cancelOperation: true
     }
   }
@@ -163,7 +174,11 @@ public final class RootRuntime {
         }
       case .administration:
         if case .handled(let value) = AdministrationMediator.reduce(
-          store.administration, envelope, mode: store.root.mode)
+          store.administration, envelope, mode: store.root.mode,
+          webEnabled: store.root.savedProfile?.webAdministrationEnabled == true
+            && store.root.credentialsConfigured,
+          webOutputOptions: WebOutputOptions(
+            macDisplays: store.root.macDisplays, mobileDisplays: store.root.mobileDisplays))
         {
           store.administration = value.state
           output = (value.reply, value.effects, value.parentEvents, value.childControls)

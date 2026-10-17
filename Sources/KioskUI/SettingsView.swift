@@ -148,6 +148,7 @@ public struct SettingsView: View {
         SettingsCatalogSection(props: props.catalog, send: send) {
           showsCatalogImporter = true
         }
+        SettingsWebManagementSection(props: props, send: send)
         if !props.validationMessages.isEmpty {
           Section {
             ForEach(props.validationMessages) { message in

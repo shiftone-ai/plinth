@@ -1,12 +1,16 @@
 import Foundation
 
-public enum AppMode: String, Equatable, Sendable {
+public enum AppMode: String, Codable, Equatable, Sendable {
   case bootstrapping, administration, enteringKiosk, exhibiting, unlocking, leavingKiosk, safeHold,
-    terminating
+    paused, terminating
 }
 
 public enum ForegroundResumeState: Equatable, Sendable {
   case none, awaitingActivation, awaitingDisplay, awaitingStop
+}
+
+public enum WebExitDestination: Equatable, Sendable {
+  case restart, paused
 }
 
 public struct RootState: Equatable, Sendable {
@@ -16,6 +20,9 @@ public struct RootState: Equatable, Sendable {
   public var biometricStatusOperation: OperationToken?
   public var biometricOperation: OperationToken?
   public var biometricChangeFailed = false
+  public var biometricUnlockOperation: OperationToken?
+  public var biometricUnlockFailed = false
+  public var biometricEnrollmentChanged = false
   public var bootstrapOperation: OperationToken?
   public var unlockTimeoutOperation: OperationToken?
   public var unlockDeadline: Double?
@@ -23,6 +30,16 @@ public struct RootState: Equatable, Sendable {
   public var mode: AppMode = .bootstrapping
   public var savedProfile: KioskProfile?
   public var profileCorrupt = false
+  public var webSession: WebAdministrationSession?
+  public var webServerOperation: OperationToken?
+  public var pendingWebServerEndpoint: WebServerEndpoint?
+  public var webServerRunning = false
+  public var webServerURL: String?
+  public var localWebServerOrigins: [Origin] = []
+  public var webServerFailure: WebServerFailure?
+  public var webExitDestination: WebExitDestination?
+  public var webRestartInProgress = false
+  public var webRestartFailed = false
   public var activeProfile: KioskProfile?
   public var catalog = SettingsCatalog()
   public var catalogLoaded = false
@@ -56,6 +73,7 @@ public struct RootState: Equatable, Sendable {
   public var credentialsConfigured = false
   public var displayCount = 1
   public var mobileDisplays: MobileDisplayAvailability?
+  public var mobileForeground = true
   public var macDisplays: [DisplayDescriptor]?
   public var externalSceneOperation: OperationToken?
   public var externalScenePreparationFailed = false
@@ -101,6 +119,27 @@ public struct RootState: Equatable, Sendable {
   public var pendingProfile: KioskProfile?
   public var input = InputState()
   public init() {}
+}
+
+public enum WebServerFailure: Error, Equatable, Sendable {
+  case portInUse, unavailable
+}
+
+public struct WebAdministrationSession: Equatable, Sendable {
+  public let token: String
+  public let createdAt: Double
+  public var lastActivityAt: Double
+
+  public init(token: String, createdAt: Double) {
+    self.token = token
+    self.createdAt = createdAt
+    self.lastActivityAt = createdAt
+  }
+
+  public func isValid(at time: Double) -> Bool {
+    time >= lastActivityAt && time - lastActivityAt < 15 * 60
+      && time >= createdAt && time - createdAt < 8 * 60 * 60
+  }
 }
 
 public struct MobileDisplayAvailability: Equatable, Sendable {

@@ -245,6 +245,13 @@ Administration
   → LeavingKiosk
   → Administration
 
+Exhibiting → LeavingKiosk
+  ├── Webでやり直す → EnteringKiosk
+  └── Webで止める → Paused
+Paused → EnteringKiosk（Webで再開）
+Paused → Unlocking → LeavingKiosk → Administration（端末で認証）
+SafeHold → EnteringKiosk（Webで再開，開始条件を満たす場合）
+
 EnteringKiosk / Exhibiting / Unlocking / LeavingKiosk
   → SafeHold
 
@@ -260,10 +267,13 @@ Administration
 | Exhibiting | Kiosk表示を保持し，Exhibition状態に応じて入力を通す |
 | Unlocking | Kiosk表示を維持し，認証UIだけ入力可．背後のWebは操作不可 |
 | LeavingKiosk | Web停止，入力監視やPresentationを復元する |
+| Paused | 展示用Webを止め，停止中の画面を保つ．端末の管理者入口とWebからの再開を受け付ける |
 | SafeHold | 可能な範囲で展示ウィンドウを保持し，ネイティブ障害表示．管理者解除は受け付ける |
 | Terminating | 管理者が要求した終了処理を行う |
 
 認証失敗からLeavingKioskへの遷移は存在しない．RootはUnlockingに入る前の復帰先を保持する．Exhibitingからの解除要求をキャンセルまたはタイムアウトした場合は，Webセッションを初期化してExhibitingへ戻る．SafeHold起点の場合はSafeHoldに戻し，未起動の展示を勝手に開始しない．
+
+Webの管理画面から展示を開始するときは，端末の開始操作と同じRootの条件を通す．Webからのやり直し・停止・再開では，端末のAdministrationとUnlockingを通らない．やり直し・停止ではマウス固定を解放する．停止中はPresentationを保持したまま展示用Webを止める．再開時はPresentationを解放してから保存済み設定で取得し直し，必要ならマウス固定を取り直す．端末の管理者入口からのみUnlockingへ進み，パスワードまたは生体認証の成功後に管理画面を開く．停止中の状態は保存しない．
 
 EnteringKioskは成功したEffectの取得状況を記録する．開始失敗時には，取得済みの資源だけを解放する．正常な終了・解除時は，変更前のPresentation設定を復元する．資源の取得・解放はtokenで対応付ける．
 
@@ -434,7 +444,11 @@ PresentationAdapterはhideDock，hideMenuBar，disableProcessSwitchingの適用�
 
 資格情報はCredentialAdapter経由で扱い，設定JSONへ平文保存しない．Keychainに検証用情報を保存する設計とする．認証失敗回数・クールダウンはAdministrationMediatorで管理する．管理者パスワード・入力内容を診断ログへ出さない．コード内の `passcode` 識別子と既存のKeychain項目名 `administrator-verifier` は，保存済み資格情報とテストの互換性を保つため変更しない．利用者に見せる文言には「管理者パスワード」を使う．
 
-管理者パスワードの保存後に，管理画面で生体認証による解除を有効にできる．有効化時はTouch IDまたはFace IDで一度確認する．有効状態は登録中の指紋・顔に結び付けた別のKeychain項目で表し，設定JSONには含めない．端末の登録者全員が管理画面を開ける条件と，登録変更時に無効になることを表示する．認証中の展示開始，取消後の遅い成功はRootが拒否する．判断と確認範囲は [ADR 0002](../adr/0002-biometric-administrator-unlock.md) に記録する．解除画面で生体認証を実行する経路は別のIssueで扱う．
+Webからの管理を端末で有効にすると，端末内のHTTPサーバーが同じ管理者パスワードを検証する．Webからの失敗もAdministrationの失敗回数・待ち時間に加える．Webの認証成功だけでは端末のPresentationを解除せず，端末に管理画面を出さない．セッションはRootが所有し，条件は [ADR 0003](../adr/0003-web-administration.md) に記録する．
+
+管理者パスワードの保存後に，管理画面で生体認証による解除を有効にできる．有効化時はTouch IDまたはFace IDで一度確認する．有効状態は登録中の指紋・顔に結び付けた別のKeychain項目で表し，設定JSONには含めない．端末の登録者全員が管理画面を開ける条件と，登録変更時に無効になることを表示する．解除画面で明示的に生体認証を選んだときだけKeychain項目を照合する．iPad・iPhoneでは解除中に限り，OSの認証画面を本体の画面に出す．外部の展示画面には出さない．取消・60秒の期限後に届く成功はRootが拒否し，生体認証の失敗は管理者パスワードの待ち時間に加えない．登録変更で無効になったときは再設定を案内する．判断と確認範囲は [ADR 0002](../adr/0002-biometric-administrator-unlock.md) に記録する．
+
+展示中の解除画面では，利用者がTouch IDのボタンを押したときだけ認証を始める．Macでは管理者パスワード欄の横にTouch IDのアイコンを置き，同じ `LAContext` に結び付けた `LAAuthenticationView` を解除画面に取り付けてから評価する．展示中にOS標準の認証パネルを出さない．成功の条件は登録内容に結び付けたKeychain項目を読めることとする．失敗や取消後も管理者パスワードを使え，認証中の60秒経過とSafeHold移行ではRootが操作を取り消す．
 
 アプリが固まった場合の管理者復旧は，アプリ内ショートカットだけに依存できない．スタッフ側の端末アクセスを運用上確保する．開発中はOSの最終的な復旧経路を封じる設定を有効にしない．
 
@@ -453,6 +467,7 @@ KioskProfile
   resetMode
   recoveryPolicy
   presentationPolicy
+  webAdministrationEnabled
 ```
 
 設定の正本は3種類に分ける．
@@ -461,9 +476,11 @@ KioskProfile
 - draftProfile：管理者が編集中の設定．Administrationが所有する．
 - activeProfile：展示開始時に固定した設定snapshot．Rootが所有し，Exhibitionへ読み取り専用で渡す．
 
-設定変更は展示終了後の管理画面でのみ行う．展示中のルールのホットスワップを初版には入れない．展示開始は保存・検証済みの設定を基準とする．未保存のdraftがある状態で古い設定の展示を黙って開始せず，開始を無効にして保存または破棄を求める．
+端末では管理画面で設定を変更する．Webからは管理中・展示中・停止中・SafeHoldで，同じdraftを編集して保存できる．展示中に保存してもactiveProfileを変えず，現在の展示ルールは差し替えない．Webから開始・やり直し・再開を要求したとき，未保存のdraftがあれば拒否する．成功すれば保存済みの設定で展示を始める．
 
 保存経路は，Viewの変更通知 → Administrationのdraft変更・検証 → ProfileCommitRequestedを親へ送出 → Rootの保存裁定 → Repository Effect → 結果Fact → 保存完了の通知，とする．保存失敗を成功として表示しない．
+
+Webからの管理は既定で無効とし，端末の管理画面でのみ切り替える．有効なときのURLとQRコードは端末の管理画面に出す．iPadの外部展示中・停止中は，本体にもQRコードを出し，外部画面には出さない．Webの画面はRootの保存済みProfile・状態とAdministrationのdraftをPresenterで投影する．入力中の管理者パスワードを含む端末用Propsは使わない．Webからは管理者パスワード・生体認証・Web管理の有効状態を変更できない．画面や解像度の選択肢は端末と同じ接続状態から作り，一覧にない値は拒否する．外部用ウィンドウの準備は端末で行う．通信と状態遷移の理由は [ADR 0003](../adr/0003-web-administration.md) に記録する．
 
 Repositoryは一時ファイルからの置換等による原子的な更新，schemaVersionの検証，破損時の報告を担当する．移行できない設定を勝手に補って展示開始しない．
 

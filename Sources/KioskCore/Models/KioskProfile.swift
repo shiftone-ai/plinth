@@ -13,6 +13,7 @@ public struct KioskProfile: Equatable, Codable, Sendable {
   public var macOutput: MacOutputSettings?
   public var externalDisplayMode: ExternalDisplayMode?
   public var externalDisplayRotation: ExternalDisplayRotation?
+  public var webAdministrationEnabled: Bool
 
   public init(
     schemaVersion: Int = 1, revision: UInt64 = 1, startURL: String,
@@ -20,7 +21,8 @@ public struct KioskProfile: Equatable, Codable, Sendable {
     idleTimeout: Double = 120, resetMode: ResetMode = .newVisitorSession,
     recovery: RecoveryPolicy = .init(), exhibitionDestination: ExhibitionDestination? = nil,
     macOutput: MacOutputSettings? = nil, externalDisplayMode: ExternalDisplayMode? = nil,
-    externalDisplayRotation: ExternalDisplayRotation? = nil
+    externalDisplayRotation: ExternalDisplayRotation? = nil,
+    webAdministrationEnabled: Bool = false
   ) {
     self.schemaVersion = schemaVersion
     self.revision = revision
@@ -34,6 +36,35 @@ public struct KioskProfile: Equatable, Codable, Sendable {
     self.macOutput = macOutput
     self.externalDisplayMode = externalDisplayMode
     self.externalDisplayRotation = externalDisplayRotation
+    self.webAdministrationEnabled = webAdministrationEnabled
+  }
+
+  private enum CodingKeys: String, CodingKey {
+    case schemaVersion, revision, startURL, navigation, interaction, idleTimeout, resetMode
+    case recovery, exhibitionDestination, macOutput, externalDisplayMode, externalDisplayRotation
+    case webAdministrationEnabled
+  }
+
+  public init(from decoder: any Decoder) throws {
+    let values = try decoder.container(keyedBy: CodingKeys.self)
+    self.init(
+      schemaVersion: try values.decode(Int.self, forKey: .schemaVersion),
+      revision: try values.decode(UInt64.self, forKey: .revision),
+      startURL: try values.decode(String.self, forKey: .startURL),
+      navigation: try values.decode(NavigationPolicy.self, forKey: .navigation),
+      interaction: try values.decode(InteractionPolicy.self, forKey: .interaction),
+      idleTimeout: try values.decode(Double.self, forKey: .idleTimeout),
+      resetMode: try values.decode(ResetMode.self, forKey: .resetMode),
+      recovery: try values.decode(RecoveryPolicy.self, forKey: .recovery),
+      exhibitionDestination: try values.decodeIfPresent(
+        ExhibitionDestination.self, forKey: .exhibitionDestination),
+      macOutput: try values.decodeIfPresent(MacOutputSettings.self, forKey: .macOutput),
+      externalDisplayMode: try values.decodeIfPresent(
+        ExternalDisplayMode.self, forKey: .externalDisplayMode),
+      externalDisplayRotation: try values.decodeIfPresent(
+        ExternalDisplayRotation.self, forKey: .externalDisplayRotation),
+      webAdministrationEnabled: try values.decodeIfPresent(
+        Bool.self, forKey: .webAdministrationEnabled) ?? false)
   }
 
   public var automaticallyAllowedOrigin: Origin? {
@@ -63,7 +94,7 @@ public struct KioskProfile: Equatable, Codable, Sendable {
   }
 }
 
-public enum ProfileIssue: String, Equatable, Sendable {
+public enum ProfileIssue: String, Codable, Equatable, Sendable {
   case unsupportedSchema, invalidRevision, invalidNavigationRules, homeNotAllowed,
     invalidIdleTimeout, invalidRecoveryPolicy, invalidDisplayMode
 }
@@ -81,7 +112,7 @@ public struct RecoveryPolicy: Equatable, Codable, Sendable {
   }
 }
 
-public struct ProfileDraft: Equatable, Sendable {
+public struct ProfileDraft: Equatable, Encodable, Sendable {
   public var profile: KioskProfile
   public var idleTimeoutText: String
   public var rules: [OriginRuleDraft]
@@ -104,6 +135,7 @@ public struct ProfileDraft: Equatable, Sendable {
     case .startURL(let value): profile.startURL = value
     case .navigationMode(let value): profile.navigation.mode = value
     case .allowsHTTP(let value): profile.navigation.allowsHTTP = value
+    case .webAdministrationEnabled(let value): profile.webAdministrationEnabled = value
     case .allowsScroll(let value): profile.interaction.allowsScroll = value
     case .allowsDrag(let value): profile.interaction.allowsDrag = value
     case .idleTimeoutText(let value): idleTimeoutText = value
@@ -153,6 +185,7 @@ public enum ProfileDraftEdit: Equatable, Sendable {
   case startURL(String)
   case navigationMode(NavigationPolicy.Mode)
   case allowsHTTP(Bool)
+  case webAdministrationEnabled(Bool)
   case allowsScroll(Bool)
   case allowsDrag(Bool)
   case idleTimeoutText(String)
@@ -165,7 +198,7 @@ public enum ProfileDraftEdit: Equatable, Sendable {
   case originAddress(UInt64, String)
 }
 
-public struct OriginRuleDraft: Equatable, Sendable, Identifiable {
+public struct OriginRuleDraft: Equatable, Encodable, Sendable, Identifiable {
   public let id: UInt64
   public var address: String
   public var includeSubdomains: Bool

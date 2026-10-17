@@ -14,6 +14,7 @@ public final class MacApplication: NSObject, NSApplicationDelegate, NSWindowDele
   private var lifecycle: LifecycleAdapter?
   private var executor: EffectExecutor?
   private var cloudBridge: CatalogCloudEventBridge?
+  private var webServer: WebAdministrationServer?
   private let preview: Bool
   private let exhibitionInset: Double
   private let profileFileURL: URL?
@@ -22,6 +23,7 @@ public final class MacApplication: NSObject, NSApplicationDelegate, NSWindowDele
   private let legacyCredentialService: String?
   private let storageNamespace: String
   private let language: LanguagePreference
+  private let biometricDisplay = MacBiometricDisplay()
 
   public init(
     preview: Bool = false, profileFileURL: URL? = nil, exhibitionInset: Double = 0,
@@ -50,9 +52,10 @@ public final class MacApplication: NSObject, NSApplicationDelegate, NSWindowDele
         L10n.string("Administrator unlock", locale: language.locale)
       })
     let cloudBridge = CatalogCloudEventBridge()
+    let webServer = WebAdministrationServer()
     let port = makeEffectPort(
       web: web, presentation: presentation, clock: clock, displays: displays,
-      cloudBridge: cloudBridge)
+      cloudBridge: cloudBridge, webServer: webServer)
     let executor = EffectExecutor(port: port)
     let runtime = RootRuntime(clock: clock, executor: executor, diagnostics: DiagnosticLogAdapter())
     cloudBridge.runtime = runtime
@@ -61,6 +64,11 @@ public final class MacApplication: NSObject, NSApplicationDelegate, NSWindowDele
     self.window = window
     self.executor = executor
     self.runtime = runtime
+    self.webServer = webServer
+    webServer.attach(runtime: runtime, locale: { [language] in language.locale })
+    webServer.addressChanged = { [weak runtime] endpoint in
+      runtime?.send(.webServerAddressChanged(endpoint), from: .webAdministration)
+    }
     web.send = { [weak runtime] in runtime?.send($0, from: .webSurface).reply }
     window.contentView = makeContentView(runtime: runtime, web: web)
     input = NativeInputAdapter(
@@ -88,28 +96,52 @@ public final class MacApplication: NSObject, NSApplicationDelegate, NSWindowDele
 
   private func makeEffectPort(
     web: WebKitAdapter, presentation: PresentationAdapter, clock: MonotonicClock,
-    displays: DisplayAdapter, cloudBridge: CatalogCloudEventBridge
+    displays: DisplayAdapter, cloudBridge: CatalogCloudEventBridge,
+    webServer: WebAdministrationServer
   ) -> NativeEffectPort {
     let location =
       profileFileURL
       ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
       .appendingPathComponent(storageNamespace, isDirectory: true).appendingPathComponent(
         "profile.json")
+    let biometrics: any BiometricCredentialPort
+    #if DEBUG
+      biometrics =
+        MacBiometricTestPort.make(service: credentialService)
+        ?? BiometricCredentialAdapter(
+          service: credentialService,
+          enableReason: { [language] in
+            L10n.string("Enable administrator unlock with biometrics", locale: language.locale)
+          },
+          unlockReason: { [language] in
+            L10n.string("Unlock administrator settings", locale: language.locale)
+          },
+          presentation: biometricDisplay)
+    #else
+      biometrics = BiometricCredentialAdapter(
+        service: credentialService,
+        enableReason: { [language] in
+          L10n.string("Enable administrator unlock with biometrics", locale: language.locale)
+        },
+        unlockReason: { [language] in
+          L10n.string("Unlock administrator settings", locale: language.locale)
+        },
+        presentation: biometricDisplay)
+    #endif
     return NativeEffectPort(
       web: web, presentation: presentation,
       repository: ProfileRepository(fileURL: location),
       credentials: CredentialStore(
         service: credentialService, keychain: credentialKeychain,
         legacyService: legacyCredentialService),
-      biometrics: BiometricCredentialAdapter(service: credentialService) { [language] in
-        L10n.string("Enable administrator unlock with biometrics", locale: language.locale)
-      },
+      biometrics: biometrics,
       clock: clock, displays: displays,
       catalogRepository: CatalogRepository(
         fileURL: location.deletingLastPathComponent().appendingPathComponent("catalog.json")),
       catalogCloudSync: CatalogCloudSync(
         stateURL: location.deletingLastPathComponent().appendingPathComponent("catalog-cloud.json")
-      ) { [weak cloudBridge] event in cloudBridge?.send(event) })
+      ) { [weak cloudBridge] event in cloudBridge?.send(event) },
+      webServer: webServer)
   }
 
   private func makeWindow() -> ExhibitionWindow {
@@ -129,6 +161,7 @@ public final class MacApplication: NSObject, NSApplicationDelegate, NSWindowDele
       rootView: KioskRootView(
         root: runtime.rootProps, settings: runtime.settingsProps, unlock: runtime.unlockProps,
         web: runtime.webProps, host: PassiveWebHost(host: web.host),
+        biometricHost: AnyView(MacBiometricHost(display: biometricDisplay)),
         language: language,
         selectLanguage: { [weak self] selected in
           self?.language.select(selected)
@@ -200,7 +233,11 @@ public final class MacApplication: NSObject, NSApplicationDelegate, NSWindowDele
     let event: Event
     switch intent {
     case .editPasscode(let value): event = .passcodeEdited(value)
-    case .submit: event = .passcodeSubmitted
+    case .submit:
+      runtime?.send(.biometricUnlockCancelled, from: .unlock)
+      event = .passcodeSubmitted
+    case .authenticateWithBiometrics: event = .biometricUnlockRequested
+    case .cancelBiometricAuthentication: event = .biometricUnlockCancelled
     case .cancel: event = .cancelAuthentication
     }
     runtime?.send(event, from: .unlock)
@@ -264,6 +301,7 @@ public final class MacApplication: NSObject, NSApplicationDelegate, NSWindowDele
     lifecycle = nil
     runtime = nil
     executor = nil
+    webServer = nil
     window?.delegate = nil
     window?.close()
     window = nil

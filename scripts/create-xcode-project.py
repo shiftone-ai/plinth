@@ -138,6 +138,13 @@ shield_test = obj(
     path="Tests/KioskUITests/MacDisplayShieldUITests.swift",
     sourceTree="SOURCE_ROOT",
 )
+mac_biometric_test = obj(
+    "MacBiometricUISource",
+    "PBXFileReference",
+    lastKnownFileType="sourcecode.swift",
+    path="Tests/KioskUITests/MacBiometricUITests.swift",
+    sourceTree="SOURCE_ROOT",
+)
 fixture = obj(
     "FixtureSource",
     "PBXFileReference",
@@ -179,7 +186,16 @@ group = obj(
     "MainGroup",
     "PBXGroup",
     sourceTree="<group>",
-    children=[main, test, localization_test, shield_test, fixture, fixture_video, products],
+    children=[
+        main,
+        test,
+        localization_test,
+        shield_test,
+        mac_biometric_test,
+        fixture,
+        fixture_video,
+        products,
+    ],
 )
 package = obj("LocalPackage", "XCLocalSwiftPackageReference", relativePath=".")
 library = obj(
@@ -190,6 +206,7 @@ main_build = obj("MainBuild", "PBXBuildFile", fileRef=main)
 test_build = obj("TestBuild", "PBXBuildFile", fileRef=test)
 localization_test_build = obj("MacLocalizationTestBuild", "PBXBuildFile", fileRef=localization_test)
 shield_test_build = obj("MacDisplayShieldTestBuild", "PBXBuildFile", fileRef=shield_test)
+mac_biometric_test_build = obj("MacBiometricTestBuild", "PBXBuildFile", fileRef=mac_biometric_test)
 fixture_build = obj("FixtureBuild", "PBXBuildFile", fileRef=fixture)
 fixture_video_build = obj("FixtureVideoBuild", "PBXBuildFile", fileRef=fixture_video)
 
@@ -294,7 +311,13 @@ test_target = obj(
         phase(
             "UISources",
             "PBXSourcesBuildPhase",
-            [test_build, localization_test_build, shield_test_build, fixture_build],
+            [
+                test_build,
+                localization_test_build,
+                shield_test_build,
+                mac_biometric_test_build,
+                fixture_build,
+            ],
         ),
         phase("UIFrameworks", "PBXFrameworksBuildPhase", []),
         phase("UIResources", "PBXResourcesBuildPhase", [fixture_video_build]),

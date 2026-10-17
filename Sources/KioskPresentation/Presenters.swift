@@ -2,6 +2,28 @@ import Foundation
 import KioskCore
 
 public enum Presenters {
+  public static func webAdministration(
+    _ root: RootState, _ administration: AdministrationState
+  ) -> WebAdministrationProps {
+    WebAdministrationProps(
+      mode: root.mode, savedProfile: root.savedProfile,
+      draft: administration.draft, saving: administration.saving,
+      saveFailed: administration.saveFailed,
+      canSave: [.administration, .exhibiting, .paused, .safeHold].contains(root.mode)
+        && !administration.saving
+        && ProfileRevision.next(after: root.savedProfile?.revision) != nil
+        && administration.hasUnsavedDraft && administration.draft?.validatedProfile != nil,
+      validationMessages: settingsValidation(root, administration),
+      hasUnsavedDraft: administration.hasUnsavedDraft,
+      webRestartFailed: root.webRestartFailed,
+      macDisplays: root.macDisplays,
+      mobileOutputAvailable: root.mobileDisplays != nil,
+      supportsExternalDisplay: root.mobileDisplays?.supportsExternalDisplay == true,
+      externalDisplayModes: root.mobileDisplays?.displayModes ?? [],
+      showsExhibitionWindowPreparation:
+        root.mobileDisplays?.canPrepareExhibitionWindow == true)
+  }
+
   public static func root(_ state: RootState) -> RootProps {
     RootProps(
       mode: state.mode, showsAdministration: state.mode == .administration,
@@ -14,7 +36,9 @@ public enum Presenters {
       externalPointer: state.mode == .exhibiting ? state.externalPointer : nil,
       externalAllowsDrag: state.activeProfile?.interaction.allowsDrag == true,
       externalPointerLocked: state.externalPointerLocked,
-      showsPointerSetupHelp: state.mode == .safeHold && state.pointerCaptureFailed)
+      showsPointerSetupHelp: state.mode == .safeHold && state.pointerCaptureFailed,
+      webServerURL: state.webServerRunning && state.savedProfile?.webAdministrationEnabled == true
+        ? state.webServerURL : nil)
   }
 
   public static func settings(_ root: RootState, _ administration: AdministrationState)
@@ -34,6 +58,7 @@ public enum Presenters {
       biometricChanging: root.biometricOperation != nil,
       canChangeBiometric: canChangeBiometric(root),
       biometricChangeFailed: root.biometricChangeFailed,
+      biometricEnrollmentChanged: root.biometricEnrollmentChanged,
       saveFailed: administration.saveFailed,
       validationMessages: settingsValidation(root, administration),
       startURL: administration.draft?.profile.startURL ?? "",
@@ -65,7 +90,9 @@ public enum Presenters {
       showsExhibitionWindowPreparation: root.mobileDisplays?.canPrepareExhibitionWindow == true,
       supportsExternalDisplay: root.mobileDisplays?.supportsExternalDisplay == true,
       externalDisplayModes: root.mobileDisplays?.displayModes ?? [],
-      externalDisplayCurrentMode: root.mobileDisplays?.currentMode
+      externalDisplayCurrentMode: root.mobileDisplays?.currentMode,
+      webServerURL: root.webServerURL,
+      webServerFailure: root.webServerFailure
     )
   }
 
@@ -86,6 +113,8 @@ public enum Presenters {
     case .unavailable(.lockedOut): "Biometrics are locked. Unlock the device and try again"
     case .unavailable(.passcodeNotSet): "Set a device passcode to use biometrics"
     case .unavailable(.storageUnavailable): "Biometric settings are unavailable"
+    case .unavailable(.disconnected): "Touch ID keyboard is disconnected"
+    case .unavailable(.notPaired): "Touch ID keyboard is not paired"
     }
   }
 
@@ -130,11 +159,26 @@ public enum Presenters {
       phase: exhibition.phase, pageLoad: exhibition.pageLoad)
   }
 
-  public static func unlock(_ administration: AdministrationState, now: Double) -> UnlockProps {
-    UnlockProps(
+  public static func unlock(
+    _ root: RootState, _ administration: AdministrationState, now: Double
+  ) -> UnlockProps {
+    let biometricLabelKey: String?
+    if root.biometricStatus?.enabled == true {
+      switch root.biometricStatus?.availability {
+      case .available(.faceID): biometricLabelKey = "Unlock with Face ID"
+      case .available(.touchID): biometricLabelKey = "Unlock with Touch ID"
+      default: biometricLabelKey = nil
+      }
+    } else {
+      biometricLabelKey = nil
+    }
+    return UnlockProps(
       passcode: administration.passcode,
       failedAttempts: administration.failedAttempts,
       verifying: administration.verification != nil,
-      cooldownRemaining: max(0, (administration.cooldownUntil ?? now) - now))
+      cooldownRemaining: max(0, (administration.cooldownUntil ?? now) - now),
+      biometricLabelKey: biometricLabelKey,
+      biometricVerifying: root.biometricUnlockOperation != nil,
+      biometricFailed: root.biometricUnlockFailed)
   }
 }

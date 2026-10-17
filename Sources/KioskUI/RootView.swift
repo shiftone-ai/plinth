@@ -10,6 +10,7 @@ public struct KioskRootView<WebHost: View>: View {
   let unlock: RenderPropsStore<UnlockProps>
   let web: RenderPropsStore<WebSurfaceProps>
   let host: WebHost
+  let biometricHost: AnyView?
   let language: LanguagePreference
   let selectLanguage: (InterfaceLanguage) -> Void
   let settingsIntent: (SettingsIntent) -> Void
@@ -20,6 +21,7 @@ public struct KioskRootView<WebHost: View>: View {
   public init(
     root: RenderPropsStore<RootProps>, settings: RenderPropsStore<SettingsProps>,
     unlock: RenderPropsStore<UnlockProps>, web: RenderPropsStore<WebSurfaceProps>, host: WebHost,
+    biometricHost: AnyView? = nil,
     language: LanguagePreference, selectLanguage: @escaping (InterfaceLanguage) -> Void,
     settingsIntent: @escaping (SettingsIntent) -> Void,
     unlockIntent: @escaping (UnlockIntent) -> Void,
@@ -30,6 +32,7 @@ public struct KioskRootView<WebHost: View>: View {
     self.unlock = unlock
     self.web = web
     self.host = host
+    self.biometricHost = biometricHost
     self.language = language
     self.selectLanguage = selectLanguage
     self.settingsIntent = settingsIntent
@@ -49,7 +52,11 @@ public struct KioskRootView<WebHost: View>: View {
         ZStack {
           Color.black
           if root.props.showsUnlock {
-            UnlockView(props: unlock.props, send: unlockIntent)
+            UnlockView(props: unlock.props, biometricHost: biometricHost, send: unlockIntent)
+          } else if root.props.mode == .paused {
+            Label(L10n.string("Exhibition paused", locale: locale), systemImage: "pause.circle")
+              .font(.title2).foregroundStyle(.white)
+              .accessibilityIdentifier("exhibition-paused")
           } else if root.props.mode == .safeHold {
             if root.props.showsPointerSetupHelp {
               PointerSetupHelpView(
