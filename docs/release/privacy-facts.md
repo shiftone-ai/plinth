@@ -10,7 +10,7 @@ Issue #28 の公開文書と App Privacy を照合するための根拠．Web管
 | 表示言語 | 選択した言語を端末内のUserDefaultsに保存 | `LanguagePreference` |
 | 診断 | OSLogに状態遷移・拒否理由・識別子・revisionなどを記録．入力文字列，パスワード，URL全体，マウス座標は記録しない | `DiagnosticLogAdapter`，`DiagnosticRecord` |
 | 展示ページのサイトデータ | WebKitの非永続データストアを使用．「新しい閲覧セッション」は表示面を作るたびに新規ストア．「Cookieなどを保持」はアプリの稼働中に同じストアを再利用．Runtime停止時に破棄 | `WebKitAdapter.create`，`WebKitAdapter.stop` |
-| 展示ページへの通信 | 管理者が指定したURLをWebKitで読み込む．閲覧先サイトや，そのページの埋め込み先への通信は各サイトの扱いに従う | `WebKitAdapter.load`，`NavigationPolicy` |
+| 展示ページへの通信 | 管理者が指定したURLをWebKitで読み込む．許可・拒否するドメイン規則は主画面の移動に適用し，埋め込み先には適用しない．埋め込み先にもURL形式とHTTP許可の条件は適用する．閲覧先サイトや埋め込み先のデータ取扱いは各サイトに従う | `WebKitAdapter.load`，`ExhibitionMediator`，`NavigationPolicy` |
 | Web管理の待ち受け | 初期状態は無効．管理者が端末で有効にすると，固定ポート47623で同じローカルネットワークのブラウザからHTTP接続を受ける．HTTPSによる暗号化はない | `WebAdministrationServer`，`WebAdministrationHTTPHandler`，`KioskProfile` |
 | Web管理の認証とセッション | 管理者パスワードと設定の変更内容はブラウザから端末へ送る．ブラウザは一時的なトークンをページのメモリに保持し，端末のセッションは無効化時に破棄する．Shift Oneへは送らない | `WebAdministrationPage`，`WebAdministrationHTTPHandler`，`RootMediator+WebAdministration` |
 
