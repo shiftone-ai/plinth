@@ -44,27 +44,6 @@ extension RootMediator {
       next.catalogLoadFailed = true
       return .handled(.init(next))
 
-    case .catalogRegistrationRequested(let id, let name, let profile):
-      guard envelope.source == .administration else { return .reject(state, .wrongSource) }
-      guard state.mode == .administration, state.catalogLoaded,
-        state.catalogSaveOperation == nil, state.saveOperation == nil,
-        state.savedProfile == profile
-      else { return .reject(state, .invalidState) }
-      guard !state.catalog.entries.contains(where: { $0.id == id }),
-        let snapshot = CatalogSnapshot(profile),
-        let entry = CatalogEntry(id: id, name: name, snapshot: snapshot),
-        let revision = ProfileRevision.next(after: state.catalog.revision)
-      else { return .reject(state, .invalidProfile) }
-      var document = state.catalog
-      document.revision = revision
-      document.entries.append(entry)
-      next.pendingCatalog = document
-      next.pendingCatalogRegistrationID = id
-      next.catalogSaveOperation = token
-      next.catalogSaveFailed = false
-      return .handled(
-        .init(next, reply: .accepted, effects: [Effect(token, .saveCatalog(document))]))
-
     case .catalogSelectRequested(let id):
       guard envelope.source == .settings, state.mode == .administration,
         state.catalogSaveOperation == nil,
@@ -287,6 +266,7 @@ extension RootMediator {
       if state.pendingCatalogPublishes, document.syncEnabled,
         let accountID = document.accountIdentifier
       {
+        let queuedIDs = Set(state.queuedCatalogCloudChanges.map(\.id))
         let resolvedConflicts = Set(
           state.catalog.conflicts.filter {
             state.catalog.conflictBelongsToAccount($0, accountIdentifier: accountID)
@@ -294,8 +274,9 @@ extension RootMediator {
         ).subtracting(
           document.conflicts.filter {
             document.conflictBelongsToAccount($0, accountIdentifier: accountID)
-          }.map(\.id))
-        let queuedIDs = Set(state.queuedCatalogCloudChanges.map(\.id))
+          }.map(\.id)
+        )
+        .subtracting(queuedIDs)
         let oldShared = Dictionary(
           uniqueKeysWithValues: state.catalog.entries.compactMap { entry in
             entry.scope == .iCloud && entry.accountIdentifier == accountID

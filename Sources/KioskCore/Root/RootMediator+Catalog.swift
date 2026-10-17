@@ -8,8 +8,10 @@ extension RootMediator {
     case .catalogLoadCorrupt, .catalogRecoveryRequested, .catalogRecoveryCancelled,
       .catalogRecoveryConfirmed:
       return reduceCatalogRecovery(state, envelope)
+    case .catalogRegistrationRequested:
+      return reduceCatalogRegistration(state, envelope)
     case .catalogLoadRequested, .catalogLoaded, .catalogLoadFailed,
-      .catalogRegistrationRequested, .catalogSelectRequested, .catalogApplyRequested,
+      .catalogSelectRequested, .catalogApplyRequested,
       .catalogRenameRequested, .catalogRenameConfirmed, .catalogRenameCancelled,
       .catalogUpdateRequested, .catalogUpdateConfirmed, .catalogUpdateCancelled,
       .catalogVisibilityRequested, .catalogRemovePromptRequested,

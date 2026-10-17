@@ -181,7 +181,6 @@ struct CatalogAccountBoundaryTests {
     if fixture.runtime.snapshot.root.catalogSaveOperation != nil { try finishSave(fixture) }
     #expect(fixture.runtime.snapshot.root.catalog.conflicts.map(\.id) == [id])
   }
-
 }
 
 // Account-specific records can share a portable identifier without sharing local state.
