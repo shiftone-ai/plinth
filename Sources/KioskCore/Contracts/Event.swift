@@ -45,6 +45,10 @@ public enum Event: Equatable, Sendable {
   case profileSaved(OperationToken, KioskProfile)
   case profileSaveFailed(OperationToken)
   case catalogLoadRequested
+  case catalogLoadCorrupt(OperationToken)
+  case catalogRecoveryRequested
+  case catalogRecoveryCancelled
+  case catalogRecoveryConfirmed
   case catalogLoaded(OperationToken, SettingsCatalog)
   case catalogLoadFailed(OperationToken)
   case catalogRegisterRequested(id: UUID, name: String)
@@ -90,6 +94,9 @@ public enum Event: Equatable, Sendable {
   case catalogSyncDisableRequested
   case catalogSyncRetryRequested
   case catalogAccountChecked(OperationToken, String?)
+  case catalogAccountCheckDeferred(OperationToken)
+  case catalogAccountAvailabilityChanged
+  case catalogCloudCapabilityUnavailable
   case catalogCloudStatus(OperationToken, CatalogSyncStatus)
   case catalogCloudChanges(OperationToken, String, [CatalogCloudChange])
   case catalogCloudAcknowledged(OperationToken, String, [UUID: UInt64])
@@ -173,7 +180,8 @@ public enum Event: Equatable, Sendable {
       .biometricUnlockRequested, .biometricUnlockCancelled,
       .webLoginRequested, .webLoginStatusRequested, .webSessionRequested:
       true
-    case .catalogLoadRequested, .catalogRegisterRequested, .catalogRegistrationRequested,
+    case .catalogLoadRequested, .catalogRecoveryRequested, .catalogRecoveryCancelled,
+      .catalogRecoveryConfirmed, .catalogRegisterRequested, .catalogRegistrationRequested,
       .catalogSelectRequested, .catalogSelectionDismissed, .catalogApplyRequested,
       .catalogRenameRequested, .catalogRenameConfirmed, .catalogRenameCancelled,
       .catalogUpdateRequested, .catalogUpdateConfirmed, .catalogUpdateCancelled,

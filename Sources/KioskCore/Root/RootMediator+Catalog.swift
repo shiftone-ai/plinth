@@ -5,6 +5,9 @@ extension RootMediator {
     _ state: RootState, _ envelope: EventEnvelope, context: ReadonlyContext
   ) -> Mediation<RootState> {
     switch envelope.event {
+    case .catalogLoadCorrupt, .catalogRecoveryRequested, .catalogRecoveryCancelled,
+      .catalogRecoveryConfirmed:
+      return reduceCatalogRecovery(state, envelope)
     case .catalogLoadRequested, .catalogLoaded, .catalogLoadFailed,
       .catalogRegistrationRequested, .catalogSelectRequested, .catalogApplyRequested,
       .catalogRenameRequested, .catalogRenameConfirmed, .catalogRenameCancelled,
@@ -20,7 +23,9 @@ extension RootMediator {
       return reduceCatalogFile(state, envelope)
     case .catalogSyncEnableRequested, .catalogSyncEnableCancelled,
       .catalogSyncEnableConfirmed, .catalogSyncDisableRequested, .catalogSyncRetryRequested,
-      .catalogAccountChecked, .catalogCloudAccountChanged, .catalogCloudStatus,
+      .catalogAccountChecked, .catalogAccountCheckDeferred,
+      .catalogAccountAvailabilityChanged, .catalogCloudAccountChanged, .catalogCloudStatus,
+      .catalogCloudCapabilityUnavailable,
       .catalogCloudChanges, .catalogCloudAcknowledged,
       .catalogCloudDeletionsAcknowledged, .catalogSharePromptRequested,
       .catalogSharePromptCancelled, .catalogShareConfirmed, .catalogConflictResolved:
@@ -42,8 +47,10 @@ extension RootMediator {
       !publish
         || catalog.entries.allSatisfy({ entry in
           guard entry.scope == .iCloud else { return true }
-          return state.catalog.entries.first(where: { $0.id == entry.id })?
-            .sameCloudContents(as: entry) == true || CatalogCloudPayload.encoded(entry) != nil
+          return state.catalog.entries.first(where: {
+            $0.id == entry.id && $0.accountIdentifier == entry.accountIdentifier
+          })?
+          .sameCloudContents(as: entry) == true || CatalogCloudPayload.encoded(entry) != nil
         })
     else { return .reject(state, .invalidProfile) }
     guard let revision = ProfileRevision.next(after: state.catalog.revision)
@@ -74,7 +81,9 @@ extension RootMediator {
         id = value
         remote = nil
       }
-      if let index = document.entries.firstIndex(where: { $0.id == id }) {
+      if let index = document.entries.firstIndex(where: {
+        $0.id == id && ($0.scope == .device || $0.accountIdentifier == accountID)
+      }) {
         let local = document.entries[index]
         guard local.scope == .iCloud, local.accountIdentifier == accountID else {
           recordScopeCollision(remote, id: id, accountID: accountID, in: &document)
@@ -83,7 +92,7 @@ extension RootMediator {
         if let remote, local.sameCloudContents(as: remote) {
           document.entries[index].version = remote.version
           document.entries[index].syncedVersion = remote.version
-          document.conflicts.removeAll { $0.id == id }
+          removeConflicts(id: id, accountID: accountID, from: &document)
           continue
         }
         if local.version == local.syncedVersion {
@@ -94,18 +103,20 @@ extension RootMediator {
           } else {
             document.entries.remove(at: index)
           }
-          document.conflicts.removeAll { $0.id == id }
+          removeConflicts(id: id, accountID: accountID, from: &document)
         } else {
-          document.conflicts.removeAll { $0.id == id }
-          document.conflicts.append(CatalogConflict(id: id, remote: remote))
+          removeConflicts(id: id, accountID: accountID, from: &document)
+          document.conflicts.append(
+            CatalogConflict(id: id, remote: remote, accountIdentifier: accountID))
         }
       } else if var remote {
         if let pending = document.pendingDeletions.first(where: {
           $0.id == id && $0.accountIdentifier == accountID
         }) {
           if pending.baseVersion != remote.version {
-            document.conflicts.removeAll { $0.id == id }
-            document.conflicts.append(CatalogConflict(id: id, remote: remote))
+            removeConflicts(id: id, accountID: accountID, from: &document)
+            document.conflicts.append(
+              CatalogConflict(id: id, remote: remote, accountIdentifier: accountID))
           }
         } else {
           remote.isVisible = false
@@ -116,7 +127,7 @@ extension RootMediator {
         document.pendingDeletions.removeAll {
           $0.id == id && $0.accountIdentifier == accountID
         }
-        document.conflicts.removeAll { $0.id == id }
+        removeConflicts(id: id, accountID: accountID, from: &document)
       }
     }
     return document == catalog ? nil : document
@@ -125,10 +136,20 @@ extension RootMediator {
   private static func recordScopeCollision(
     _ remote: CatalogEntry?, id: UUID, accountID: String, in document: inout SettingsCatalog
   ) {
-    document.conflicts.removeAll {
-      $0.id == id && (remote != nil || $0.remote?.accountIdentifier == accountID)
-    }
+    removeConflicts(id: id, accountID: accountID, from: &document)
     guard let remote else { return }
-    document.conflicts.append(CatalogConflict(id: id, remote: remote))
+    document.conflicts.append(CatalogConflict(id: id, remote: remote, accountIdentifier: accountID))
+  }
+
+  private static func removeConflicts(
+    id: UUID, accountID: String, from document: inout SettingsCatalog
+  ) {
+    let matching = document.conflicts.filter {
+      $0.id == id
+        && ($0.accountIdentifier == accountID
+          || ($0.accountIdentifier == nil
+            && document.conflictBelongsToAccount($0, accountIdentifier: accountID)))
+    }
+    document.conflicts.removeAll { matching.contains($0) }
   }
 }

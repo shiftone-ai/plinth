@@ -113,7 +113,7 @@ public final class RootRuntime {
         && [.enteringKiosk, .exhibiting, .unlocking].contains(store.root.mode)
     case .applyPresentation, .releasePresentation: store.root.presentationOperation == effect.token
     case .saveProfile, .recoverProfile: store.root.saveOperation == effect.token
-    case .loadCatalog: store.root.catalogLoadOperation == effect.token
+    case .loadCatalog, .recoverCatalog: store.root.catalogLoadOperation == effect.token
     case .saveCatalog: store.root.catalogSaveOperation == effect.token
     case .checkCatalogAccount, .checkCatalogAccountAfterStopping:
       store.root.catalogAccountCheckOperation == effect.token

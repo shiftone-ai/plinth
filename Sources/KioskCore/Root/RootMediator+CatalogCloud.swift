@@ -7,8 +7,17 @@ extension RootMediator {
     var next = state
     let token = envelope.token(owner: .root, epoch: state.epoch)
     switch envelope.event {
+    case .catalogCloudCapabilityUnavailable:
+      guard envelope.source == .platform, !state.catalogLoaded else {
+        return .reject(state, .invalidState)
+      }
+      next.catalogCloudAvailable = false
+      return .handled(.init(next))
+
     case .catalogSyncEnableRequested:
-      guard canEditCatalog(state, envelope), !state.catalog.syncEnabled else {
+      guard canEditCatalog(state, envelope), state.catalogCloudAvailable,
+        !state.catalog.syncEnabled
+      else {
         return .reject(state, .invalidState)
       }
       next.catalogSyncConsentPending = true
@@ -44,8 +53,9 @@ extension RootMediator {
       return commitCatalog(state, document, token: token, publish: false)
 
     case .catalogSyncRetryRequested:
-      guard canEditCatalog(state, envelope), state.catalog.syncEnabled,
-        state.catalogSyncStatus == .signInRequired,
+      guard canEditCatalog(state, envelope), state.catalogCloudAvailable,
+        state.catalog.syncEnabled,
+        [.signInRequired, .offline].contains(state.catalogSyncStatus),
         state.catalogAccountCheckOperation == nil, state.catalogCloudSessionOperation == nil
       else { return .reject(state, .invalidState) }
       next.catalogSyncStatus = .checking
@@ -64,10 +74,12 @@ extension RootMediator {
       }
       guard state.catalog.syncEnabled else { return .handled(.init(next)) }
       guard let accountID, !accountID.isEmpty else {
+        clearCatalogCandidates(&next)
         next.catalogSyncStatus = .signInRequired
         return .handled(.init(next))
       }
       if let previous = state.catalog.accountIdentifier, previous != accountID {
+        clearCatalogCandidates(&next)
         next.catalogSyncStatus = .accountChanged
         var document = state.catalog
         document.syncEnabled = false
@@ -98,12 +110,36 @@ extension RootMediator {
                 pendingDeletions: state.catalog.pendingDeletions))
           ]))
 
+    case .catalogAccountCheckDeferred(let completed):
+      guard envelope.source == .cloudCatalog,
+        state.catalogAccountCheckOperation == completed
+      else { return .reject(state, .staleOperation) }
+      next.catalogAccountCheckOperation = nil
+      next.catalogSyncStatus = .offline
+      return .handled(.init(next))
+
+    case .catalogAccountAvailabilityChanged:
+      guard envelope.source == .cloudCatalog, state.catalog.syncEnabled,
+        state.catalogAccountCheckOperation == nil
+      else { return .reject(state, .invalidState) }
+      clearCatalogCandidates(&next)
+      clearQueuedCatalogCloudFacts(&next)
+      next.catalogSyncStatus = .checking
+      next.catalogCloudSessionOperation = nil
+      next.catalogAccountCheckOperation = token
+      let kind: Effect.Kind =
+        state.catalogCloudSessionOperation == nil
+        ? .checkCatalogAccount : .checkCatalogAccountAfterStopping
+      return .handled(.init(next, effects: [Effect(token, kind)]))
+
     case .catalogCloudAccountChanged(let session):
       guard envelope.source == .cloudCatalog, state.catalog.syncEnabled,
         state.catalogCloudSessionOperation == session
       else {
         return .reject(state, .invalidState)
       }
+      clearCatalogCandidates(&next)
+      clearQueuedCatalogCloudFacts(&next)
       next.catalogSyncStatus = .checking
       next.catalogCloudSessionOperation = nil
       next.catalogAccountCheckOperation = token
@@ -145,7 +181,8 @@ extension RootMediator {
       var changed = false
       for index in document.entries.indices {
         let entry = document.entries[index]
-        if let version = versions[entry.id], entry.version == version,
+        if entry.accountIdentifier == accountID,
+          let version = versions[entry.id], entry.version == version,
           entry.syncedVersion != version
         {
           document.entries[index].syncedVersion = version
@@ -202,21 +239,30 @@ extension RootMediator {
 
     case .catalogConflictResolved(let id, let useRemote):
       guard canEditCatalog(state, envelope),
-        let conflict = state.catalog.conflicts.first(where: { $0.id == id }),
+        let conflict = state.catalog.conflicts.first(where: {
+          $0.id == id && state.catalogConflictAvailable($0)
+        }),
         state.catalogConflictAvailable(conflict),
         let accountID = state.catalog.accountIdentifier
       else { return .reject(state, .invalidState) }
       var document = state.catalog
-      document.conflicts.removeAll { $0.id == id }
+      document.conflicts.removeAll { $0.id == id && $0 == conflict }
       if useRemote {
-        let wasVisible = document.entries.first(where: { $0.id == id })?.isVisible ?? false
-        document.entries.removeAll { $0.id == id }
-        document.pendingDeletions.removeAll { $0.id == id }
+        let wasVisible =
+          document.entries.first(where: {
+            $0.id == id && state.catalogEntryAvailable($0)
+          })?.isVisible ?? false
+        document.entries.removeAll { $0.id == id && state.catalogEntryAvailable($0) }
+        document.pendingDeletions.removeAll {
+          $0.id == id && $0.accountIdentifier == accountID
+        }
         if var remote = conflict.remote {
           remote.isVisible = wasVisible
           document.entries.append(remote)
         }
-      } else if let index = document.entries.firstIndex(where: { $0.id == id }) {
+      } else if let index = document.entries.firstIndex(where: {
+        $0.id == id && state.catalogEntryAvailable($0)
+      }) {
         guard
           let nextVersion = ProfileRevision.next(
             after: max(
@@ -225,7 +271,9 @@ extension RootMediator {
         document.entries[index].version = nextVersion
         document.entries[index].scope = .iCloud
         document.entries[index].accountIdentifier = accountID
-      } else if let index = document.pendingDeletions.firstIndex(where: { $0.id == id }) {
+      } else if let index = document.pendingDeletions.firstIndex(where: {
+        $0.id == id && $0.accountIdentifier == accountID
+      }) {
         guard
           let nextAttempt = ProfileRevision.next(after: document.pendingDeletions[index].attempt)
         else { return .reject(state, .invalidProfile) }
@@ -236,5 +284,18 @@ extension RootMediator {
 
     default: return .bubble
     }
+  }
+
+  private static func clearCatalogCandidates(_ state: inout RootState) {
+    state.catalogRenameCandidate = nil
+    state.catalogUpdateCandidateID = nil
+    state.catalogRemovalCandidateID = nil
+    state.catalogShareCandidateID = nil
+  }
+
+  private static func clearQueuedCatalogCloudFacts(_ state: inout RootState) {
+    state.queuedCatalogCloudChanges = []
+    state.queuedCatalogAcknowledgements = [:]
+    state.queuedCatalogDeletionAcknowledgements = []
   }
 }

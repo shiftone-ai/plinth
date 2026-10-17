@@ -32,9 +32,11 @@ public enum CatalogCloudChange: Equatable, Sendable {
 public struct CatalogConflict: Equatable, Codable, Sendable, Identifiable {
   public let id: UUID
   public let remote: CatalogEntry?
-  public init(id: UUID, remote: CatalogEntry?) {
+  public let accountIdentifier: String?
+  public init(id: UUID, remote: CatalogEntry?, accountIdentifier: String? = nil) {
     self.id = id
     self.remote = remote
+    self.accountIdentifier = accountIdentifier ?? remote?.accountIdentifier
   }
 }
 
@@ -147,12 +149,19 @@ public struct SettingsCatalog: Equatable, Codable, Sendable {
   public func conflictBelongsToAccount(
     _ conflict: CatalogConflict, accountIdentifier: String
   ) -> Bool {
+    if let owner = conflict.accountIdentifier ?? conflict.remote?.accountIdentifier,
+      owner != accountIdentifier
+    {
+      return false
+    }
     if let remote = conflict.remote,
       remote.scope != .iCloud || remote.accountIdentifier != accountIdentifier
     {
       return false
     }
-    if let entry = entries.first(where: { $0.id == conflict.id }) {
+    if let entry = entries.first(where: {
+      $0.id == conflict.id && ($0.scope == .device || $0.accountIdentifier == accountIdentifier)
+    }) {
       return (entry.scope == .device && conflict.remote != nil)
         || (entry.scope == .iCloud && entry.accountIdentifier == accountIdentifier)
     }
@@ -185,10 +194,27 @@ public struct SettingsCatalog: Equatable, Codable, Sendable {
   }
 
   public var isValid: Bool {
-    schemaVersion == 1 && Set(entries.map(\.id)).count == entries.count
-      && Set(conflicts.map(\.id)).count == conflicts.count
-      && Set(pendingDeletions.map(\.id)).count == pendingDeletions.count
-      && Set(entries.map(\.id)).isDisjoint(with: pendingDeletions.map(\.id))
+    let entriesByID = Dictionary(grouping: entries, by: \.id)
+    let distinctEntries = entriesByID.values.allSatisfy { group in
+      group.count == 1
+        || (group.allSatisfy { $0.scope == .iCloud }
+          && Set(group.compactMap(\.accountIdentifier)).count == group.count)
+    }
+    let conflictKeys = conflicts.map {
+      CatalogAccountKey(
+        id: $0.id, accountIdentifier: $0.accountIdentifier ?? $0.remote?.accountIdentifier)
+    }
+    let deletionKeys = pendingDeletions.map {
+      CatalogAccountKey(id: $0.id, accountIdentifier: $0.accountIdentifier)
+    }
+    let deletionSet = Set(deletionKeys)
+    return schemaVersion == 1 && distinctEntries
+      && Set(conflictKeys).count == conflicts.count
+      && deletionSet.count == pendingDeletions.count
+      && entries.allSatisfy { entry in
+        !deletionSet.contains(
+          CatalogAccountKey(id: entry.id, accountIdentifier: entry.accountIdentifier))
+      }
       && entries.allSatisfy {
         $0.formatVersion == 1 && CatalogEntry.validName($0.name)
           && $0.version > 0 && $0.snapshot.isValid
@@ -196,8 +222,16 @@ public struct SettingsCatalog: Equatable, Codable, Sendable {
             || ($0.scope == .iCloud && !($0.accountIdentifier ?? "").isEmpty))
       }
       && conflicts.allSatisfy {
-        $0.remote == nil || ($0.remote?.id == $0.id && $0.remote?.scope == .iCloud)
+        $0.remote == nil
+          || ($0.remote?.id == $0.id && $0.remote?.scope == .iCloud
+            && ($0.accountIdentifier == nil
+              || $0.accountIdentifier == $0.remote?.accountIdentifier))
       }
       && pendingDeletions.allSatisfy { !$0.accountIdentifier.isEmpty && $0.attempt > 0 }
   }
+}
+
+private struct CatalogAccountKey: Hashable {
+  let id: UUID
+  let accountIdentifier: String?
 }

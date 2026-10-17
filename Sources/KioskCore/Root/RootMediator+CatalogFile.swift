@@ -121,7 +121,9 @@ extension RootMediator {
       var document = state.catalog
       var used = Set(document.entries.map(\.id))
       for (item, replacementID) in zip(preview, replacementIDs) {
-        if let existing = document.entries.first(where: { $0.id == item.id }) {
+        if let existing = document.entries.first(where: {
+          $0.id == item.id && state.catalogEntryAvailable($0)
+        }) ?? document.entries.first(where: { $0.id == item.id }) {
           if state.catalogEntryAvailable(existing), existing.name == item.name,
             existing.snapshot == item.snapshot
           {

@@ -228,6 +228,7 @@ base = {
     "CODE_SIGN_STYLE": "Manual",
     "ENABLE_HARDENED_RUNTIME": "NO",
     "PRODUCT_NAME": "$(TARGET_NAME)",
+    "PLINTH_CLOUDKIT_ENTITLED": "YES" if options.app_store or options.developer_id else "NO",
 }
 # Developer ID keeps the non-store identifier and existing file-keychain credentials.
 if options.app_store or options.developer_id:

@@ -38,7 +38,8 @@ public final class EffectExecutor: EffectExecuting {
       .performBiometricUnlock:
       source = .credentials
     case .saveProfile, .recoverProfile, .bootstrap: source = .profileRepository
-    case .loadCatalog, .saveCatalog, .prepareCatalogExport, .importCatalogFile:
+    case .loadCatalog, .recoverCatalog, .saveCatalog, .prepareCatalogExport,
+      .importCatalogFile:
       source = .catalogRepository
     case .checkCatalogAccount, .checkCatalogAccountAfterStopping,
       .startCatalogCloudSync, .stopCatalogCloudSync,

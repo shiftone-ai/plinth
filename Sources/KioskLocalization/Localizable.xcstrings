@@ -5820,6 +5820,126 @@
           }
         }
       }
+    },
+    "Start a new collection": {
+      "comment": "Settings collection recovery text.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start a new collection"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新しい設定集を作る"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "새 설정 모음 만들기"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新建设置集合"
+          }
+        }
+      }
+    },
+    "Move the damaged collection aside?": {
+      "comment": "Settings collection recovery text.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Move the damaged collection aside?"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "壊れた設定集を退避しますか？"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "손상된 설정 모음을 별도로 보관하시겠습니까?"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "要保留损坏的设置集合并移开吗？"
+          }
+        }
+      }
+    },
+    "The damaged file stays on this device. You can import an encrypted backup into the new collection.": {
+      "comment": "Settings collection recovery text.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The damaged file stays on this device. You can import an encrypted backup into the new collection."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "壊れたファイルはこの端末に残します。新しい設定集には、暗号化したバックアップを読み込めます。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "손상된 파일은 이 기기에 보관됩니다. 암호화된 백업을 새 설정 모음으로 가져올 수 있습니다."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "损坏的文件会保留在此设备上。你可以将加密备份导入新的设置集合。"
+          }
+        }
+      }
+    },
+    "iCloud sync is unavailable in this build": {
+      "comment": "Settings collection sync availability.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iCloud sync is unavailable in this build"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このビルドではiCloud同期を使えません"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이 빌드에서는 iCloud 동기화를 사용할 수 없습니다"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此版本无法使用 iCloud 同步"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

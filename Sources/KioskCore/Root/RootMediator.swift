@@ -12,22 +12,22 @@ public enum RootMediator {
       return reduceWebExhibition(state, envelope, context: context)
     case .bootstrapped:
       return withWebServerLifecycle(bootstrapCompleted(state, envelope), before: state, envelope)
-    case .catalogLoadRequested, .catalogLoaded, .catalogLoadFailed,
+    case .catalogLoadRequested, .catalogLoaded, .catalogLoadFailed, .catalogLoadCorrupt,
+      .catalogRecoveryRequested, .catalogRecoveryCancelled, .catalogRecoveryConfirmed,
       .catalogRegistrationRequested, .catalogSelectRequested, .catalogApplyRequested,
       .catalogRenameRequested, .catalogRenameConfirmed, .catalogRenameCancelled,
       .catalogUpdateRequested, .catalogUpdateConfirmed, .catalogUpdateCancelled,
-      .catalogVisibilityRequested, .catalogRemoveConfirmed, .catalogSaved, .catalogSaveFailed:
-      return reduceCatalog(state, envelope, context: context)
-    case .catalogRemovePromptRequested, .catalogRemovePromptCancelled:
-      return reduceCatalog(state, envelope, context: context)
-    case .catalogExportOperationRequested, .catalogExportPrepared, .catalogExportFailed,
+      .catalogRemovePromptRequested, .catalogRemovePromptCancelled,
+      .catalogVisibilityRequested, .catalogRemoveConfirmed, .catalogSaved, .catalogSaveFailed,
+      .catalogExportOperationRequested, .catalogExportPrepared, .catalogExportFailed,
       .catalogExportDismissed, .catalogFileExportCompleted,
       .catalogImportOperationRequested, .catalogImportPreviewReady,
-      .catalogImportFailed, .catalogImportConfirmed, .catalogImportCancelled:
-      return reduceCatalog(state, envelope, context: context)
-    case .catalogSyncEnableRequested, .catalogSyncEnableConfirmed,
+      .catalogImportFailed, .catalogImportConfirmed, .catalogImportCancelled,
+      .catalogSyncEnableRequested, .catalogSyncEnableConfirmed,
       .catalogSyncEnableCancelled, .catalogSyncDisableRequested, .catalogSyncRetryRequested,
-      .catalogAccountChecked, .catalogCloudStatus, .catalogCloudChanges,
+      .catalogAccountChecked, .catalogAccountCheckDeferred,
+      .catalogAccountAvailabilityChanged, .catalogCloudStatus, .catalogCloudChanges,
+      .catalogCloudCapabilityUnavailable,
       .catalogCloudAcknowledged, .catalogCloudDeletionsAcknowledged,
       .catalogCloudAccountChanged,
       .catalogSharePromptRequested, .catalogSharePromptCancelled,

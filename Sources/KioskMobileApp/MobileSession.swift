@@ -53,6 +53,9 @@
         for: .applicationSupportDirectory, in: .userDomainMask)[0]
         .appendingPathComponent(credentials.storageNamespace, isDirectory: true)
         .appendingPathComponent("profile.json")
+      #if DEBUG
+        Self.installDamagedCatalogFixture(at: location, service: fixtureService)
+      #endif
       presentation = MobilePresentationAdapter()
       presentation.pointer = pointer
       let port = NativeEffectPort(
@@ -81,13 +84,30 @@
       #endif
       runtime = RootRuntime(clock: clock, executor: executor, diagnostics: DiagnosticLogAdapter())
       cloudBridge.runtime = runtime
+      attachWebServer()
+      wireAdapters()
+      runtime.send(.catalogLoadRequested, from: .root)
+    }
+
+    private func attachWebServer() {
       webServer.attach(runtime: runtime, locale: { [language] in language.locale })
       webServer.addressChanged = { [weak runtime] endpoint in
         runtime?.send(.webServerAddressChanged(endpoint), from: .webAdministration)
       }
-      wireAdapters()
-      runtime.send(.catalogLoadRequested, from: .root)
     }
+
+    #if DEBUG
+      private static func installDamagedCatalogFixture(at profileURL: URL, service: String?) {
+        guard service != nil,
+          ProcessInfo.processInfo.environment["PLINTH_TEST_CORRUPT_CATALOG"] == "1"
+        else { return }
+        let catalogURL = profileURL.deletingLastPathComponent().appendingPathComponent(
+          "catalog.json")
+        try? FileManager.default.createDirectory(
+          at: catalogURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try? Data("{\"entries\": [".utf8).write(to: catalogURL)
+      }
+    #endif
 
     private static func credentialConfiguration() -> CredentialConfiguration {
       #if DEBUG
@@ -232,6 +252,12 @@
     }
 
     private func settings(_ intent: SettingsIntent) {
+      if let event = CatalogIntentEventMapper.event(
+        for: intent, importCount: runtime.settingsProps.props.catalog.importPreview?.count ?? 0
+      ) {
+        runtime.send(event, from: .settings)
+        return
+      }
       let event: Event
       switch intent {
       case .edit(let edit): event = .draftEdited(edit)
@@ -243,47 +269,10 @@
       case .discard: event = .discardDraftRequested
       case .addOriginRule: event = .addOriginRuleRequested
       case .removeOriginRule(let id): event = .removeOriginRuleRequested(id)
-      case .editCatalogName(let value): event = .catalogNameEdited(value)
-      case .registerCatalog(let name): event = .catalogRegisterRequested(id: UUID(), name: name)
-      case .selectCatalog(let id): event = .catalogSelectRequested(id)
-      case .dismissCatalogSelection: event = .catalogSelectionDismissed
-      case .applyCatalogSelection: event = .catalogApplyRequested
-      case .editCatalogSelectionName(let value): event = .catalogSelectionNameEdited(value)
-      case .renameCatalog(let id, let name): event = .catalogRenameRequested(id: id, name: name)
-      case .confirmCatalogRename(let id): event = .catalogRenameConfirmed(id)
-      case .cancelCatalogRename: event = .catalogRenameCancelled
-      case .updateCatalog(let id): event = .catalogUpdateRequested(id)
-      case .confirmCatalogUpdate(let id): event = .catalogUpdateConfirmed(id)
-      case .cancelCatalogUpdate: event = .catalogUpdateCancelled
-      case .setCatalogVisibility(let id, let visible):
-        event = .catalogVisibilityRequested(id: id, visible: visible)
-      case .promptCatalogRemoval(let id): event = .catalogRemovePromptRequested(id)
-      case .cancelCatalogRemoval: event = .catalogRemovePromptCancelled
-      case .confirmCatalogRemoval(let id): event = .catalogRemoveConfirmed(id)
-      case .editCatalogPassphrase(let value): event = .catalogPassphraseEdited(value)
-      case .editCatalogConfirmPassphrase(let value): event = .catalogConfirmPassphraseEdited(value)
-      case .exportCatalog(let ids): event = .catalogExportRequested(ids: ids)
-      case .fileExportCompleted(let succeeded): event = .catalogFileExportCompleted(succeeded)
-      case .dismissCatalogExport: event = .catalogExportDismissed
-      case .importCatalogFile(let url): event = .catalogImportFileRequested(url)
-      case .confirmCatalogImport:
-        let count = runtime.settingsProps.props.catalog.importPreview?.count ?? 0
-        event = .catalogImportConfirmed(replacementIDs: (0..<count).map { _ in UUID() })
-      case .cancelCatalogImport: event = .catalogImportCancelled
-      case .retryCatalogLoad: event = .catalogLoadRequested
-      case .requestCatalogSync: event = .catalogSyncEnableRequested
-      case .confirmCatalogSync: event = .catalogSyncEnableConfirmed
-      case .cancelCatalogSync: event = .catalogSyncEnableCancelled
-      case .disableCatalogSync: event = .catalogSyncDisableRequested
-      case .retryCatalogSync: event = .catalogSyncRetryRequested
-      case .requestCatalogShare(let id): event = .catalogSharePromptRequested(id)
-      case .confirmCatalogShare(let id): event = .catalogShareConfirmed(id)
-      case .cancelCatalogShare: event = .catalogSharePromptCancelled
-      case .resolveCatalogConflict(let id, let useRemote):
-        event = .catalogConflictResolved(id, useRemote: useRemote)
       case .start: event = .startExhibitionRequested
       case .prepareExternalScene: event = .prepareExternalSceneRequested
       case .quit: return
+      default: return
       }
       runtime.send(event, from: .settings)
     }

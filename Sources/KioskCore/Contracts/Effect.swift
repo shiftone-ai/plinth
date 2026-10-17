@@ -24,6 +24,7 @@ public struct Effect: Equatable, Sendable {
     case saveProfile(KioskProfile)
     case recoverProfile(KioskProfile)
     case loadCatalog
+    case recoverCatalog
     case saveCatalog(SettingsCatalog)
     case checkCatalogAccount
     case checkCatalogAccountAfterStopping

@@ -5,6 +5,78 @@ import Testing
 
 @MainActor
 struct CatalogPersistenceTests {
+  @Test func existingConflictFilesWithoutAccountFieldStillLoad() throws {
+    let fixture = RuntimeFixture()
+    defer { fixture.runtime.stop() }
+    let id = UUID()
+    let old = try #require(
+      CatalogEntry(
+        id: id, name: "Old", snapshot: CatalogSnapshot(fixture.profile())!,
+        scope: .iCloud, accountIdentifier: "account-a"))
+    let document = SettingsCatalog(
+      syncEnabled: true, accountIdentifier: "account-a", entries: [old],
+      conflicts: [.init(id: id, remote: old)])
+    var json = try #require(
+      JSONSerialization.jsonObject(with: JSONEncoder().encode(document)) as? [String: Any])
+    var conflicts = try #require(json["conflicts"] as? [[String: Any]])
+    conflicts[0].removeValue(forKey: "accountIdentifier")
+    json["conflicts"] = conflicts
+    let legacy = try JSONDecoder().decode(
+      SettingsCatalog.self, from: JSONSerialization.data(withJSONObject: json))
+    #expect(legacy.isValid)
+    #expect(legacy.conflictBelongsToAccount(legacy.conflicts[0], accountIdentifier: "account-a"))
+  }
+
+  @Test func damagedCollectionRecoveryPreservesItsFileAndAllowsAnImport() async throws {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
+      "plinth-damaged-catalog-\(UUID())")
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let fileURL = directory.appendingPathComponent("catalog.json")
+    let damaged = Data("{\"entries\": [".utf8)
+    try damaged.write(to: fileURL)
+    let repository = CatalogRepository(fileURL: fileURL)
+    await #expect(throws: CatalogRepository.Failure.corruptCatalog) {
+      try await repository.load()
+    }
+
+    let fixture = RuntimeFixture()
+    defer { fixture.runtime.stop() }
+    fixture.runtime.send(
+      .bootstrapped(profile: nil, credentialsConfigured: false, displayCount: 1), from: .root)
+    fixture.runtime.send(.catalogLoadRequested, from: .root)
+    let loading = try #require(fixture.runtime.snapshot.root.catalogLoadOperation)
+    fixture.port.deliver(.catalogLoadCorrupt(loading), source: .catalogRepository)
+    #expect(fixture.runtime.settingsProps.props.catalog.corrupt)
+    #expect(
+      fixture.runtime.send(.catalogRecoveryRequested, from: .settings).reply == .accepted)
+    #expect(
+      fixture.runtime.send(.catalogRecoveryConfirmed, from: .settings).reply == .accepted)
+    let recovery = try #require(fixture.runtime.snapshot.root.catalogLoadOperation)
+    let effect = try #require(fixture.port.effects.last(where: { $0.token == recovery }))
+    guard case .recoverCatalog = effect.kind else {
+      Issue.record("Expected catalog recovery")
+      return
+    }
+    let empty = try await repository.recoverDamaged()
+    fixture.port.deliver(.catalogLoaded(recovery, empty), source: .catalogRepository)
+    #expect(fixture.runtime.snapshot.root.catalogLoaded)
+    #expect(!fixture.runtime.settingsProps.props.catalog.corrupt)
+    #expect(try await repository.load().entries.isEmpty)
+    let quarantined = try FileManager.default.contentsOfDirectory(
+      at: directory, includingPropertiesForKeys: nil
+    ).filter { $0.lastPathComponent.hasPrefix("catalog.invalid-") }
+    #expect(quarantined.count == 1)
+    #expect(try Data(contentsOf: quarantined[0]) == damaged)
+    #expect(
+      fixture.runtime.send(
+        .catalogImportOperationRequested(
+          directory.appendingPathComponent("backup.plinthsettings"),
+          passphrase: "long-enough-passphrase"),
+        from: .administration
+      ).reply == .accepted)
+  }
+
   @Test func importingTheSameIdentifierWithADifferentNameKeepsBothEntries() throws {
     let fixture = RuntimeFixture()
     defer { fixture.runtime.stop() }

@@ -54,4 +54,16 @@ public actor CatalogRepository {
       throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
     }
   }
+
+  public func recoverDamaged() throws -> SettingsCatalog {
+    do {
+      _ = try load()
+      throw Failure.invalidCatalog
+    } catch Failure.corruptCatalog {
+      let quarantine = fileURL.deletingLastPathComponent().appendingPathComponent(
+        "catalog.invalid-\(UUID().uuidString).json")
+      try FileManager.default.moveItem(at: fileURL, to: quarantine)
+      return SettingsCatalog()
+    }
+  }
 }

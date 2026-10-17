@@ -63,14 +63,7 @@ struct SettingsCatalogSection: View {
             ).foregroundStyle(.red)
           }
         } else if props.loadFailed {
-          HStack {
-            Label(
-              L10n.string("Could not open settings collection", locale: locale),
-              systemImage: "exclamationmark.circle"
-            ).foregroundStyle(.red)
-            Spacer()
-            Button(L10n.string("Try again", locale: locale)) { send(.retryCatalogLoad) }
-          }
+          CatalogLoadErrorRows(corrupt: props.corrupt, send: send)
         } else {
           ProgressView().controlSize(.small)
         }
@@ -136,10 +129,16 @@ struct SettingsCatalogSection: View {
           Button(L10n.string("Turn on sync", locale: locale)) {
             send(.requestCatalogSync)
           }
-          .disabled(!props.canManage)
+          .disabled(!props.canManage || !props.cloudAvailable)
           .accessibilityIdentifier("catalog-sync-enable")
         }
-        syncStatus
+        if props.cloudAvailable {
+          syncStatus
+        } else {
+          Label(
+            L10n.string("iCloud sync is unavailable in this build", locale: locale),
+            systemImage: "icloud.slash")
+        }
         if !props.conflicts.isEmpty {
           ForEach(props.conflicts) { conflict in
             VStack(alignment: .leading, spacing: 6) {
@@ -220,7 +219,14 @@ struct SettingsCatalogSection: View {
     case .pending:
       Label(L10n.string("Sync pending", locale: locale), systemImage: "clock.arrow.circlepath")
     case .offline:
-      Label(L10n.string("Sync waiting for a connection", locale: locale), systemImage: "wifi.slash")
+      HStack {
+        Label(
+          L10n.string("Sync waiting for a connection", locale: locale), systemImage: "wifi.slash")
+        Spacer()
+        Button(L10n.string("Try again", locale: locale)) { send(.retryCatalogSync) }
+          .disabled(!props.canManage)
+          .accessibilityIdentifier("catalog-sync-retry")
+      }
     case .signInRequired:
       HStack {
         Label(

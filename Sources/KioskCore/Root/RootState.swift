@@ -44,6 +44,8 @@ public struct RootState: Equatable, Sendable {
   public var catalog = SettingsCatalog()
   public var catalogLoaded = false
   public var catalogLoadFailed = false
+  public var catalogCorrupt = false
+  public var catalogRecoveryPending = false
   public var catalogLoadOperation: OperationToken?
   public var catalogSaveOperation: OperationToken?
   public var pendingCatalog: SettingsCatalog?
@@ -60,6 +62,7 @@ public struct RootState: Equatable, Sendable {
   public var catalogImportFailed = false
   public var pendingCatalogImport = false
   public var catalogSyncStatus: CatalogSyncStatus = .disabled
+  public var catalogCloudAvailable = true
   public var catalogAccountCheckOperation: OperationToken?
   public var catalogCloudSessionOperation: OperationToken?
   public var catalogSyncConsentPending = false
