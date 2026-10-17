@@ -14,8 +14,9 @@ public actor CatalogRepository {
   public func load() throws -> SettingsCatalog {
     guard FileManager.default.fileExists(atPath: fileURL.path) else { return SettingsCatalog() }
     let catalog: SettingsCatalog
+    let data = try Data(contentsOf: fileURL)
     do {
-      catalog = try JSONDecoder().decode(SettingsCatalog.self, from: Data(contentsOf: fileURL))
+      catalog = try JSONDecoder().decode(SettingsCatalog.self, from: data)
     } catch { throw Failure.corruptCatalog }
     guard catalog.isValid else { throw Failure.corruptCatalog }
     return catalog
