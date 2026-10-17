@@ -38,6 +38,14 @@ extension RootMediator {
     _ state: RootState, _ catalog: SettingsCatalog, token: OperationToken,
     publish: Bool = true
   ) -> Mediation<RootState> {
+    guard
+      !publish
+        || catalog.entries.allSatisfy({ entry in
+          guard entry.scope == .iCloud else { return true }
+          return state.catalog.entries.first(where: { $0.id == entry.id })?
+            .sameCloudContents(as: entry) == true || CatalogCloudPayload.encoded(entry) != nil
+        })
+    else { return .reject(state, .invalidProfile) }
     guard let revision = ProfileRevision.next(after: state.catalog.revision)
     else { return .reject(state, .invalidProfile) }
     var document = catalog

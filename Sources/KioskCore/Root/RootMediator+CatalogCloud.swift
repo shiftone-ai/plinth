@@ -58,6 +58,11 @@ extension RootMediator {
         state.catalogAccountCheckOperation == completed
       else { return .reject(state, .staleOperation) }
       next.catalogAccountCheckOperation = nil
+      if state.catalogSaveOperation != nil {
+        next.catalogCheckAfterSave = true
+        return .handled(.init(next))
+      }
+      guard state.catalog.syncEnabled else { return .handled(.init(next)) }
       guard let accountID, !accountID.isEmpty else {
         next.catalogSyncStatus = .signInRequired
         return .handled(.init(next))
@@ -200,6 +205,7 @@ extension RootMediator {
     case .catalogConflictResolved(let id, let useRemote):
       guard canEditCatalog(state, envelope),
         let conflict = state.catalog.conflicts.first(where: { $0.id == id }),
+        state.catalogConflictAvailable(conflict),
         let accountID = state.catalog.accountIdentifier
       else { return .reject(state, .invalidState) }
       var document = state.catalog

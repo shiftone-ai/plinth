@@ -9,7 +9,8 @@ extension RootMediator {
     switch envelope.event {
     case .catalogExportOperationRequested(let ids, let passphrase):
       guard envelope.source == .administration, state.mode == .administration,
-        state.catalogLoaded, state.catalogExportOperation == nil,
+        state.catalogLoaded, state.catalogSaveOperation == nil,
+        state.catalogExportOperation == nil,
         Set(ids).count == ids.count
       else { return .reject(state, .invalidState) }
       let entries: [CatalogEntry]

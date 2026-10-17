@@ -10,13 +10,31 @@ extension Presenters {
     }
     let savedSnapshot = root.savedProfile.flatMap(CatalogSnapshot.init)
     let available = root.catalog.entries.filter(root.catalogEntryAvailable)
+    let conflicts = root.catalog.conflicts.filter(root.catalogConflictAvailable)
+    let shareTooLarge =
+      selection.map {
+        $0.scope == .device && cloudPayloadTooLarge($0)
+      } ?? false
+    let renameTooLarge =
+      selection.map {
+        $0.scope == .iCloud && CatalogEntry.validName(administration.catalogSelectionNameDraft)
+          && administration.catalogSelectionNameDraft != $0.name
+          && cloudPayloadTooLarge($0, name: administration.catalogSelectionNameDraft)
+      } ?? false
+    let updateTooLarge =
+      selection.map { entry in
+        guard entry.scope == .iCloud, let savedSnapshot,
+          savedSnapshot != entry.snapshot
+        else { return false }
+        return cloudPayloadTooLarge(entry, snapshot: savedSnapshot)
+      } ?? false
     return CatalogProps(
       syncEnabled: root.catalog.syncEnabled, syncStatus: root.catalogSyncStatus,
       syncConsentPending: root.catalogSyncConsentPending,
       shareCandidate: root.catalog.entries.first { $0.id == root.catalogShareCandidateID },
-      conflicts: root.catalog.conflicts,
+      conflicts: conflicts,
       conflictDifferences: Dictionary(
-        uniqueKeysWithValues: root.catalog.conflicts.compactMap { conflict in
+        uniqueKeysWithValues: conflicts.compactMap { conflict in
           guard let remote = conflict.remote else { return nil }
           let local = root.catalog.entries.first { $0.id == conflict.id }
           var differences = CatalogComparison.differences(
@@ -58,23 +76,29 @@ extension Presenters {
       canManage: root.mode == .administration && root.catalogLoaded
         && root.catalogSaveOperation == nil,
       canShare: selection?.scope == .device && root.catalog.syncEnabled
-        && root.catalog.accountIdentifier != nil && root.catalogSaveOperation == nil,
+        && root.catalog.accountIdentifier != nil && root.catalogSaveOperation == nil
+        && !shareTooLarge,
+      shareTooLarge: shareTooLarge,
       canRename: selection != nil && root.catalogSaveOperation == nil
         && !root.catalog.conflicts.contains(where: { $0.id == selection?.id })
         && CatalogEntry.validName(administration.catalogSelectionNameDraft)
-        && administration.catalogSelectionNameDraft != selection?.name,
+        && administration.catalogSelectionNameDraft != selection?.name
+        && !renameTooLarge,
+      renameTooLarge: renameTooLarge,
       canUpdate: selection != nil && savedSnapshot != nil
         && !root.catalog.conflicts.contains(where: { $0.id == selection?.id })
         && savedSnapshot != selection?.snapshot
         && root.catalogSaveOperation == nil && root.saveOperation == nil
-        && !administration.hasUnsavedDraft,
+        && !administration.hasUnsavedDraft && !updateTooLarge,
+      updateTooLarge: updateTooLarge,
       removalCandidate: root.catalog.entries.first {
         $0.id == root.catalogRemovalCandidateID
       },
       passphrase: administration.catalogPassphrase,
       confirmPassphrase: administration.catalogConfirmPassphrase,
       canExport: root.mode == .administration && root.catalogLoaded
-        && !available.isEmpty && root.catalogExportOperation == nil
+        && !available.isEmpty && root.catalogSaveOperation == nil
+        && root.catalogExportOperation == nil
         && root.catalogExportData == nil
         && administration.catalogPassphrase.precomposedStringWithCanonicalMapping.count >= 16
         && administration.catalogPassphrase.utf8.count <= 1024
@@ -111,4 +135,17 @@ extension Presenters {
         && root.catalogSaveOperation == nil)
   }
 
+  private static func cloudPayloadTooLarge(
+    _ entry: CatalogEntry, name: String? = nil, snapshot: CatalogSnapshot? = nil
+  ) -> Bool {
+    var proposed = entry
+    if let name { proposed.name = name }
+    if let snapshot { proposed.snapshot = snapshot }
+    if proposed.scope == .iCloud, name != nil || snapshot != nil {
+      guard let nextVersion = ProfileRevision.next(after: proposed.version)
+      else { return true }
+      proposed.version = nextVersion
+    }
+    return CatalogCloudPayload.encoded(proposed) == nil
+  }
 }

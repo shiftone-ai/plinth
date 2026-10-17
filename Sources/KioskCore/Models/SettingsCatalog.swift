@@ -92,6 +92,28 @@ public struct CatalogEntry: Equatable, Codable, Sendable, Identifiable {
   }
 }
 
+public struct CatalogCloudPayload: Codable, Sendable {
+  public static let maximumBytes = 900_000
+
+  public let name: String
+  public let formatVersion: Int
+  public let snapshot: CatalogSnapshot
+  public let version: UInt64
+
+  public init(_ entry: CatalogEntry) {
+    name = entry.name
+    formatVersion = entry.formatVersion
+    snapshot = entry.snapshot
+    version = entry.version
+  }
+
+  public static func encoded(_ entry: CatalogEntry) -> Data? {
+    guard let data = try? JSONEncoder().encode(Self(entry)), data.count <= maximumBytes
+    else { return nil }
+    return data
+  }
+}
+
 public struct SettingsCatalog: Equatable, Codable, Sendable {
   public let schemaVersion: Int
   public var revision: UInt64
