@@ -84,6 +84,9 @@ extension Presenters {
         && root.catalogSaveOperation == nil,
       canShare: selection?.scope == .device && root.catalogCanShare
         && root.catalogSaveOperation == nil
+        && !root.catalog.pendingDeletions.contains(where: {
+          $0.id == selection?.id && $0.accountIdentifier == root.catalog.accountIdentifier
+        })
         && !shareTooLarge,
       shareTooLarge: shareTooLarge,
       canRename: selection != nil && root.catalogSaveOperation == nil
