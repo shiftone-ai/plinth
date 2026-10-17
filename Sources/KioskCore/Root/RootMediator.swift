@@ -87,6 +87,13 @@ public enum RootMediator {
     var next = state
     let token = envelope.token(owner: .root, epoch: state.epoch)
     switch envelope.event {
+    case .openInformationPageRequested(let page, let locale):
+      guard envelope.source == .settings else { return .reject(state, .wrongSource) }
+      guard state.mode == .administration else { return .reject(state, .invalidState) }
+      return .handled(
+        .init(
+          state, reply: .accepted,
+          effects: [Effect(token, .openInformationPage(page, locale: locale))]))
     case .bootstrapRequested:
       guard state.mode == .bootstrapping, state.bootstrapOperation == nil,
         envelope.source == .root

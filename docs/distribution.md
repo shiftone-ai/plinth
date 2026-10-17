@@ -13,7 +13,7 @@ open -a Xcode Plinth.xcodeproj
 
 Scheme `PlinthMobile` を使用する．接続済み端末への署名はXcodeのApple AccountsとAutomatic Signingを使う．試験用のprofileとKeychain serviceはDebugだけで分離し，Releaseは通常の保存先だけを使う．アイコンは `Resources/Assets.xcassets` に置く．
 
-iOS版はPrivacy Manifest `Resources/PrivacyInfo.xcprivacy` で，理由の申告が必要なAPIの利用を申告する．今は無操作の経過時間を測る `systemUptime` だけを申告している．申告が必要な別のAPIを使うときは，その分類と理由を足す．[Appleの資料](https://developer.apple.com/documentation/bundleresources/describing-use-of-required-reason-api)
+iOS版とMac版はPrivacy Manifest `Resources/PrivacyInfo.xcprivacy` で，理由の申告が必要なAPIの利用を申告する．無操作の経過時間を測る `systemUptime` と，画面内の表示言語を保存する `UserDefaults` を申告している．申告が必要な別のAPIを使うときは，その分類と理由を足す．[Appleの資料](https://developer.apple.com/documentation/bundleresources/describing-use-of-required-reason-api)
 
 ## TestFlightと展示開始
 
@@ -33,9 +33,13 @@ iOS版はPrivacy Manifest `Resources/PrivacyInfo.xcprivacy` で，理由の申�
 
 管理画面の多言語表示（日本語・英語・韓国語・中国語の簡体字）は実装済み．OSの言語と画面内の切り替えについては [管理画面の言語](development.md#管理画面の言語) を参照する．
 
-外部ブラウザから設定するWebサーバー機能は [Issue #2](https://github.com/shiftone-ai/plinth/issues/2) で追跡する．
+端末の管理画面でWeb管理を有効にすると，同じローカルネットワークのブラウザから設定できる．HTTP通信のため，隔離したネットワークで運用する．実装と検証は [Issue #2](https://github.com/shiftone-ai/plinth/issues/2) で追跡する．
 
-Touch ID・Face IDによる解除は [Issue #3](https://github.com/shiftone-ai/plinth/issues/3) で追跡する．
+対応端末では，管理者が有効にしたTouch ID・Face IDによる解除を利用できる．実装と検証は [Issue #3](https://github.com/shiftone-ai/plinth/issues/3) で追跡する．
+
+## MacのApp Store配布
+
+`python3 scripts/create-xcode-project.py --app-store` でMac App Store用のprojectを生成する．archive時はXcodeのビルド設定 `PLINTH_COPYRIGHT` に，権利取得年と権利者名を含む承認済みの表記を渡す．この値は `Resources/Info.plist` の `NSHumanReadableCopyright` に入る．個人名をprojectやリポジトリに保存しない．配布前にarchive内の値を `plutil` で確認する．
 
 ## MacのDeveloper ID配布
 

@@ -1,5 +1,7 @@
 # AppKit版を既存アプリのTestFlightへ配布する条件
 
+2026-10-16のApp Store Connect確認では，既存アプリ記録にiOS版とmacOS版の両方があり，登録Bundle IDは共通の`ai.shiftone.plinth.mobile`だった．通常のMac開発・Developer ID版で使う`ai.shiftone.plinth`とは異なる．以下は配布前の調査時点の記録であり，現在の提出状況は[公開準備表](../release/store-readiness.md)で確認する．
+
 既存のiOSアプリにmacOSプラットフォームを追加し，別targetで作ったAppKit版を同じApp Store Connectレコードへ配布できる．ただしBundle IDを共通にする必要がある．内部テストへの配布を進める経路はあるが，署名，アップロード検証，Apple側の処理，テスターの利用条件が未解決なら，当日中の完了は保証できない．[Appleのプラットフォーム追加資料](https://developer.apple.com/help/app-store-connect/create-an-app-record/add-platforms/)
 
 この調査は公開資料とプロジェクト設定の読み取りのみ．App Store Connectの設定変更，署名資産の作成，アップロード，テスター招待は行っていない．
