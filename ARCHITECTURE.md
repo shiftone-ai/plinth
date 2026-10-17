@@ -4,6 +4,8 @@
 
 iPad版の本体・外部への展示，展示Viewと管理Viewの切替，マウス入力とOS制限の条件は [iPad対応の方針](docs/design-docs/ipad-support.md) を参照する．現在の実装と追加予定を区別する．
 
+設定集の登録，端末への適用，iCloud同期，暗号化ファイルの責務は [設定集](docs/design-docs/settings-catalog.md) を参照する．
+
 | 判断すること | 設計書の節 |
 | --- | --- |
 | 目的・初版の範囲・所有ツリー・役割・イベント配送 | 0〜6節 |

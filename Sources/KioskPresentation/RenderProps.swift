@@ -1,3 +1,4 @@
+import Foundation
 import KioskCore
 
 public struct RootProps: Equatable, Sendable {
@@ -16,6 +17,7 @@ public struct RootProps: Equatable, Sendable {
 }
 
 public struct SettingsProps: Equatable, Sendable {
+  public let catalog: CatalogProps
   public let draft: ProfileDraft
   public let passcode: String
   public let credentialsConfigured: Bool
@@ -34,6 +36,7 @@ public struct SettingsProps: Equatable, Sendable {
   public let automaticallyAllowedAddress: String?
   public let idleTimeout: String
   public let canSave: Bool
+  public let catalogOutputUnavailable: Bool
   public let canStart: Bool
   public let saving: Bool
   public let canPrepareExternalScene: Bool
@@ -45,6 +48,71 @@ public struct SettingsProps: Equatable, Sendable {
   public let externalDisplayCurrentMode: ExternalDisplayMode?
   public let webServerURL: String?
   public let webServerFailure: WebServerFailure?
+}
+
+public enum CatalogDisplayValue: Equatable, Sendable {
+  case text(String)
+  case localized(String)
+  case absent
+}
+
+public struct CatalogDifference: Equatable, Sendable, Identifiable {
+  public let labelKey: String
+  public let current: CatalogDisplayValue
+  public let selected: CatalogDisplayValue
+  public var id: String { labelKey }
+}
+
+public enum CatalogImportMatch: Equatable, Sendable {
+  case alreadyPresent, separateCopy, sameName
+}
+
+public struct CatalogProps: Equatable, Sendable {
+  public let syncEnabled: Bool
+  public let cloudAvailable: Bool
+  public let syncStatus: CatalogSyncStatus
+  public let syncConsentPending: Bool
+  public let shareCandidate: CatalogEntry?
+  public let conflicts: [CatalogConflict]
+  public let conflictDifferences: [UUID: [CatalogDifference]]
+  public let visibleEntries: [CatalogEntry]
+  public let hiddenEntries: [CatalogEntry]
+  public let loaded: Bool
+  public let loadFailed: Bool
+  public let corrupt: Bool
+  public let recoveryPending: Bool
+  public let saving: Bool
+  public let saveFailed: Bool
+  public let nameDraft: String
+  public let canRegister: Bool
+  public let selectedEntry: CatalogEntry?
+  public let selectedNameDraft: String
+  public let renameCandidate: CatalogRenameCandidate?
+  public let updateCandidateID: UUID?
+  public let differences: [CatalogDifference]
+  public let contents: [CatalogDifference]
+  public let canApply: Bool
+  public let canManage: Bool
+  public let canShare: Bool
+  public let shareTooLarge: Bool
+  public let canRename: Bool
+  public let renameTooLarge: Bool
+  public let canUpdate: Bool
+  public let updateTooLarge: Bool
+  public let removalCandidate: CatalogEntry?
+  public let passphrase: String
+  public let confirmPassphrase: String
+  public let canExport: Bool
+  public let canImport: Bool
+  public let exporting: Bool
+  public let exportData: Data?
+  public let exportFailed: Bool
+  public let importing: Bool
+  public let importPreview: [CatalogEntry]?
+  public let importMatches: [UUID: CatalogImportMatch]
+  public let importContents: [UUID: [CatalogDifference]]
+  public let importFailed: Bool
+  public let canConfirmImport: Bool
 }
 
 public struct SettingsValidationMessage: Equatable, Encodable, Sendable, Identifiable {

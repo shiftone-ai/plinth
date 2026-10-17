@@ -2,6 +2,7 @@ import KioskCore
 import KioskLocalization
 import KioskPresentation
 import SwiftUI
+import UniformTypeIdentifiers
 
 public struct SettingsView: View {
   let props: SettingsProps
@@ -10,6 +11,7 @@ public struct SettingsView: View {
   let selectLanguage: (InterfaceLanguage) -> Void
   @Environment(\.locale) private var locale
   @FocusState private var focusedField: Field?
+  @State private var showsCatalogImporter = false
   private enum Field: Hashable {
     case startURL
     case domain(UInt64)
@@ -143,6 +145,9 @@ public struct SettingsView: View {
           }
         }
         SettingsPasscodeSection(props: props, send: send)
+        SettingsCatalogSection(props: props.catalog, send: send) {
+          showsCatalogImporter = true
+        }
         SettingsWebManagementSection(props: props, send: send)
         if !props.validationMessages.isEmpty {
           Section {
@@ -162,6 +167,81 @@ public struct SettingsView: View {
       SettingsFooter(props: props, send: send)
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity)
+    .confirmationDialog(
+      L10n.string("Move the damaged collection aside?", locale: locale),
+      isPresented: Binding(
+        get: { props.catalog.recoveryPending },
+        set: { if !$0 { send(.cancelCatalogRecovery) } }
+      ), titleVisibility: .visible
+    ) {
+      Button(L10n.string("Start a new collection", locale: locale)) {
+        send(.confirmCatalogRecovery)
+      }
+      .accessibilityIdentifier("catalog-recover-confirm")
+    } message: {
+      Text(
+        L10n.string(
+          "The damaged file stays on this device. You can import an encrypted backup into the new collection.",
+          locale: locale))
+    }
+    .confirmationDialog(
+      L10n.string("Turn on iCloud sync?", locale: locale),
+      isPresented: Binding(
+        get: { props.catalog.syncConsentPending },
+        set: { if !$0 { send(.cancelCatalogSync) } }
+      ), titleVisibility: .visible
+    ) {
+      Button(L10n.string("Turn on sync", locale: locale)) {
+        send(.confirmCatalogSync)
+      }
+    } message: {
+      Text(L10n.string("Choose each setting to share after sync is on.", locale: locale))
+    }
+    .sheet(
+      item: Binding(
+        get: { props.catalog.selectedEntry },
+        set: { if $0 == nil { send(.dismissCatalogSelection) } }
+      )
+    ) { entry in
+      CatalogEntryDetail(entry: entry, props: props.catalog, send: send)
+    }
+    .sheet(
+      isPresented: Binding(
+        get: { props.catalog.importPreview != nil },
+        set: { if !$0 { send(.cancelCatalogImport) } }
+      )
+    ) {
+      CatalogImportPreview(
+        entries: props.catalog.importPreview ?? [],
+        canConfirm: props.catalog.canConfirmImport,
+        matches: props.catalog.importMatches,
+        contents: props.catalog.importContents, send: send)
+    }
+    .fileExporter(
+      isPresented: Binding(
+        get: { props.catalog.exportData != nil },
+        set: { if !$0 { send(.dismissCatalogExport) } }
+      ),
+      document: props.catalog.exportData.map(CatalogEncryptedDocument.init),
+      contentType: .plinthSettings, defaultFilename: "settings"
+    ) { result in
+      switch result {
+      case .success: send(.fileExportCompleted(true))
+      case .failure(let error):
+        let cocoa = error as NSError
+        if cocoa.domain == NSCocoaErrorDomain && cocoa.code == NSUserCancelledError {
+          send(.dismissCatalogExport)
+        } else {
+          send(.fileExportCompleted(false))
+        }
+      }
+    }
+    .fileImporter(isPresented: $showsCatalogImporter, allowedContentTypes: [.plinthSettings]) {
+      switch $0 {
+      case .success(let url): send(.importCatalogFile(url))
+      case .failure: send(.cancelCatalogImport)
+      }
+    }
   }
 }
 

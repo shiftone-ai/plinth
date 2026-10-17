@@ -12,6 +12,27 @@ public enum RootMediator {
       return reduceWebExhibition(state, envelope, context: context)
     case .bootstrapped:
       return withWebServerLifecycle(bootstrapCompleted(state, envelope), before: state, envelope)
+    case .catalogLoadRequested, .catalogLoaded, .catalogLoadFailed, .catalogLoadCorrupt,
+      .catalogRecoveryRequested, .catalogRecoveryCancelled, .catalogRecoveryConfirmed,
+      .catalogRegistrationRequested, .catalogSelectRequested, .catalogApplyRequested,
+      .catalogRenameRequested, .catalogRenameConfirmed, .catalogRenameCancelled,
+      .catalogUpdateRequested, .catalogUpdateConfirmed, .catalogUpdateCancelled,
+      .catalogRemovePromptRequested, .catalogRemovePromptCancelled,
+      .catalogVisibilityRequested, .catalogRemoveConfirmed, .catalogSaved, .catalogSaveFailed,
+      .catalogExportOperationRequested, .catalogExportPrepared, .catalogExportFailed,
+      .catalogExportDismissed, .catalogFileExportCompleted,
+      .catalogImportOperationRequested, .catalogImportPreviewReady,
+      .catalogImportFailed, .catalogImportConfirmed, .catalogImportCancelled,
+      .catalogSyncEnableRequested, .catalogSyncEnableConfirmed,
+      .catalogSyncEnableCancelled, .catalogSyncDisableRequested, .catalogSyncRetryRequested,
+      .catalogAccountChecked, .catalogAccountCheckDeferred,
+      .catalogAccountAvailabilityChanged, .catalogCloudStatus, .catalogCloudChanges,
+      .catalogCloudCapabilityUnavailable,
+      .catalogCloudAcknowledged, .catalogCloudDeletionsAcknowledged,
+      .catalogCloudAccountChanged,
+      .catalogSharePromptRequested, .catalogSharePromptCancelled,
+      .catalogShareConfirmed, .catalogConflictResolved:
+      return reduceCatalog(state, envelope, context: context)
     case .biometricStatusRequested, .biometricStatusRead, .biometricChangeRequested,
       .biometricChangeCompleted, .biometricChangeCancelled,
       .biometricUnlockRequested, .biometricUnlockCancelled, .biometricUnlockCompleted:
@@ -94,7 +115,7 @@ public enum RootMediator {
       next.bootstrapOperation = token
       return .handled(.init(next, effects: [Effect(token, .bootstrap)]))
 
-    case .bootstrapFailed(let completed, let displayCount):
+    case .bootstrapFailed(let completed, let displayCount, let credentials, let profileCorrupt):
       guard state.mode == .bootstrapping, envelope.source == .profileRepository,
         state.bootstrapOperation == completed
       else {
@@ -102,6 +123,8 @@ public enum RootMediator {
       }
       next.bootstrapOperation = nil
       next.displayCount = displayCount
+      next.credentialsConfigured = credentials
+      next.profileCorrupt = profileCorrupt
       next.mode = .safeHold
       return .handled(.init(next))
 
@@ -374,6 +397,7 @@ public enum RootMediator {
     next.presentationOperation = token
     next.presentationAcquisition = token
     next.administratorSession = false
+    let fileEffects = cancelCatalogFileOperations(&next, token: token)
     let settings = state.mobileDisplays == nil ? profile.macOutput ?? .init() : .init()
     let display = state.macDisplays.flatMap { DisplaySelection.select(settings, from: $0) }
     let usesExternalDisplay =
@@ -386,8 +410,14 @@ public enum RootMediator {
       usesExternalDisplay: usesExternalDisplay,
       externalDisplayRotation: usesExternalDisplay
         ? profile.externalDisplayRotation ?? .standard : .standard)
+    let controls: [ChildControl] =
+      state.mode == .administration
+      ? [.init(.administration, .catalogPassphraseCleared)] : []
     return .handled(
-      .init(next, reply: reply, effects: [Effect(token, .applyPresentation(request))]))
+      .init(
+        next, reply: reply,
+        effects: fileEffects + [Effect(token, .applyPresentation(request))],
+        childControls: controls))
   }
 
   static func administration(_ state: RootState, token: OperationToken) -> Mediation<

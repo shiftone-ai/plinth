@@ -1,3 +1,5 @@
+import Foundation
+
 public struct WebOutputOptions: Equatable, Sendable {
   public let macDisplays: [DisplayDescriptor]?
   public let mobileDisplays: MobileDisplayAvailability?
@@ -74,6 +76,11 @@ public enum AdministrationMediator {
       next.savedProfile = profile
       next.passcode = ""
       if !state.hasUnsavedDraft { next.draft = profile.map(ProfileDraft.init) }
+      next.catalogSelection = nil
+      next.catalogSelectionNameDraft = ""
+      next.catalogRequiresAvailableOutput = false
+      next.catalogPassphrase = ""
+      next.catalogConfirmPassphrase = ""
       next.saving = false
       next.saveFailed = false
       next.unlockID = nil
@@ -133,8 +140,16 @@ public enum AdministrationMediator {
         return .reject(state, .invalidState)
       }
       next.draft = state.savedProfile.map(ProfileDraft.init)
+      next.catalogRequiresAvailableOutput = false
       next.saveFailed = false
       return .handled(.init(next, reply: .accepted))
+
+    case .catalogPassphraseEdited, .catalogConfirmPassphraseEdited,
+      .catalogPassphraseCleared, .catalogExportRequested, .catalogImportFileRequested,
+      .catalogRegisterRequested, .catalogNameEdited, .catalogSelectionNameEdited,
+      .catalogRegistrationSucceeded, .catalogSelectionOpened, .catalogSelectionDismissed,
+      .catalogSelectionApplied:
+      return reduceCatalog(state, envelope, mode: mode)
 
     case .addOriginRuleRequested, .removeOriginRuleRequested:
       guard [.settings, .navigationRules, .webAdministration].contains(envelope.source),
@@ -187,6 +202,7 @@ public enum AdministrationMediator {
       guard envelope.source == .root, state.saving else { return .reject(state, .invalidState) }
       next.savedProfile = profile
       next.draft = ProfileDraft(profile: profile)
+      next.catalogRequiresAvailableOutput = false
       next.saving = false
       if !profile.webAdministrationEnabled {
         next.pendingWebLogin = nil

@@ -86,6 +86,10 @@ def configurations(name, settings):
             "dwarf" if configuration == "Debug" else "dwarf-with-dsym"
         )
         values["ONLY_ACTIVE_ARCH"] = "YES" if configuration == "Debug" else "NO"
+        if settings.get("CODE_SIGN_ENTITLEMENTS"):
+            values["PLINTH_APS_ENVIRONMENT"] = (
+                "development" if configuration == "Debug" else "production"
+            )
         values["SWIFT_ACTIVE_COMPILATION_CONDITIONS"] = (
             ["DEBUG"] if configuration == "Debug" else []
         )
@@ -224,6 +228,7 @@ base = {
     "CODE_SIGN_STYLE": "Manual",
     "ENABLE_HARDENED_RUNTIME": "NO",
     "PRODUCT_NAME": "$(TARGET_NAME)",
+    "PLINTH_CLOUDKIT_ENTITLED": "YES" if options.app_store or options.developer_id else "NO",
 }
 # Developer ID keeps the non-store identifier and existing file-keychain credentials.
 if options.app_store or options.developer_id:
@@ -319,13 +324,22 @@ test_target = obj(
         phase("UIResources", "PBXResourcesBuildPhase", [fixture_video_build]),
     ],
 )
+cloud_capabilities = {
+    "SystemCapabilities": {
+        "com.apple.iCloud": {"enabled": 1},
+        "com.apple.Push": {"enabled": 1},
+    }
+}
 project = obj(
     "Project",
     "PBXProject",
     attributes={
         "LastUpgradeCheck": "2700",
         "TargetAttributes": {
-            app_target: {"CreatedOnToolsVersion": "27.0"},
+            app_target: {
+                "CreatedOnToolsVersion": "27.0",
+                **(cloud_capabilities if options.app_store or options.developer_id else {}),
+            },
             test_target: {"CreatedOnToolsVersion": "27.0", "TestTargetID": app_target},
         },
     },
@@ -356,6 +370,13 @@ mobile_test = obj(
     "PBXFileReference",
     lastKnownFileType="sourcecode.swift",
     path="Tests/KioskMobileUITests/MobileWorkflowUITests.swift",
+    sourceTree="SOURCE_ROOT",
+)
+mobile_catalog_test = obj(
+    "MobileCatalogTest",
+    "PBXFileReference",
+    lastKnownFileType="sourcecode.swift",
+    path="Tests/KioskMobileUITests/SettingsCatalogUITests.swift",
     sourceTree="SOURCE_ROOT",
 )
 mobile_product = obj(
@@ -391,6 +412,7 @@ mobile_biometric_test = obj(
 objects[group]["children"] += [
     mobile_main,
     mobile_test,
+    mobile_catalog_test,
     mobile_localization_test,
     mobile_biometric_test,
 ]
@@ -404,6 +426,9 @@ mobile_library = obj(
 mobile_library_build = obj("MobileLibraryBuild", "PBXBuildFile", productRef=mobile_library)
 mobile_main_build = obj("MobileMainBuild", "PBXBuildFile", fileRef=mobile_main)
 mobile_test_build = obj("MobileTestBuild", "PBXBuildFile", fileRef=mobile_test)
+mobile_catalog_test_build = obj(
+    "MobileCatalogTestBuild", "PBXBuildFile", fileRef=mobile_catalog_test
+)
 mobile_localization_test_build = obj(
     "MobileLocalizationTestBuild", "PBXBuildFile", fileRef=mobile_localization_test
 )
@@ -470,6 +495,7 @@ mobile_base = {
 mobile_settings = {
     **mobile_base,
     "INFOPLIST_FILE": "Resources/Mobile-Info.plist",
+    "CODE_SIGN_ENTITLEMENTS": "Resources/Mobile.entitlements",
     "PRODUCT_BUNDLE_IDENTIFIER": "ai.shiftone.plinth.mobile",
     "PRODUCT_NAME": "PlinthMobile",
     "MARKETING_VERSION": "0.1.0",
@@ -537,6 +563,7 @@ mobile_test_target = obj(
             "PBXSourcesBuildPhase",
             [
                 mobile_test_build,
+                mobile_catalog_test_build,
                 mobile_localization_test_build,
                 mobile_biometric_test_build,
                 fixture_build,
@@ -549,7 +576,10 @@ mobile_test_target = obj(
 objects[project]["targets"] += [mobile_target, mobile_test_target]
 objects[project]["attributes"]["TargetAttributes"].update(
     {
-        mobile_target: {"CreatedOnToolsVersion": "27.0"},
+        mobile_target: {
+            "CreatedOnToolsVersion": "27.0",
+            **cloud_capabilities,
+        },
         mobile_test_target: {"CreatedOnToolsVersion": "27.0", "TestTargetID": mobile_target},
     }
 )

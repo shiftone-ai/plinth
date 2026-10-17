@@ -6,6 +6,7 @@
 | --- | --- |
 | iPhone・iPadの署名・配布，MacのDeveloper ID配布 | [実機への配布](distribution.md) |
 | 閲覧先の入力・ワイルドカード・拒否時の動作 | [ドメインの入力](design-docs/navigation-input.md) |
+| 設定集・iCloud同期・暗号化ファイルの責務 | [設定集](design-docs/settings-catalog.md) |
 | アプリの機能・状態遷移・受け入れ条件 | [設計書v0.2](design-docs/macos-kiosk-design-v0.2.md) |
 | 所有関係・通信経路・モジュール境界 | [設計の入口](../ARCHITECTURE.md) |
 | 実装・Concurrency・テストの規約 | [実装規約](rules/index.md) |

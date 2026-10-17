@@ -29,34 +29,48 @@
     private var runtime: RootRuntime!
     private var executor: EffectExecutor!
     private var presentation: MobilePresentationAdapter!
+    private let cloudBridge = CatalogCloudEventBridge()
+
+    private struct CredentialConfiguration {
+      let storageNamespace: String
+      let service: String
+      let keychain: CredentialStore.Keychain
+    }
 
     init() {
       let clock = MonotonicClock()
+      let credentials = Self.credentialConfiguration()
+      language = LanguagePreference(storageNamespace: credentials.storageNamespace)
       #if DEBUG
         let testService = ProcessInfo.processInfo.environment["PLINTH_TEST_CREDENTIAL_SERVICE"]
         let fixtureService = testService.flatMap {
           $0.hasPrefix("ai.shiftone.plinth.tests.") ? $0 : nil
         }
-        let storageNamespace = fixtureService ?? "Plinth"
-        let credentialService = fixtureService ?? "ai.shiftone.plinth.mobile"
       #else
         let fixtureService: String? = nil
-        let storageNamespace = "Plinth"
-        let credentialService = "ai.shiftone.plinth.mobile"
       #endif
-      language = LanguagePreference(storageNamespace: storageNamespace)
       let location = FileManager.default.urls(
         for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        .appendingPathComponent(storageNamespace, isDirectory: true)
+        .appendingPathComponent(credentials.storageNamespace, isDirectory: true)
         .appendingPathComponent("profile.json")
+      #if DEBUG
+        Self.installDamagedCatalogFixture(at: location, service: fixtureService)
+      #endif
       presentation = MobilePresentationAdapter()
       presentation.pointer = pointer
       let port = NativeEffectPort(
         web: web, presentation: presentation, repository: ProfileRepository(fileURL: location),
-        credentials: CredentialStore(service: credentialService),
+        credentials: CredentialStore(service: credentials.service, keychain: credentials.keychain),
         biometrics: MobileBiometricComposition.make(
-          service: credentialService, fixtureService: fixtureService, language: language),
-        clock: clock, displays: presentation, webServer: webServer)
+          service: credentials.service, fixtureService: fixtureService, language: language),
+        clock: clock, displays: presentation,
+        catalogRepository: CatalogRepository(
+          fileURL: location.deletingLastPathComponent().appendingPathComponent("catalog.json")),
+        catalogCloudSync: CatalogCloudSync(
+          stateURL: location.deletingLastPathComponent().appendingPathComponent(
+            "catalog-cloud.json")
+        ) { [weak cloudBridge] event in cloudBridge?.send(event) },
+        webServer: webServer)
       #if DEBUG
         if let value = ProcessInfo.processInfo.environment["PLINTH_TEST_IDLE_SECONDS"],
           let timeout = Double(value), timeout.isFinite, timeout > 0
@@ -69,11 +83,51 @@
         executor = EffectExecutor(port: port)
       #endif
       runtime = RootRuntime(clock: clock, executor: executor, diagnostics: DiagnosticLogAdapter())
+      cloudBridge.runtime = runtime
+      attachWebServer()
+      wireAdapters()
+      runtime.send(.catalogLoadRequested, from: .root)
+    }
+
+    private func attachWebServer() {
       webServer.attach(runtime: runtime, locale: { [language] in language.locale })
       webServer.addressChanged = { [weak runtime] endpoint in
         runtime?.send(.webServerAddressChanged(endpoint), from: .webAdministration)
       }
-      wireAdapters()
+    }
+
+    #if DEBUG
+      private static func installDamagedCatalogFixture(at profileURL: URL, service: String?) {
+        guard service != nil,
+          ProcessInfo.processInfo.environment["PLINTH_TEST_CORRUPT_CATALOG"] == "1"
+        else { return }
+        let catalogURL = profileURL.deletingLastPathComponent().appendingPathComponent(
+          "catalog.json")
+        try? FileManager.default.createDirectory(
+          at: catalogURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try? Data("{\"entries\": [".utf8).write(to: catalogURL)
+      }
+    #endif
+
+    private static func credentialConfiguration() -> CredentialConfiguration {
+      #if DEBUG
+        let testService = ProcessInfo.processInfo.environment["PLINTH_TEST_CREDENTIAL_SERVICE"]
+        let fixtureService = testService.flatMap {
+          $0.hasPrefix("ai.shiftone.plinth.tests.") ? $0 : nil
+        }
+        let keychain: CredentialStore.Keychain =
+          fixtureService != nil
+            && ProcessInfo.processInfo.environment[
+              "PLINTH_TEST_ISOLATED_CREDENTIALS"] == "1"
+          ? .testDefaults : .platformDefault
+        return .init(
+          storageNamespace: fixtureService ?? "Plinth",
+          service: fixtureService ?? "ai.shiftone.plinth.mobile", keychain: keychain)
+      #else
+        return .init(
+          storageNamespace: "Plinth", service: "ai.shiftone.plinth.mobile",
+          keychain: .platformDefault)
+      #endif
     }
 
     func connect(_ scene: UIWindowScene, exhibitionWindow: Bool) -> UIWindow {
@@ -134,7 +188,7 @@
       scenes[scene.session.persistentIdentifier]?.exhibition == true
     }
 
-    func disconnect(_ scene: UIWindowScene) -> Bool {
+    func disconnect(_ scene: UIWindowScene) {
       displayModes.disconnect(scene)
       if let owner = scenes.removeValue(forKey: scene.session.persistentIdentifier) {
         owner.registration?.stop()
@@ -147,7 +201,6 @@
         }
       }
       displaysChanged()
-      return scenes.isEmpty
     }
 
     func continueActivity(_ activity: NSUserActivity, in scene: UIScene) {
@@ -199,6 +252,12 @@
     }
 
     private func settings(_ intent: SettingsIntent) {
+      if let event = CatalogIntentEventMapper.event(
+        for: intent, importCount: runtime.settingsProps.props.catalog.importPreview?.count ?? 0
+      ) {
+        runtime.send(event, from: .settings)
+        return
+      }
       let event: Event
       switch intent {
       case .edit(let edit): event = .draftEdited(edit)
@@ -213,6 +272,7 @@
       case .start: event = .startExhibitionRequested
       case .prepareExternalScene: event = .prepareExternalSceneRequested
       case .quit: return
+      default: return
       }
       runtime.send(event, from: .settings)
     }
