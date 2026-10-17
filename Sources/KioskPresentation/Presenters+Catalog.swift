@@ -31,14 +31,17 @@ extension Presenters {
         return cloudPayloadTooLarge(entry, snapshot: savedSnapshot)
       } ?? false
     return CatalogProps(
-      syncEnabled: root.catalog.syncEnabled, syncStatus: root.catalogSyncStatus,
+      syncEnabled: root.catalog.syncEnabled, cloudAvailable: root.catalogCloudAvailable,
+      syncStatus: root.catalogSyncStatus,
       syncConsentPending: root.catalogSyncConsentPending,
       shareCandidate: root.catalog.entries.first { $0.id == root.catalogShareCandidateID },
       conflicts: conflicts,
       conflictDifferences: Dictionary(
         uniqueKeysWithValues: conflicts.compactMap { conflict in
           guard let remote = conflict.remote else { return nil }
-          let local = root.catalog.entries.first { $0.id == conflict.id }
+          let local = root.catalog.entries.first {
+            $0.id == conflict.id && root.catalogEntryAvailable($0)
+          }
           var differences = CatalogComparison.differences(
             current: local?.snapshot.profile(revision: 1), selected: remote.snapshot)
           if local?.name != remote.name {
@@ -55,7 +58,9 @@ extension Presenters {
       visibleEntries: available.filter(\.isVisible),
       hiddenEntries: available.filter { !$0.isVisible },
       loaded: root.catalogLoaded,
-      loadFailed: root.catalogLoadFailed, saving: root.catalogSaveOperation != nil,
+      loadFailed: root.catalogLoadFailed, corrupt: root.catalogCorrupt,
+      recoveryPending: root.catalogRecoveryPending,
+      saving: root.catalogSaveOperation != nil,
       saveFailed: root.catalogSaveFailed, nameDraft: administration.catalogNameDraft,
       canRegister: root.mode == .administration && root.catalogLoaded
         && root.catalogSaveOperation == nil && root.saveOperation == nil
@@ -82,13 +87,13 @@ extension Presenters {
         && !shareTooLarge,
       shareTooLarge: shareTooLarge,
       canRename: selection != nil && root.catalogSaveOperation == nil
-        && !root.catalog.conflicts.contains(where: { $0.id == selection?.id })
+        && !conflicts.contains(where: { $0.id == selection?.id })
         && CatalogEntry.validName(administration.catalogSelectionNameDraft)
         && administration.catalogSelectionNameDraft != selection?.name
         && !renameTooLarge,
       renameTooLarge: renameTooLarge,
       canUpdate: selection != nil && savedSnapshot != nil
-        && !root.catalog.conflicts.contains(where: { $0.id == selection?.id })
+        && !conflicts.contains(where: { $0.id == selection?.id })
         && savedSnapshot != selection?.snapshot
         && root.catalogSaveOperation == nil && root.saveOperation == nil
         && !administration.hasUnsavedDraft && !updateTooLarge,
@@ -116,7 +121,9 @@ extension Presenters {
       importPreview: root.catalogImportPreview,
       importMatches: Dictionary(
         uniqueKeysWithValues: (root.catalogImportPreview ?? []).compactMap { item in
-          if let existing = root.catalog.entries.first(where: { $0.id == item.id }) {
+          if let existing = root.catalog.entries.first(where: {
+            $0.id == item.id && root.catalogEntryAvailable($0)
+          }) ?? root.catalog.entries.first(where: { $0.id == item.id }) {
             return (
               item.id,
               root.catalogEntryAvailable(existing)

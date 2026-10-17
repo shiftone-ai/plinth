@@ -100,7 +100,8 @@ public final class NativeEffectPort: EffectPort {
         try await repository.recover(profile)
         return .profileSaved(effect.token, profile)
       } catch { return .profileSaveFailed(effect.token) }
-    case .loadCatalog, .saveCatalog, .checkCatalogAccount, .checkCatalogAccountAfterStopping,
+    case .loadCatalog, .recoverCatalog, .saveCatalog, .checkCatalogAccount,
+      .checkCatalogAccountAfterStopping,
       .startCatalogCloudSync, .stopCatalogCloudSync, .publishCatalogChanges,
       .prepareCatalogExport, .importCatalogFile:
       return await performCatalog(effect)
@@ -144,9 +145,15 @@ public final class NativeEffectPort: EffectPort {
     switch effect.kind {
     case .loadCatalog:
       guard let catalogRepository else { return .catalogLoadFailed(effect.token) }
-      do { return try await .catalogLoaded(effect.token, catalogRepository.load()) } catch {
-        return .catalogLoadFailed(effect.token)
-      }
+      do {
+        return try await .catalogLoaded(effect.token, catalogRepository.load())
+      } catch CatalogRepository.Failure.corruptCatalog {
+        return .catalogLoadCorrupt(effect.token)
+      } catch { return .catalogLoadFailed(effect.token) }
+    case .recoverCatalog:
+      guard let catalogRepository else { return .catalogLoadFailed(effect.token) }
+      do { return try await .catalogLoaded(effect.token, catalogRepository.recoverDamaged()) } catch
+      { return .catalogLoadFailed(effect.token) }
     case .saveCatalog(let document):
       guard let catalogRepository else { return .catalogSaveFailed(effect.token) }
       do {
@@ -154,10 +161,10 @@ public final class NativeEffectPort: EffectPort {
         return .catalogSaved(effect.token, document)
       } catch { return .catalogSaveFailed(effect.token) }
     case .checkCatalogAccount:
-      return .catalogAccountChecked(effect.token, await catalogCloudSync?.accountIdentifier())
+      return await catalogAccountCheckResult(effect.token)
     case .checkCatalogAccountAfterStopping:
       await catalogCloudSync?.stop(command: effect.token)
-      return .catalogAccountChecked(effect.token, await catalogCloudSync?.accountIdentifier())
+      return await catalogAccountCheckResult(effect.token)
     case .startCatalogCloudSync(let accountID, let entries, let conflicts, let pendingDeletions):
       await catalogCloudSync?.start(
         accountIdentifier: accountID, entries: entries, conflicts: conflicts,
@@ -168,7 +175,7 @@ public final class NativeEffectPort: EffectPort {
       return nil
     case .publishCatalogChanges(let session, let resolvedConflicts, let saves, let deletions):
       await catalogCloudSync?.queue(
-        session: session, resolvedConflicts: resolvedConflicts,
+        command: effect.token, session: session, resolvedConflicts: resolvedConflicts,
         saves: saves, deletions: deletions)
       return nil
     case .prepareCatalogExport(let entries, let passphrase):
@@ -189,6 +196,15 @@ public final class NativeEffectPort: EffectPort {
   public nonisolated static func timerInterval(until deadline: Double, now: Double) -> Double {
     // Bound native timer conversion, not the logical deadline. Mediators rearm early notifications.
     min(86_400, max(0, deadline - now))
+  }
+
+  private func catalogAccountCheckResult(_ token: OperationToken) async -> Event {
+    guard let catalogCloudSync else { return .catalogAccountCheckDeferred(token) }
+    switch await catalogCloudSync.accountAvailability() {
+    case .available(let id): return .catalogAccountChecked(token, id)
+    case .unavailable: return .catalogAccountChecked(token, nil)
+    case .transient: return .catalogAccountCheckDeferred(token)
+    }
   }
 
   private func applyPresentation(_ request: PresentationRequest, token: OperationToken) async

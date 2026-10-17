@@ -168,6 +168,23 @@ public struct SettingsView: View {
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity)
     .confirmationDialog(
+      L10n.string("Move the damaged collection aside?", locale: locale),
+      isPresented: Binding(
+        get: { props.catalog.recoveryPending },
+        set: { if !$0 { send(.cancelCatalogRecovery) } }
+      ), titleVisibility: .visible
+    ) {
+      Button(L10n.string("Start a new collection", locale: locale)) {
+        send(.confirmCatalogRecovery)
+      }
+      .accessibilityIdentifier("catalog-recover-confirm")
+    } message: {
+      Text(
+        L10n.string(
+          "The damaged file stays on this device. You can import an encrypted backup into the new collection.",
+          locale: locale))
+    }
+    .confirmationDialog(
       L10n.string("Turn on iCloud sync?", locale: locale),
       isPresented: Binding(
         get: { props.catalog.syncConsentPending },

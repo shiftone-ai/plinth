@@ -5,6 +5,10 @@ import KioskCore
 /// Owns CKSyncEngine state and server change tags for one Apple Account at a time.
 public actor CatalogCloudSync: CKSyncEngineDelegate {
   private enum Failure: Error { case invalidPayload }
+  public enum AccountAvailability: Equatable, Sendable {
+    case available(String)
+    case unavailable, transient
+  }
   public static let containerIdentifier = "iCloud.ai.shiftone.plinth"
   private static let zoneName = "SettingsCatalog"
   private static let recordType = "CatalogEntry"
@@ -41,9 +45,17 @@ public actor CatalogCloudSync: CKSyncEngineDelegate {
     self.sendEvent = sendEvent
   }
 
-  public func accountIdentifier() async -> String? {
-    guard (try? await container.accountStatus()) == .available else { return nil }
-    return try? await container.userRecordID().recordName
+  public func accountAvailability() async -> AccountAvailability {
+    do {
+      switch try await container.accountStatus() {
+      case .available:
+        guard let id = try? await container.userRecordID().recordName else { return .transient }
+        return .available(id)
+      case .noAccount, .restricted: return .unavailable
+      case .couldNotDetermine, .temporarilyUnavailable: return .transient
+      @unknown default: return .transient
+      }
+    } catch { return .transient }
   }
 
   public func start(
@@ -59,12 +71,14 @@ public actor CatalogCloudSync: CKSyncEngineDelegate {
     let previous = engine
     engine = nil
     await previous?.cancelOperations()
-    let currentAccount = await self.accountIdentifier()
+    let availability = await accountAvailability()
     guard generation == startedGeneration, self.session == session, !Task.isCancelled else {
       return
     }
-    guard currentAccount == accountIdentifier else {
-      await sendEvent(.catalogCloudAccountChanged(session))
+    guard case .available(let currentAccount) = availability,
+      currentAccount == accountIdentifier
+    else {
+      await reportAccountUnavailable(availability, session: session)
       return
     }
     do {
@@ -88,7 +102,9 @@ public actor CatalogCloudSync: CKSyncEngineDelegate {
           if let localEntry = local[remote.id], localEntry.syncedVersion == remote.version {
             return nil
           }
-          if let deletion = pendingDeletions.first(where: { $0.id == remote.id }),
+          if let deletion = pendingDeletions.first(where: {
+            $0.id == remote.id && $0.accountIdentifier == accountIdentifier
+          }),
             deletion.baseVersion == remote.version
           {
             return nil
@@ -96,7 +112,10 @@ public actor CatalogCloudSync: CKSyncEngineDelegate {
           return .upsert(remote)
         }
         + disk.serverDeletions.compactMap { id -> CatalogCloudChange? in
-          local[id] != nil || pendingDeletions.contains(where: { $0.id == id }) ? .delete(id) : nil
+          local[id] != nil
+            || pendingDeletions.contains(where: {
+              $0.id == id && $0.accountIdentifier == accountIdentifier
+            }) ? .delete(id) : nil
         }
       let replayIDs = Set(
         replay.map { change in
@@ -159,20 +178,24 @@ public actor CatalogCloudSync: CKSyncEngineDelegate {
   }
 
   public func queue(
-    session requestedSession: OperationToken, resolvedConflicts: [UUID],
+    command: OperationToken, session requestedSession: OperationToken, resolvedConflicts: [UUID],
     saves: [CatalogEntry], deletions: [UUID]
   ) async {
+    guard command.operationID > lastCommandID else { return }
+    lastCommandID = command.operationID
     guard active, let engine, let session,
       session == requestedSession
     else { return }
     let queuedGeneration = generation
-    let currentAccount = await accountIdentifier()
+    let availability = await accountAvailability()
     guard generation == queuedGeneration, active, self.engine === engine,
-      self.session == session, !Task.isCancelled
+      self.session == session, lastCommandID == command.operationID, !Task.isCancelled
     else { return }
     guard var disk = self.disk else { return }
-    guard currentAccount == disk.accountIdentifier else {
-      await sendEvent(.catalogCloudAccountChanged(session))
+    guard case .available(let currentAccount) = availability,
+      currentAccount == disk.accountIdentifier
+    else {
+      await reportAccountUnavailable(availability, session: session)
       return
     }
     do {
@@ -471,13 +494,15 @@ extension CatalogCloudSync {
   ) async -> CKSyncEngine.RecordZoneChangeBatch? {
     guard active, engine === syncEngine, let session else { return nil }
     let batchGeneration = generation
-    let currentAccount = await accountIdentifier()
+    let availability = await accountAvailability()
     guard active, engine === syncEngine, generation == batchGeneration,
       self.session == session, !Task.isCancelled
     else { return nil }
     guard let disk = self.disk else { return nil }
-    guard currentAccount == disk.accountIdentifier else {
-      await sendEvent(.catalogCloudAccountChanged(session))
+    guard case .available(let currentAccount) = availability,
+      currentAccount == disk.accountIdentifier
+    else {
+      await reportAccountUnavailable(availability, session: session)
       return nil
     }
     let pending = syncEngine.state.pendingRecordZoneChanges.filter {
@@ -533,6 +558,15 @@ extension CatalogCloudSync {
   private static func isOffline(_ error: CKError) -> Bool {
     error.code == .networkUnavailable || error.code == .networkFailure
       || error.code == .serviceUnavailable || error.code == .zoneBusy
+  }
+
+  private func reportAccountUnavailable(
+    _ availability: AccountAvailability, session: OperationToken
+  ) async {
+    switch availability {
+    case .transient: await sendEvent(.catalogCloudStatus(session, .offline))
+    case .available, .unavailable: await sendEvent(.catalogCloudAccountChanged(session))
+    }
   }
 
   private static func entry(from record: CKRecord, accountIdentifier: String) -> CatalogEntry? {

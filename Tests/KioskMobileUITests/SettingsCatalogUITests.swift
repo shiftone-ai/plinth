@@ -3,6 +3,33 @@ import XCTest
 import XCUIAutomation
 
 final class SettingsCatalogUITests: XCTestCase {
+  @MainActor func testDamagedCollectionCanBeReopenedInAdministration() async throws {
+    continueAfterFailure = false
+    let app = XCUIApplication()
+    app.launchEnvironment["PLINTH_TEST_CREDENTIAL_SERVICE"] =
+      "ai.shiftone.plinth.tests.catalog.recovery.\(UUID().uuidString)"
+    app.launchEnvironment["PLINTH_TEST_ISOLATED_CREDENTIALS"] = "1"
+    app.launchEnvironment["PLINTH_TEST_CORRUPT_CATALOG"] = "1"
+    addTeardownBlock { await MainActor.run { app.terminate() } }
+    app.launch()
+    let recover = app.buttons["catalog-recover"]
+    reach(recover, in: app)
+    recover.tap()
+    app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.585)).tap()
+    let passphrase = app.secureTextFields["catalog-passphrase"]
+    reach(passphrase, in: app)
+    passphrase.tap()
+    passphrase.typeText("abcdefghijklmnop")
+    try await secureCount(passphrase, count: 16)
+    let importer = app.buttons["catalog-import-file"]
+    reach(importer, in: app)
+    try await enabled(importer)
+    let screenshot = XCTAttachment(screenshot: app.screenshot())
+    screenshot.name = "catalog-recovery-ready-to-import"
+    screenshot.lifetime = .keepAlways
+    add(screenshot)
+  }
+
   @MainActor func testExportToLocalFiles() async throws {
     guard ProcessInfo.processInfo.environment["PLINTH_TEST_FILE_PROVIDER_UI"] == "1" else {
       throw XCTSkip(

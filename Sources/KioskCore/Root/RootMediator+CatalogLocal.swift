@@ -24,7 +24,13 @@ extension RootMediator {
       next.catalog = document
       next.catalogLoaded = true
       next.catalogLoadOperation = nil
+      next.catalogCorrupt = false
+      next.catalogRecoveryPending = false
       if document.syncEnabled {
+        guard state.catalogCloudAvailable else {
+          next.catalogSyncStatus = .offline
+          return .handled(.init(next))
+        }
         next.catalogSyncStatus = .checking
         next.catalogAccountCheckOperation = token
         return .handled(.init(next, effects: [Effect(token, .checkCatalogAccount)]))
@@ -96,7 +102,11 @@ extension RootMediator {
           $0.id == id && state.catalogEntryAvailable($0)
         })
       else { return .reject(state, .invalidState) }
-      guard !state.catalog.conflicts.contains(where: { $0.id == id }) else {
+      guard
+        !state.catalog.conflicts.contains(where: {
+          $0.id == id && state.catalogConflictAvailable($0)
+        })
+      else {
         return .reject(state, .invalidState)
       }
       let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -116,7 +126,9 @@ extension RootMediator {
         let index = state.catalog.entries.firstIndex(where: {
           $0.id == id && $0.scope == .iCloud && state.catalogEntryAvailable($0)
         }),
-        !state.catalog.conflicts.contains(where: { $0.id == id })
+        !state.catalog.conflicts.contains(where: {
+          $0.id == id && state.catalogConflictAvailable($0)
+        })
       else { return .reject(state, .invalidState) }
       var result = renameCatalog(state, index: index, name: candidate.name, token: token)
       if case .handled(var transition) = result {
@@ -139,7 +151,11 @@ extension RootMediator {
           $0.id == id && state.catalogEntryAvailable($0)
         })
       else { return .reject(state, .invalidState) }
-      guard !state.catalog.conflicts.contains(where: { $0.id == id }) else {
+      guard
+        !state.catalog.conflicts.contains(where: {
+          $0.id == id && state.catalogConflictAvailable($0)
+        })
+      else {
         return .reject(state, .invalidState)
       }
       guard snapshot != state.catalog.entries[index].snapshot else {
@@ -158,7 +174,9 @@ extension RootMediator {
         let index = state.catalog.entries.firstIndex(where: {
           $0.id == id && $0.scope == .iCloud && state.catalogEntryAvailable($0)
         }),
-        !state.catalog.conflicts.contains(where: { $0.id == id })
+        !state.catalog.conflicts.contains(where: {
+          $0.id == id && state.catalogConflictAvailable($0)
+        })
       else { return .reject(state, .invalidState) }
       var result = updateCatalog(state, index: index, snapshot: snapshot, token: token)
       if case .handled(var transition) = result {
@@ -190,7 +208,9 @@ extension RootMediator {
     case .catalogRemovePromptRequested(let id):
       guard canEditCatalog(state, envelope),
         state.catalog.entries.contains(where: { $0.id == id && state.catalogEntryAvailable($0) }),
-        !state.catalog.conflicts.contains(where: { $0.id == id })
+        !state.catalog.conflicts.contains(where: {
+          $0.id == id && state.catalogConflictAvailable($0)
+        })
       else { return .reject(state, .invalidState) }
       next.catalogRemovalCandidateID = id
       return .handled(.init(next, reply: .accepted))
@@ -206,16 +226,20 @@ extension RootMediator {
       guard canEditCatalog(state, envelope),
         state.catalogRemovalCandidateID == id,
         state.catalog.entries.contains(where: { $0.id == id && state.catalogEntryAvailable($0) }),
-        !state.catalog.conflicts.contains(where: { $0.id == id })
+        !state.catalog.conflicts.contains(where: {
+          $0.id == id && state.catalogConflictAvailable($0)
+        })
       else { return .reject(state, .invalidState) }
       var document = state.catalog
-      if let removed = document.entries.first(where: { $0.id == id }),
+      if let removed = document.entries.first(where: {
+        $0.id == id && state.catalogEntryAvailable($0)
+      }),
         removed.scope == .iCloud, let accountID = removed.accountIdentifier
       {
         document.pendingDeletions.append(
           .init(id: id, accountIdentifier: accountID, baseVersion: removed.syncedVersion))
       }
-      document.entries.removeAll { $0.id == id }
+      document.entries.removeAll { $0.id == id && state.catalogEntryAvailable($0) }
       var result = commitCatalog(state, document, token: token)
       if case .handled(var transition) = result {
         transition.state.catalogRemovalCandidateID = nil
@@ -263,8 +287,14 @@ extension RootMediator {
       if state.pendingCatalogPublishes, document.syncEnabled,
         let accountID = document.accountIdentifier
       {
-        let resolvedConflicts = Set(state.catalog.conflicts.map(\.id))
-          .subtracting(document.conflicts.map(\.id))
+        let resolvedConflicts = Set(
+          state.catalog.conflicts.filter {
+            state.catalog.conflictBelongsToAccount($0, accountIdentifier: accountID)
+          }.map(\.id)
+        ).subtracting(
+          document.conflicts.filter {
+            document.conflictBelongsToAccount($0, accountIdentifier: accountID)
+          }.map(\.id))
         let queuedIDs = Set(state.queuedCatalogCloudChanges.map(\.id))
         let oldShared = Dictionary(
           uniqueKeysWithValues: state.catalog.entries.compactMap { entry in
@@ -284,7 +314,8 @@ extension RootMediator {
         }
         let oldDeletions = Dictionary(
           uniqueKeysWithValues:
-            state.catalog.pendingDeletions.map { ($0.id, $0.attempt) })
+            state.catalog.pendingDeletions.filter { $0.accountIdentifier == accountID }
+            .map { ($0.id, $0.attempt) })
         let deletions = document.pendingDeletions.filter {
           $0.accountIdentifier == accountID && oldDeletions[$0.id] != $0.attempt
             && !queuedIDs.contains($0.id)
@@ -309,14 +340,16 @@ extension RootMediator {
       var followup = document
       for index in followup.entries.indices {
         let entry = followup.entries[index]
-        if let version = state.queuedCatalogAcknowledgements[entry.id],
+        if entry.accountIdentifier == document.accountIdentifier,
+          let version = state.queuedCatalogAcknowledgements[entry.id],
           entry.version == version
         {
           followup.entries[index].syncedVersion = version
         }
       }
       followup.pendingDeletions.removeAll {
-        state.queuedCatalogDeletionAcknowledgements.contains($0.id)
+        $0.accountIdentifier == document.accountIdentifier
+          && state.queuedCatalogDeletionAcknowledgements.contains($0.id)
       }
       if !state.queuedCatalogCloudChanges.isEmpty,
         let accountID = document.accountIdentifier,
@@ -364,25 +397,4 @@ extension RootMediator {
     }
   }
 
-  private static func renameCatalog(
-    _ state: RootState, index: Int, name: String, token: OperationToken
-  ) -> Mediation<RootState> {
-    guard let version = ProfileRevision.next(after: state.catalog.entries[index].version)
-    else { return .reject(state, .invalidProfile) }
-    var document = state.catalog
-    document.entries[index].name = name
-    document.entries[index].version = version
-    return commitCatalog(state, document, token: token)
-  }
-
-  private static func updateCatalog(
-    _ state: RootState, index: Int, snapshot: CatalogSnapshot, token: OperationToken
-  ) -> Mediation<RootState> {
-    guard let version = ProfileRevision.next(after: state.catalog.entries[index].version)
-    else { return .reject(state, .invalidProfile) }
-    var document = state.catalog
-    document.entries[index].snapshot = snapshot
-    document.entries[index].version = version
-    return commitCatalog(state, document, token: token)
-  }
 }

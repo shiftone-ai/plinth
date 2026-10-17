@@ -69,6 +69,7 @@ public enum CatalogImportMatch: Equatable, Sendable {
 
 public struct CatalogProps: Equatable, Sendable {
   public let syncEnabled: Bool
+  public let cloudAvailable: Bool
   public let syncStatus: CatalogSyncStatus
   public let syncConsentPending: Bool
   public let shareCandidate: CatalogEntry?
@@ -78,6 +79,8 @@ public struct CatalogProps: Equatable, Sendable {
   public let hiddenEntries: [CatalogEntry]
   public let loaded: Bool
   public let loadFailed: Bool
+  public let corrupt: Bool
+  public let recoveryPending: Bool
   public let saving: Bool
   public let saveFailed: Bool
   public let nameDraft: String
