@@ -89,7 +89,7 @@ struct CatalogCrossDeviceTests {
         == .accepted)
     await executor.registry.waitForOperation(
       try #require(runtime.snapshot.root.catalogSaveOperation))
-    try await enableSync(runtime, executor: executor)
+    try await enableSync(runtime, port: port)
     #expect(port.publishedEntries.isEmpty)
     #expect(runtime.send(.catalogSharePromptRequested(id), from: .settings).reply == .accepted)
     #expect(runtime.send(.catalogShareConfirmed(id), from: .settings).reply == .accepted)
@@ -102,7 +102,7 @@ struct CatalogCrossDeviceTests {
     _ shared: CatalogEntry, in runtime: RootRuntime, executor: EffectExecutor,
     port: CatalogPersistencePort, savedBeforeReceipt: KioskProfile
   ) async throws {
-    try await enableSync(runtime, executor: executor)
+    try await enableSync(runtime, port: port)
     let session = try #require(runtime.snapshot.root.catalogCloudSessionOperation)
     runtime.send(
       .catalogCloudChanges(session, "account-a", [.upsert(shared)]), from: .cloudCatalog)
@@ -147,15 +147,10 @@ struct CatalogCrossDeviceTests {
     #expect(runtime.snapshot.root.savedProfile != nil)
   }
 
-  private func enableSync(_ runtime: RootRuntime, executor: EffectExecutor) async throws {
+  private func enableSync(_ runtime: RootRuntime, port: CatalogPersistencePort) async throws {
     #expect(runtime.send(.catalogSyncEnableRequested, from: .settings).reply == .accepted)
     #expect(runtime.send(.catalogSyncEnableConfirmed, from: .settings).reply == .accepted)
-    let deadline = ContinuousClock.now.advanced(by: .seconds(3))
-    while runtime.snapshot.root.catalogCloudSessionOperation == nil
-      || runtime.snapshot.root.catalogSaveOperation != nil, ContinuousClock.now < deadline
-    {
-      try await Task.sleep(for: .milliseconds(10))
-    }
+    await port.waitForCloudStart()
     #expect(runtime.snapshot.root.catalogCloudSessionOperation != nil)
     #expect(runtime.snapshot.root.catalogSaveOperation == nil)
   }
@@ -163,10 +158,6 @@ struct CatalogCrossDeviceTests {
   private func publishedEntry(_ id: UUID, from port: CatalogPersistencePort) async throws
     -> CatalogEntry
   {
-    let deadline = ContinuousClock.now.advanced(by: .seconds(3))
-    while !port.publishedEntries.contains(where: { $0.id == id }), ContinuousClock.now < deadline {
-      try await Task.sleep(for: .milliseconds(10))
-    }
-    return try #require(port.publishedEntries.first(where: { $0.id == id }))
+    await port.waitForPublishedEntry(id)
   }
 }

@@ -153,7 +153,6 @@ extension RootMediator {
         }
       }
       guard changed else { return .handled(.init(state)) }
-      next.catalogSyncStatus = .ready
       return commitCatalog(next, document, token: token, publish: false)
 
     case .catalogCloudDeletionsAcknowledged(let session, let accountID, let ids):
@@ -224,6 +223,7 @@ extension RootMediator {
               document.entries[index].version, conflict.remote?.version ?? 0))
         else { return .reject(state, .invalidProfile) }
         document.entries[index].version = nextVersion
+        document.entries[index].scope = .iCloud
         document.entries[index].accountIdentifier = accountID
       } else if let index = document.pendingDeletions.firstIndex(where: { $0.id == id }) {
         guard

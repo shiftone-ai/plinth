@@ -3901,6 +3901,36 @@
         }
       }
     },
+    "Share this version": {
+      "comment": "Action for a device entry that conflicts with an iCloud entry having the same ID; choosing it uploads the device version.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Share this version"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この端末の版を共有"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이 기기의 버전 공유"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "共享此设备上的版本"
+          }
+        }
+      }
+    },
     "Use iCloud version": {
       "comment": "Settings collection interface text.",
       "extractionState": "manual",

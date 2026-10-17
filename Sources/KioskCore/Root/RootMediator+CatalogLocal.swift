@@ -91,7 +91,10 @@ extension RootMediator {
 
     case .catalogRenameRequested(let id, let name):
       guard canEditCatalog(state, envelope) else { return .reject(state, .invalidState) }
-      guard let index = state.catalog.entries.firstIndex(where: { $0.id == id })
+      guard
+        let index = state.catalog.entries.firstIndex(where: {
+          $0.id == id && state.catalogEntryAvailable($0)
+        })
       else { return .reject(state, .invalidState) }
       guard !state.catalog.conflicts.contains(where: { $0.id == id }) else {
         return .reject(state, .invalidState)
@@ -110,7 +113,9 @@ extension RootMediator {
     case .catalogRenameConfirmed(let id):
       guard canEditCatalog(state, envelope),
         let candidate = state.catalogRenameCandidate, candidate.id == id,
-        let index = state.catalog.entries.firstIndex(where: { $0.id == id && $0.scope == .iCloud }),
+        let index = state.catalog.entries.firstIndex(where: {
+          $0.id == id && $0.scope == .iCloud && state.catalogEntryAvailable($0)
+        }),
         !state.catalog.conflicts.contains(where: { $0.id == id })
       else { return .reject(state, .invalidState) }
       var result = renameCatalog(state, index: index, name: candidate.name, token: token)
@@ -130,7 +135,9 @@ extension RootMediator {
     case .catalogUpdateRequested(let id):
       guard canEditCatalog(state, envelope), !context.hasUnsavedDraft,
         let profile = state.savedProfile, let snapshot = CatalogSnapshot(profile),
-        let index = state.catalog.entries.firstIndex(where: { $0.id == id })
+        let index = state.catalog.entries.firstIndex(where: {
+          $0.id == id && state.catalogEntryAvailable($0)
+        })
       else { return .reject(state, .invalidState) }
       guard !state.catalog.conflicts.contains(where: { $0.id == id }) else {
         return .reject(state, .invalidState)
@@ -148,7 +155,9 @@ extension RootMediator {
       guard canEditCatalog(state, envelope), !context.hasUnsavedDraft,
         state.catalogUpdateCandidateID == id,
         let profile = state.savedProfile, let snapshot = CatalogSnapshot(profile),
-        let index = state.catalog.entries.firstIndex(where: { $0.id == id && $0.scope == .iCloud }),
+        let index = state.catalog.entries.firstIndex(where: {
+          $0.id == id && $0.scope == .iCloud && state.catalogEntryAvailable($0)
+        }),
         !state.catalog.conflicts.contains(where: { $0.id == id })
       else { return .reject(state, .invalidState) }
       var result = updateCatalog(state, index: index, snapshot: snapshot, token: token)
@@ -167,7 +176,9 @@ extension RootMediator {
 
     case .catalogVisibilityRequested(let id, let visible):
       guard canEditCatalog(state, envelope),
-        let index = state.catalog.entries.firstIndex(where: { $0.id == id })
+        let index = state.catalog.entries.firstIndex(where: {
+          $0.id == id && state.catalogEntryAvailable($0)
+        })
       else { return .reject(state, .invalidState) }
       guard state.catalog.entries[index].isVisible != visible else {
         return .handled(.init(state, reply: .accepted))
@@ -178,7 +189,7 @@ extension RootMediator {
 
     case .catalogRemovePromptRequested(let id):
       guard canEditCatalog(state, envelope),
-        state.catalog.entries.contains(where: { $0.id == id }),
+        state.catalog.entries.contains(where: { $0.id == id && state.catalogEntryAvailable($0) }),
         !state.catalog.conflicts.contains(where: { $0.id == id })
       else { return .reject(state, .invalidState) }
       next.catalogRemovalCandidateID = id
@@ -194,7 +205,7 @@ extension RootMediator {
     case .catalogRemoveConfirmed(let id):
       guard canEditCatalog(state, envelope),
         state.catalogRemovalCandidateID == id,
-        state.catalog.entries.contains(where: { $0.id == id }),
+        state.catalog.entries.contains(where: { $0.id == id && state.catalogEntryAvailable($0) }),
         !state.catalog.conflicts.contains(where: { $0.id == id })
       else { return .reject(state, .invalidState) }
       var document = state.catalog
