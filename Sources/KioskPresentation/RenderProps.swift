@@ -91,8 +91,11 @@ public struct CatalogProps: Equatable, Sendable {
   public let canApply: Bool
   public let canManage: Bool
   public let canShare: Bool
+  public let shareTooLarge: Bool
   public let canRename: Bool
+  public let renameTooLarge: Bool
   public let canUpdate: Bool
+  public let updateTooLarge: Bool
   public let removalCandidate: CatalogEntry?
   public let passphrase: String
   public let confirmPassphrase: String

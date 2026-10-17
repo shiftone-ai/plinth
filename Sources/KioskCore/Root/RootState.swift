@@ -109,6 +109,21 @@ public struct RootState: Equatable, Sendable {
         && catalogSyncStatus != .accountChanged
         && catalogSyncStatus != .signInRequired)
   }
+
+  public func catalogConflictAvailable(_ conflict: CatalogConflict) -> Bool {
+    guard catalog.syncEnabled, let accountID = catalog.accountIdentifier,
+      catalogSyncStatus != .checking, catalogSyncStatus != .accountChanged,
+      catalogSyncStatus != .signInRequired,
+      conflict.remote?.accountIdentifier == nil
+        || conflict.remote?.accountIdentifier == accountID
+    else { return false }
+    if let entry = catalog.entries.first(where: { $0.id == conflict.id }) {
+      return entry.scope == .iCloud && entry.accountIdentifier == accountID
+    }
+    return catalog.pendingDeletions.contains {
+      $0.id == conflict.id && $0.accountIdentifier == accountID
+    }
+  }
   public var administratorSession = false
   public var presentationAcquired = false
   public var presentationOperation: OperationToken?

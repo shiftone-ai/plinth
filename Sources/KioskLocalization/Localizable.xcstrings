@@ -3571,6 +3571,36 @@
         }
       }
     },
+    "Too much content for iCloud": {
+      "comment": "Shown when a setting or its changes exceed the iCloud sharing size limit.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Too much content for iCloud"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iCloudで共有するには内容が多すぎます"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iCloud에 공유하기에는 내용이 너무 많습니다"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "内容过多，无法在 iCloud 中共享"
+          }
+        }
+      }
+    },
     "Try again": {
       "comment": "Interface text for encrypted settings files.",
       "extractionState": "manual",

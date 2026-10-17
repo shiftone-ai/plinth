@@ -9,23 +9,8 @@ public actor CatalogCloudSync: CKSyncEngineDelegate {
   private static let zoneName = "SettingsCatalog"
   private static let recordType = "CatalogEntry"
   private static let payloadKey = "payload"
-  private static let maximumPayloadBytes = 900_000
 
-  private struct CloudPayload: Codable {
-    let name: String
-    let formatVersion: Int
-    let snapshot: CatalogSnapshot
-    let version: UInt64
-
-    init(_ entry: CatalogEntry) {
-      name = entry.name
-      formatVersion = entry.formatVersion
-      snapshot = entry.snapshot
-      version = entry.version
-    }
-  }
-
-  private struct DiskState: Codable {
+  struct DiskState: Codable {
     var accountIdentifier: String
     var engineState: CKSyncEngine.State.Serialization?
     var entries: [UUID: CatalogEntry]
@@ -83,7 +68,7 @@ public actor CatalogCloudSync: CKSyncEngineDelegate {
       return
     }
     do {
-      let loaded = try loadDisk()
+      let loaded = try Self.loadDisk(at: stateURL)
       disk =
         loaded?.accountIdentifier == accountIdentifier
         ? loaded
@@ -196,7 +181,7 @@ public actor CatalogCloudSync: CKSyncEngineDelegate {
       let permittedDeletions = deletions.filter { !disk.conflicts.contains($0) }
       for entry in permittedSaves {
         guard entry.scope == .iCloud, entry.accountIdentifier == disk.accountIdentifier,
-          try JSONEncoder().encode(CloudPayload(entry)).count <= Self.maximumPayloadBytes
+          CatalogCloudPayload.encoded(entry) != nil
         else { throw Failure.invalidPayload }
         disk.entries[entry.id] = entry
       }
@@ -496,8 +481,7 @@ extension CatalogCloudSync {
     let fields = disk.recordSystemFields
     return await CKSyncEngine.RecordZoneChangeBatch(pendingChanges: pending) { recordID in
       guard let id = Self.catalogID(from: recordID), let entry = entries[id],
-        let data = try? JSONEncoder().encode(CloudPayload(entry)),
-        data.count <= Self.maximumPayloadBytes
+        let data = CatalogCloudPayload.encoded(entry)
       else { return nil }
       let record =
         fields[id].flatMap { Self.record(from: $0, matching: recordID) }
@@ -507,9 +491,16 @@ extension CatalogCloudSync {
     }
   }
 
-  private func loadDisk() throws -> DiskState? {
+  static func loadDisk(at stateURL: URL) throws -> DiskState? {
     guard FileManager.default.fileExists(atPath: stateURL.path) else { return nil }
-    return try JSONDecoder().decode(DiskState.self, from: Data(contentsOf: stateURL))
+    let data = try Data(contentsOf: stateURL)
+    do {
+      return try JSONDecoder().decode(DiskState.self, from: data)
+    } catch is DecodingError {
+      let quarantine = URL(fileURLWithPath: stateURL.path + ".invalid-" + UUID().uuidString)
+      try FileManager.default.moveItem(at: stateURL, to: quarantine)
+      return nil
+    }
   }
 
   private func persistDisk() throws {
@@ -542,8 +533,8 @@ extension CatalogCloudSync {
     guard record.recordType == recordType,
       let id = catalogID(from: record.recordID),
       let data = record.encryptedValues[payloadKey] as? Data,
-      data.count <= maximumPayloadBytes,
-      let payload = try? JSONDecoder().decode(CloudPayload.self, from: data)
+      data.count <= CatalogCloudPayload.maximumBytes,
+      let payload = try? JSONDecoder().decode(CatalogCloudPayload.self, from: data)
     else { return nil }
     guard payload.formatVersion == 1 else { return nil }
     return CatalogEntry(

@@ -30,6 +30,9 @@ struct CatalogEntryDetail: View {
           }
           .disabled(!props.canUpdate)
           .accessibilityIdentifier("catalog-update")
+          if props.renameTooLarge || props.updateTooLarge {
+            iCloudSizeWarning
+          }
         }
         Section(L10n.string("Contents", locale: locale)) {
           ForEach(props.contents) { value in
@@ -66,6 +69,9 @@ struct CatalogEntryDetail: View {
             }
             .disabled(!props.canShare)
             .accessibilityIdentifier("catalog-share")
+            if props.shareTooLarge {
+              iCloudSizeWarning
+            }
           } else {
             Label(L10n.string("Shared in iCloud", locale: locale), systemImage: "icloud")
           }
@@ -188,5 +194,13 @@ struct CatalogEntryDetail: View {
     case .localized(let key): Text(L10n.string(key, locale: locale))
     case .absent: Text(verbatim: "—")
     }
+  }
+
+  private var iCloudSizeWarning: some View {
+    Label(
+      L10n.string("Too much content for iCloud", locale: locale),
+      systemImage: "exclamationmark.triangle"
+    )
+    .foregroundStyle(.secondary)
   }
 }

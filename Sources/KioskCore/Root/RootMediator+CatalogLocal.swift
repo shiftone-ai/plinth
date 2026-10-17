@@ -345,6 +345,7 @@ extension RootMediator {
     case .catalogSaveFailed(let completed):
       guard envelope.source == .catalogRepository, state.catalogSaveOperation == completed
       else { return .reject(state, .staleOperation) }
+      let recheckAccount = state.catalogCheckAfterSave && state.catalog.syncEnabled
       next.catalogSaveOperation = nil
       next.pendingCatalog = nil
       next.pendingCatalogRegistrationID = nil
@@ -352,6 +353,11 @@ extension RootMediator {
       next.catalogSaveFailed = true
       next.catalogCheckAfterSave = false
       next.catalogStartAfterSave = false
+      if recheckAccount {
+        next.catalogSyncStatus = .checking
+        next.catalogAccountCheckOperation = token
+        return .handled(.init(next, effects: [Effect(token, .checkCatalogAccount)]))
+      }
       return .handled(.init(next))
 
     default: return .bubble
