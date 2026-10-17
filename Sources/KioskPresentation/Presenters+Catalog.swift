@@ -6,7 +6,9 @@ extension Presenters {
     -> CatalogProps
   {
     let selection = administration.catalogSelection.flatMap { selected in
-      root.catalog.entries.first(where: { $0.id == selected.id })
+      root.catalog.entries.first(where: {
+        $0.id == selected.id && root.catalogEntryAvailable($0)
+      })
     }
     let savedSnapshot = root.savedProfile.flatMap(CatalogSnapshot.init)
     let available = root.catalog.entries.filter(root.catalogEntryAvailable)
@@ -62,8 +64,8 @@ extension Presenters {
           administration.catalogNameDraft.trimmingCharacters(in: .whitespacesAndNewlines)),
       selectedEntry: selection,
       selectedNameDraft: administration.catalogSelectionNameDraft,
-      renameCandidate: root.catalogRenameCandidate,
-      updateCandidateID: root.catalogUpdateCandidateID,
+      renameCandidate: selection == nil ? nil : root.catalogRenameCandidate,
+      updateCandidateID: selection == nil ? nil : root.catalogUpdateCandidateID,
       differences: selection.map {
         CatalogComparison.differences(current: root.savedProfile, selected: $0.snapshot)
       } ?? [],
@@ -92,7 +94,7 @@ extension Presenters {
         && !administration.hasUnsavedDraft && !updateTooLarge,
       updateTooLarge: updateTooLarge,
       removalCandidate: root.catalog.entries.first {
-        $0.id == root.catalogRemovalCandidateID
+        $0.id == root.catalogRemovalCandidateID && root.catalogEntryAvailable($0)
       },
       passphrase: administration.catalogPassphrase,
       confirmPassphrase: administration.catalogConfirmPassphrase,
@@ -117,11 +119,14 @@ extension Presenters {
           if let existing = root.catalog.entries.first(where: { $0.id == item.id }) {
             return (
               item.id,
-              existing.name == item.name && existing.snapshot == item.snapshot
+              root.catalogEntryAvailable(existing)
+                && existing.name == item.name && existing.snapshot == item.snapshot
                 ? CatalogImportMatch.alreadyPresent : .separateCopy
             )
           }
-          if root.catalog.entries.contains(where: { $0.name == item.name }) {
+          if root.catalog.entries.contains(where: {
+            $0.name == item.name && root.catalogEntryAvailable($0)
+          }) {
             return (item.id, .sameName)
           }
           return nil

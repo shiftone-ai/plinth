@@ -153,7 +153,8 @@ public struct SettingsCatalog: Equatable, Codable, Sendable {
       return false
     }
     if let entry = entries.first(where: { $0.id == conflict.id }) {
-      return entry.scope == .iCloud && entry.accountIdentifier == accountIdentifier
+      return (entry.scope == .device && conflict.remote != nil)
+        || (entry.scope == .iCloud && entry.accountIdentifier == accountIdentifier)
     }
     return pendingDeletions.contains {
       $0.id == conflict.id && $0.accountIdentifier == accountIdentifier

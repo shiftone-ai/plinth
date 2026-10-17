@@ -122,7 +122,11 @@ extension RootMediator {
       var used = Set(document.entries.map(\.id))
       for (item, replacementID) in zip(preview, replacementIDs) {
         if let existing = document.entries.first(where: { $0.id == item.id }) {
-          if existing.name == item.name && existing.snapshot == item.snapshot { continue }
+          if state.catalogEntryAvailable(existing), existing.name == item.name,
+            existing.snapshot == item.snapshot
+          {
+            continue
+          }
           guard !used.contains(replacementID),
             let replacement = CatalogEntry(
               id: replacementID, name: item.name, snapshot: item.snapshot,

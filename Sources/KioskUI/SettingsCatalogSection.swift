@@ -171,7 +171,11 @@ struct SettingsCatalogSection: View {
                   }
                 }
               }
-              Button(L10n.string("Keep this version", locale: locale)) {
+              Button(
+                localCopyIsDevice(conflict.id)
+                  ? L10n.string("Share this version", locale: locale)
+                  : L10n.string("Keep this version", locale: locale)
+              ) {
                 send(.resolveCatalogConflict(conflict.id, useRemote: false))
               }
               .buttonStyle(.borderless)
@@ -194,6 +198,12 @@ struct SettingsCatalogSection: View {
     case .text(let text): Text(verbatim: text)
     case .localized(let key): Text(L10n.string(key, locale: locale))
     case .absent: Text(verbatim: "—")
+    }
+  }
+
+  private func localCopyIsDevice(_ id: UUID) -> Bool {
+    (props.visibleEntries + props.hiddenEntries).contains {
+      $0.id == id && $0.scope == .device
     }
   }
 

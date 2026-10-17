@@ -41,7 +41,7 @@ struct CatalogFileToCloudTests {
     #expect(importedID == lobby.id)
     #expect(destination.snapshot.root.catalog.entries.first?.scope == .device)
     #expect(destinationPort.publishedEntries.isEmpty)
-    try await enableSync(destination)
+    try await enableSync(destination, port: destinationPort)
     #expect(destinationPort.publishedEntries.isEmpty)
     #expect(
       destination.send(.catalogSharePromptRequested(importedID), from: .settings).reply
@@ -56,10 +56,7 @@ struct CatalogFileToCloudTests {
   }
 
   private func expectPublished(_ id: UUID, from port: CatalogPersistencePort) async throws {
-    let deadline = ContinuousClock.now.advanced(by: .seconds(3))
-    while port.publishedEntries.isEmpty, ContinuousClock.now < deadline {
-      try await Task.sleep(for: .milliseconds(10))
-    }
+    _ = await port.waitForPublishedEntry(id)
     #expect(port.publishedEntries.map(\.name) == ["Lobby"])
     #expect(port.publishedEntries.map(\.id) == [id])
   }
@@ -101,15 +98,11 @@ struct CatalogFileToCloudTests {
     #expect(runtime.snapshot.root.catalogLoaded)
   }
 
-  private func enableSync(_ runtime: RootRuntime) async throws {
+  private func enableSync(_ runtime: RootRuntime, port: CatalogPersistencePort) async throws {
     #expect(runtime.send(.catalogSyncEnableRequested, from: .settings).reply == .accepted)
     #expect(runtime.send(.catalogSyncEnableConfirmed, from: .settings).reply == .accepted)
-    let deadline = ContinuousClock.now.advanced(by: .seconds(3))
-    while runtime.snapshot.root.catalogCloudSessionOperation == nil
-      || runtime.snapshot.root.catalogSaveOperation != nil, ContinuousClock.now < deadline
-    {
-      try await Task.sleep(for: .milliseconds(10))
-    }
+    await port.waitForCloudStart()
     #expect(runtime.snapshot.root.catalogCloudSessionOperation != nil)
+    #expect(runtime.snapshot.root.catalogSaveOperation == nil)
   }
 }
