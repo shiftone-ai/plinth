@@ -18,6 +18,7 @@
       let previousOverscanCompensation: UIScreen.OverscanCompensation?
     }
     private let web = WebKitAdapter()
+    private let webServer = WebAdministrationServer()
     private let language: LanguagePreference
     private let pointer = MobilePointerAdapter()
     private let displayModes = MobileDisplayModeAdapter()
@@ -40,6 +41,14 @@
       let clock = MonotonicClock()
       let credentials = Self.credentialConfiguration()
       language = LanguagePreference(storageNamespace: credentials.storageNamespace)
+      #if DEBUG
+        let testService = ProcessInfo.processInfo.environment["PLINTH_TEST_CREDENTIAL_SERVICE"]
+        let fixtureService = testService.flatMap {
+          $0.hasPrefix("ai.shiftone.plinth.tests.") ? $0 : nil
+        }
+      #else
+        let fixtureService: String? = nil
+      #endif
       let location = FileManager.default.urls(
         for: .applicationSupportDirectory, in: .userDomainMask)[0]
         .appendingPathComponent(credentials.storageNamespace, isDirectory: true)
@@ -49,16 +58,16 @@
       let port = NativeEffectPort(
         web: web, presentation: presentation, repository: ProfileRepository(fileURL: location),
         credentials: CredentialStore(service: credentials.service, keychain: credentials.keychain),
-        biometrics: BiometricCredentialAdapter(service: credentials.service) { [language] in
-          L10n.string("Enable administrator unlock with biometrics", locale: language.locale)
-        },
+        biometrics: MobileBiometricComposition.make(
+          service: credentials.service, fixtureService: fixtureService, language: language),
         clock: clock, displays: presentation,
         catalogRepository: CatalogRepository(
           fileURL: location.deletingLastPathComponent().appendingPathComponent("catalog.json")),
         catalogCloudSync: CatalogCloudSync(
           stateURL: location.deletingLastPathComponent().appendingPathComponent(
             "catalog-cloud.json")
-        ) { [weak cloudBridge] event in cloudBridge?.send(event) })
+        ) { [weak cloudBridge] event in cloudBridge?.send(event) },
+        webServer: webServer)
       #if DEBUG
         if let value = ProcessInfo.processInfo.environment["PLINTH_TEST_IDLE_SECONDS"],
           let timeout = Double(value), timeout.isFinite, timeout > 0
@@ -72,6 +81,10 @@
       #endif
       runtime = RootRuntime(clock: clock, executor: executor, diagnostics: DiagnosticLogAdapter())
       cloudBridge.runtime = runtime
+      webServer.attach(runtime: runtime, locale: { [language] in language.locale })
+      webServer.addressChanged = { [weak runtime] endpoint in
+        runtime?.send(.webServerAddressChanged(endpoint), from: .webAdministration)
+      }
       wireAdapters()
     }
 
@@ -279,7 +292,11 @@
       let event: Event
       switch intent {
       case .editPasscode(let value): event = .passcodeEdited(value)
-      case .submit: event = .passcodeSubmitted
+      case .submit:
+        runtime.send(.biometricUnlockCancelled, from: .unlock)
+        event = .passcodeSubmitted
+      case .authenticateWithBiometrics: event = .biometricUnlockRequested
+      case .cancelBiometricAuthentication: event = .biometricUnlockCancelled
       case .cancel: event = .cancelAuthentication
       }
       runtime.send(event, from: .unlock)

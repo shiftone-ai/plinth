@@ -78,7 +78,7 @@ struct RootMediatorTests {
     #expect(value.state.mode == .enteringKiosk)
     #expect(value.state.activeProfile == profile)
     #expect(value.effects.map(\.kind) == [.applyPresentation(.init()), .readBiometricStatus])
-    #expect(value.childControls.isEmpty)
+    #expect(value.childControls == [.init(.administration, .initializeWebDraft(profile))])
     let token = try requireToken(value.state.presentationOperation)
     let applied = try #require(
       handled(

@@ -18,6 +18,10 @@ public final class EffectExecutor: EffectExecuting {
       port.releasePointer()
       return
     }
+    if case .stopWebServer = effect.kind {
+      port.stopWebServer()
+      return
+    }
     if case .cancelOperation(let token) = effect.kind {
       registry.cancel(token)
       port.cancel(token)
@@ -30,7 +34,8 @@ public final class EffectExecutor: EffectExecuting {
     case .releaseExternalPointer, .confineNativePointer: return
     case .createSurface, .releaseSurface, .load, .controlExternalWeb: source = .webSurface
     case .scheduleIdle, .scheduleRetry, .scheduleUnlockTimeout: source = .idleClock
-    case .verifyPasscode, .configurePasscode, .readBiometricStatus, .changeBiometricUnlock:
+    case .verifyPasscode, .configurePasscode, .readBiometricStatus, .changeBiometricUnlock,
+      .performBiometricUnlock:
       source = .credentials
     case .saveProfile, .recoverProfile, .bootstrap: source = .profileRepository
     case .loadCatalog, .saveCatalog, .prepareCatalogExport, .importCatalogFile:
@@ -39,6 +44,8 @@ public final class EffectExecutor: EffectExecuting {
       .startCatalogCloudSync, .stopCatalogCloudSync,
       .publishCatalogChanges:
       source = .cloudCatalog
+    case .startWebServer: source = .webAdministration
+    case .stopWebServer: return
     case .cancelOperation: return
     }
     let registrationToken: OperationToken

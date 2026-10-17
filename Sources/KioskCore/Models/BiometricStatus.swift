@@ -4,6 +4,7 @@ public enum BiometricKind: String, Equatable, Sendable {
 
 public enum BiometricUnavailableReason: String, Equatable, Sendable {
   case notAvailable, notEnrolled, lockedOut, passcodeNotSet, storageUnavailable
+  case disconnected, notPaired
 }
 
 public enum BiometricAvailability: Equatable, Sendable {
@@ -23,4 +24,8 @@ public struct BiometricStatus: Equatable, Sendable {
 
 public enum BiometricChangeOutcome: Equatable, Sendable {
   case succeeded, cancelled, failed
+}
+
+public enum BiometricUnlockOutcome: Equatable, Sendable {
+  case succeeded, cancelled, failed, enrollmentChanged
 }

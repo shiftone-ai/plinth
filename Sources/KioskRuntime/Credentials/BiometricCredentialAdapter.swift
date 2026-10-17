@@ -8,22 +8,37 @@ public protocol BiometricCredentialPort: AnyObject {
   func status() -> BiometricStatus
   func changeEnabled(_ enabled: Bool, token: OperationToken) async
     -> (BiometricStatus, BiometricChangeOutcome)
+  func unlock(_ token: OperationToken) async -> (BiometricStatus, BiometricUnlockOutcome)
   func cancel(_ token: OperationToken)
   func cancelAll()
+}
+
+@MainActor
+public protocol BiometricUnlockPresentationPort: AnyObject {
+  func prepare(_ context: LAContext, token: OperationToken) async -> Bool
+  func dismiss(_ token: OperationToken)
 }
 
 /// The protected Keychain item is the enabled flag. No biometric value enters profile JSON.
 @MainActor
 public final class BiometricCredentialAdapter: BiometricCredentialPort {
   private let service: String
-  private let reason: @MainActor () -> String
+  private let enableReason: @MainActor () -> String
+  private let unlockReason: @MainActor () -> String
+  private let presentation: (any BiometricUnlockPresentationPort)?
   private let account = "administrator-biometric-unlock"
   private var contexts: [OperationToken: LAContext] = [:]
   private var committedEnable: OperationToken?
 
-  public init(service: String, reason: @escaping @MainActor () -> String) {
+  public init(
+    service: String, enableReason: @escaping @MainActor () -> String,
+    unlockReason: @escaping @MainActor () -> String,
+    presentation: (any BiometricUnlockPresentationPort)? = nil
+  ) {
     self.service = service
-    self.reason = reason
+    self.enableReason = enableReason
+    self.unlockReason = unlockReason
+    self.presentation = presentation
   }
 
   public func status() -> BiometricStatus {
@@ -43,6 +58,10 @@ public final class BiometricCredentialAdapter: BiometricCredentialPort {
       case LAError.biometryNotEnrolled.rawValue: availability = .unavailable(.notEnrolled)
       case LAError.biometryLockout.rawValue: availability = .unavailable(.lockedOut)
       case LAError.passcodeNotSet.rawValue: availability = .unavailable(.passcodeNotSet)
+      #if os(macOS)
+        case LAError.biometryDisconnected.rawValue: availability = .unavailable(.disconnected)
+        case LAError.biometryNotPaired.rawValue: availability = .unavailable(.notPaired)
+      #endif
       default: availability = .unavailable(.notAvailable)
       }
     }
@@ -101,7 +120,7 @@ public final class BiometricCredentialAdapter: BiometricCredentialPort {
     do {
       try await context.evaluatePolicy(
         .deviceOwnerAuthenticationWithBiometrics,
-        localizedReason: reason())
+        localizedReason: enableReason())
     } catch {
       let authenticationError = error as NSError
       let cancellationCodes = [
@@ -131,9 +150,55 @@ public final class BiometricCredentialAdapter: BiometricCredentialPort {
     return (status(), added == errSecSuccess ? .succeeded : .failed)
   }
 
+  public func unlock(_ token: OperationToken) async -> (BiometricStatus, BiometricUnlockOutcome) {
+    let context = LAContext()
+    context.localizedFallbackTitle = ""
+    var error: NSError?
+    guard context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error)
+    else { return (status(), .failed) }
+    contexts[token] = context
+    defer {
+      contexts.removeValue(forKey: token)
+      presentation?.dismiss(token)
+    }
+    if let presentation {
+      guard await presentation.prepare(context, token: token),
+        !Task.isCancelled, contexts[token] === context
+      else { return (status(), .cancelled) }
+    }
+    do {
+      try await context.evaluatePolicy(
+        .deviceOwnerAuthenticationWithBiometrics, localizedReason: unlockReason())
+    } catch {
+      let authenticationError = error as NSError
+      let cancellationCodes = [
+        LAError.userCancel.rawValue, LAError.userFallback.rawValue,
+        LAError.systemCancel.rawValue, LAError.appCancel.rawValue,
+      ]
+      let outcome: BiometricUnlockOutcome =
+        authenticationError.domain == LAError.errorDomain
+          && cancellationCodes.contains(authenticationError.code) ? .cancelled : .failed
+      return (status(), outcome)
+    }
+    guard !Task.isCancelled, contexts[token] === context else { return (status(), .cancelled) }
+    var query = itemQuery()
+    query[kSecReturnData] = true
+    query[kSecMatchLimit] = kSecMatchLimitOne
+    query[kSecUseAuthenticationContext] = context
+    var value: CFTypeRef?
+    let result = SecItemCopyMatching(query as CFDictionary, &value)
+    guard !Task.isCancelled, contexts[token] === context else { return (status(), .cancelled) }
+    if result == errSecItemNotFound { return (status(), .enrollmentChanged) }
+    guard result == errSecSuccess, (value as? Data) == Data([1]) else {
+      return (status(), .failed)
+    }
+    return (status(), .succeeded)
+  }
+
   public func cancel(_ token: OperationToken) {
     contexts[token]?.invalidate()
     contexts.removeValue(forKey: token)
+    presentation?.dismiss(token)
     if committedEnable == token {
       _ = SecItemDelete(itemQuery() as CFDictionary)
       committedEnable = nil

@@ -24,12 +24,18 @@ extension RootMediator {
         next.canPresent(profile) || waitsForMobileDisplay
       else {
         next.mode = .safeHold
-        return .handled(.init(next, effects: [statusEffect]))
+        return .handled(
+          .init(
+            next, effects: [statusEffect],
+            childControls: [
+              .init(.administration, .initializeWebDraft(profile))
+            ]))
       }
       if case .handled(var transition) = enter(
         next, profile: profile, token: envelope.token(owner: .root, epoch: state.epoch))
       {
         transition.effects.append(statusEffect)
+        transition.childControls.append(.init(.administration, .initializeWebDraft(profile)))
         return .handled(transition)
       }
     }

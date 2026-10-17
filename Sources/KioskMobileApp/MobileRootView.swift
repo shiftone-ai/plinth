@@ -29,6 +29,11 @@ import KioskLocalization
       ZStack {
         if exhibitionWindow {
           Color.black.ignoresSafeArea()
+          if root.props.mode == .paused {
+            Label(L10n.string("Exhibition paused", locale: locale), systemImage: "pause.circle")
+              .foregroundStyle(.white)
+              .accessibilityIdentifier("exhibition-paused")
+          }
           if root.props.exhibitionDestination == .externalDisplay && root.props.mode == .exhibiting
             && root.props.externalDisplayOnly == displayOnly
           {
@@ -87,6 +92,23 @@ import KioskLocalization
             .background(.regularMaterial, in: Circle())
             .padding()
             .accessibilityIdentifier("request-unlock")
+        }
+      }
+      .overlay(alignment: .topLeading) {
+        if !exhibitionWindow && !displayOnly,
+          root.props.exhibitionDestination == .externalDisplay,
+          [.exhibiting, .paused, .safeHold].contains(root.props.mode),
+          let url = root.props.webServerURL
+        {
+          VStack(spacing: 8) {
+            Text(L10n.string("Web management", locale: locale))
+              .font(.caption.weight(.semibold))
+            WebManagementQRCode(url: url, size: 168)
+          }
+          .foregroundStyle(.black)
+          .padding(12)
+          .background(.white, in: RoundedRectangle(cornerRadius: 14))
+          .padding()
         }
       }
     }

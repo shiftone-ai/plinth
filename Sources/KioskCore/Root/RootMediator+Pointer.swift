@@ -98,7 +98,7 @@ extension RootMediator {
     var next = state
     guard envelope.source == .platform else { return .reject(state, .wrongSource) }
     guard
-      state.mode == .exhibiting || state.mode == .safeHold
+      state.mode == .exhibiting || state.mode == .safeHold || state.mode == .paused
         || (state.mode == .enteringKiosk && state.presentationAcquired)
     else {
       return .reject(state, .invalidState)
@@ -112,13 +112,19 @@ extension RootMediator {
     next.unlockID = envelope.eventID
     next.unlockTimeoutOperation = token
     next.unlockDeadline = envelope.timestamp + 60
+    next.biometricUnlockOperation = nil
+    next.biometricUnlockFailed = false
     next.mode = .unlocking
+    next.biometricUnlockFailed = false
+    let statusToken = envelope.token(owner: .credentials, epoch: state.epoch)
+    next.biometricStatusOperation = statusToken
     let pointerEffects = releasePointer(&next, token: token)
     return .handled(
       .init(
         next, reply: .accepted,
         effects: pointerEffects + [
-          Effect(token, .scheduleUnlockTimeout(deadline: envelope.timestamp + 60))
+          Effect(token, .scheduleUnlockTimeout(deadline: envelope.timestamp + 60)),
+          Effect(statusToken, .readBiometricStatus),
         ],
         childControls: [
           .init(.administration, .openUnlock(unlockID: envelope.eventID))
