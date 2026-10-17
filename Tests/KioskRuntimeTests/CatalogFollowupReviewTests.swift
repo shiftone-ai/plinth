@@ -5,6 +5,47 @@ import Testing
 
 @MainActor
 struct CatalogFollowupReviewTests {
+  @Test func enteringExhibitionCancelsCatalogFileWorkAndDiscardsItsResult() throws {
+    let fixture = RuntimeFixture()
+    defer { fixture.runtime.stop() }
+    let profile = try fixture.profile()
+    let entry = try #require(
+      CatalogEntry(id: UUID(), name: "Device", snapshot: CatalogSnapshot(profile)!))
+    fixture.runtime.send(
+      .bootstrapped(profile: nil, credentialsConfigured: false, displayCount: 1), from: .root)
+    fixture.runtime.send(.draftChanged(ProfileDraft(profile: profile)), from: .settings)
+    fixture.runtime.send(.saveDraftRequested, from: .settings)
+    let profileSave = try #require(fixture.port.effects.last)
+    guard case .saveProfile(let saved) = profileSave.kind else {
+      Issue.record("Expected profile save")
+      return
+    }
+    fixture.port.deliver(.profileSaved(profileSave.token, saved), source: .profileRepository)
+    fixture.runtime.send(
+      .credentialConfigurationRequested("example-passcode"), from: .administration)
+    let credential = try #require(fixture.runtime.snapshot.root.credentialOperation)
+    fixture.port.deliver(.credentialConfigured(credential, succeeded: true), source: .credentials)
+    fixture.runtime.send(.catalogLoadRequested, from: .root)
+    let load = try #require(fixture.runtime.snapshot.root.catalogLoadOperation)
+    fixture.port.deliver(
+      .catalogLoaded(load, SettingsCatalog(entries: [entry])), source: .catalogRepository)
+    fixture.runtime.send(
+      .catalogExportOperationRequested(ids: [entry.id], passphrase: "long-enough-file-passphrase"),
+      from: .administration)
+    let operation = try #require(fixture.runtime.snapshot.root.catalogExportOperation)
+    #expect(fixture.runtime.send(.startExhibitionRequested, from: .settings).reply == .accepted)
+    #expect(fixture.runtime.snapshot.root.catalogExportOperation == nil)
+    #expect(fixture.runtime.snapshot.root.catalogExportData == nil)
+    #expect(
+      fixture.port.effects.contains { effect in
+        if case .cancelOperation(let cancelled) = effect.kind { return cancelled == operation }
+        return false
+      })
+    #expect(
+      fixture.runtime.send(
+        .catalogExportPrepared(operation, Data([1])), from: .catalogRepository
+      ).reply == .rejected(.staleOperation))
+  }
   @Test func oldAccountConflictCannotMoveAnEntryToTheNewAccount() throws {
     let fixture = RuntimeFixture()
     defer { fixture.runtime.stop() }

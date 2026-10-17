@@ -233,6 +233,7 @@ extension RootMediator {
       next.catalog = document
       next.catalogSaveOperation = nil
       next.pendingCatalog = nil
+      next.catalogQueuedReconcileAttempted = false
       if state.pendingCatalogImport { next.catalogImportPreview = nil }
       next.pendingCatalogImport = false
       let registrationID = next.pendingCatalogRegistrationID
@@ -300,7 +301,7 @@ extension RootMediator {
         let deletions = document.pendingDeletions.filter {
           $0.accountIdentifier == accountID && oldDeletions[$0.id] != $0.attempt
             && !queuedIDs.contains($0.id)
-        }.map(\.id)
+        }
         if !saves.isEmpty || !deletions.isEmpty || !resolvedConflicts.isEmpty,
           let session = next.catalogCloudSessionOperation
         {
@@ -318,27 +319,7 @@ extension RootMediator {
         registrationID.map {
           [.init(.administration, .catalogRegistrationSucceeded($0))]
         } ?? []
-      var followup = document
-      for index in followup.entries.indices {
-        let entry = followup.entries[index]
-        if entry.accountIdentifier == document.accountIdentifier,
-          let version = state.queuedCatalogAcknowledgements[entry.id],
-          entry.version == version
-        {
-          followup.entries[index].syncedVersion = version
-        }
-      }
-      followup.pendingDeletions.removeAll {
-        $0.accountIdentifier == document.accountIdentifier
-          && state.queuedCatalogDeletionAcknowledgements.contains($0.id)
-      }
-      if !state.queuedCatalogCloudChanges.isEmpty,
-        let accountID = document.accountIdentifier,
-        let received = receiveCloudChanges(
-          state.queuedCatalogCloudChanges, into: followup, accountID: accountID)
-      {
-        followup = received
-      }
+      let followup = reconcileQueuedCloudFacts(state, into: document)
       if followup != document {
         next.queuedCatalogCloudChanges = []
         next.queuedCatalogAcknowledgements = [:]
@@ -367,6 +348,19 @@ extension RootMediator {
       next.catalogSaveFailed = true
       next.catalogCheckAfterSave = false
       next.catalogStartAfterSave = false
+      if hasQueuedCloudFacts(state), !state.catalogQueuedReconcileAttempted {
+        let followup = reconcileQueuedCloudFacts(state, into: state.catalog)
+        if followup != state.catalog,
+          case .handled(var transition) = commitCatalog(
+            next, followup, token: token, publish: false)
+        {
+          transition.state.catalogQueuedReconcileAttempted = true
+          transition.state.catalogCheckAfterSave = recheckAccount
+          transition.state.catalogSaveFailed = true
+          return .handled(transition)
+        }
+      }
+      if hasQueuedCloudFacts(state) { next.catalogSyncStatus = .failed }
       if recheckAccount {
         next.catalogSyncStatus = .checking
         next.catalogAccountCheckOperation = token

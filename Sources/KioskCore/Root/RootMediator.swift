@@ -397,6 +397,7 @@ public enum RootMediator {
     next.presentationOperation = token
     next.presentationAcquisition = token
     next.administratorSession = false
+    let fileEffects = cancelCatalogFileOperations(&next, token: token)
     let settings = state.mobileDisplays == nil ? profile.macOutput ?? .init() : .init()
     let display = state.macDisplays.flatMap { DisplaySelection.select(settings, from: $0) }
     let usesExternalDisplay =
@@ -414,7 +415,8 @@ public enum RootMediator {
       ? [.init(.administration, .catalogPassphraseCleared)] : []
     return .handled(
       .init(
-        next, reply: reply, effects: [Effect(token, .applyPresentation(request))],
+        next, reply: reply,
+        effects: fileEffects + [Effect(token, .applyPresentation(request))],
         childControls: controls))
   }
 

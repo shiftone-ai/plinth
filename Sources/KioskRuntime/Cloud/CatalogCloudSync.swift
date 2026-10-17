@@ -35,6 +35,10 @@ public actor CatalogCloudSync: CKSyncEngineDelegate {
   private var generation: UInt64 = 0
   private var session: OperationToken?
   private var lastCommandID: UInt64 = 0
+  private var publications = CatalogPublicationBuffer()
+  private var processingPublications = false
+  private var retryPublicationsAfterProcessing = false
+  private var initializingGeneration: UInt64?
 
   public init(
     stateURL: URL, containerIdentifier: String = CatalogCloudSync.containerIdentifier,
@@ -68,6 +72,8 @@ public actor CatalogCloudSync: CKSyncEngineDelegate {
     let startedGeneration = generation
     self.session = session
     active = false
+    initializingGeneration = startedGeneration
+    publications.reset(for: session)
     let previous = engine
     engine = nil
     await previous?.cancelOperations()
@@ -78,6 +84,7 @@ public actor CatalogCloudSync: CKSyncEngineDelegate {
     guard case .available(let currentAccount) = availability,
       currentAccount == accountIdentifier
     else {
+      initializingGeneration = nil
       await reportAccountUnavailable(availability, session: session)
       return
     }
@@ -157,7 +164,12 @@ public actor CatalogCloudSync: CKSyncEngineDelegate {
       if !replay.isEmpty {
         await sendEvent(.catalogCloudChanges(session, accountIdentifier, replay))
       }
+      if generation == startedGeneration {
+        initializingGeneration = nil
+        await processPublications()
+      }
     } catch {
+      initializingGeneration = nil
       await sendEvent(.catalogCloudStatus(session, .failed))
     }
   }
@@ -171,7 +183,9 @@ public actor CatalogCloudSync: CKSyncEngineDelegate {
     }
     generation &+= 1
     active = false
+    initializingGeneration = nil
     session = nil
+    publications.reset(for: nil)
     let previous = engine
     engine = nil
     await previous?.cancelOperations()
@@ -179,56 +193,102 @@ public actor CatalogCloudSync: CKSyncEngineDelegate {
 
   public func queue(
     command: OperationToken, session requestedSession: OperationToken, resolvedConflicts: [UUID],
-    saves: [CatalogEntry], deletions: [UUID]
+    saves: [CatalogEntry], deletions: [CatalogPendingDeletion]
   ) async {
     guard command.operationID > lastCommandID else { return }
-    lastCommandID = command.operationID
-    guard active, let engine, let session,
-      session == requestedSession
+    guard session == nil || session == requestedSession else { return }
+    publications.append(
+      CatalogPublication(
+        command: command, session: requestedSession, resolvedConflicts: resolvedConflicts,
+        saves: saves, deletions: deletions))
+    await processPublications()
+  }
+
+  private func processPublications() async {
+    if processingPublications {
+      retryPublicationsAfterProcessing = true
+      return
+    }
+    guard initializingGeneration == nil, active, let engine, let session,
+      publications.hasPending
     else { return }
+    processingPublications = true
+    defer {
+      processingPublications = false
+      if retryPublicationsAfterProcessing {
+        retryPublicationsAfterProcessing = false
+        Task { await self.processPublications() }
+      }
+    }
     let queuedGeneration = generation
     let availability = await accountAvailability()
     guard generation == queuedGeneration, active, self.engine === engine,
-      self.session == session, lastCommandID == command.operationID, !Task.isCancelled
+      self.session == session, !Task.isCancelled
     else { return }
-    guard var disk = self.disk else { return }
+    guard let disk = self.disk else { return }
     guard case .available(let currentAccount) = availability,
       currentAccount == disk.accountIdentifier
     else {
       await reportAccountUnavailable(availability, session: session)
       return
     }
-    do {
-      disk.conflicts.subtract(resolvedConflicts)
-      let fetchedConflicts = Self.fetchedConflicts(
-        saves: saves, disk: disk, resolvedConflicts: Set(resolvedConflicts))
-      disk.conflicts.formUnion(fetchedConflicts.map(\.id))
-      let permittedSaves = saves.filter { !disk.conflicts.contains($0.id) }
-      let permittedDeletions = deletions.filter { !disk.conflicts.contains($0) }
-      for entry in permittedSaves {
-        guard entry.scope == .iCloud, entry.accountIdentifier == disk.accountIdentifier,
-          CatalogCloudPayload.encoded(entry) != nil
-        else { throw Failure.invalidPayload }
-        disk.entries[entry.id] = entry
+    while generation == queuedGeneration && active && self.engine === engine
+      && self.session == session
+    {
+      guard let publication = publications.takeNext(for: session) else { break }
+      do {
+        guard var disk = self.disk else { return }
+        let resolvedConflicts = publication.resolvedConflicts
+        let saves = publication.saves
+        let deletions = publication.deletions
+        disk.conflicts.subtract(resolvedConflicts)
+        let fetchedConflicts = Self.fetchedConflicts(
+          saves: saves, disk: disk, resolvedConflicts: Set(resolvedConflicts))
+        let fetchedDeletionConflicts = deletions.compactMap {
+          Self.fetchedChangeConflictingWithDeletion($0, serverEntries: disk.serverEntries)
+        }
+        let allConflicts = fetchedConflicts + fetchedDeletionConflicts
+        disk.conflicts.formUnion(allConflicts.map(\.id))
+        for id in allConflicts.map(\.id) {
+          engine.state.remove(pendingRecordZoneChanges: [
+            .saveRecord(Self.recordID(id)), .deleteRecord(Self.recordID(id)),
+          ])
+        }
+        let permittedSaves = saves.filter { !disk.conflicts.contains($0.id) }
+        let permittedDeletions = deletions.filter {
+          $0.accountIdentifier == disk.accountIdentifier && !disk.conflicts.contains($0.id)
+        }
+        for entry in permittedSaves {
+          guard entry.scope == .iCloud, entry.accountIdentifier == disk.accountIdentifier,
+            CatalogCloudPayload.encoded(entry) != nil
+          else { throw Failure.invalidPayload }
+          disk.entries[entry.id] = entry
+        }
+        for deletion in permittedDeletions {
+          disk.entries.removeValue(forKey: deletion.id)
+        }
+        let acceptedDeletions = Self.dropResolvedServerDeletions(
+          resolvedConflicts: resolvedConflicts, saves: permittedSaves, disk: &disk)
+        for id in acceptedDeletions {
+          engine.state.remove(pendingRecordZoneChanges: [.saveRecord(Self.recordID(id))])
+        }
+        self.disk = disk
+        try persistDisk()
+        engine.state.add(
+          pendingRecordZoneChanges:
+            permittedSaves.map { .saveRecord(Self.recordID($0.id)) }
+            + permittedDeletions.map { .deleteRecord(Self.recordID($0.id)) })
+        let pending =
+          !engine.state.pendingRecordZoneChanges.isEmpty
+          || !engine.state.pendingDatabaseChanges.isEmpty || !disk.conflicts.isEmpty
+        if !allConflicts.isEmpty {
+          await sendEvent(.catalogCloudChanges(session, disk.accountIdentifier, allConflicts))
+        }
+        await sendEvent(.catalogCloudStatus(session, pending ? .pending : .ready))
+      } catch {
+        await sendEvent(.catalogCloudStatus(session, .failed))
+        return
       }
-      for id in permittedDeletions {
-        disk.entries.removeValue(forKey: id)
-      }
-      self.disk = disk
-      try persistDisk()
-      engine.state.add(
-        pendingRecordZoneChanges:
-          permittedSaves.map { .saveRecord(Self.recordID($0.id)) }
-          + permittedDeletions.map { .deleteRecord(Self.recordID($0)) })
-      let pending =
-        !engine.state.pendingRecordZoneChanges.isEmpty
-        || !engine.state.pendingDatabaseChanges.isEmpty || !disk.conflicts.isEmpty
-      if !fetchedConflicts.isEmpty {
-        await sendEvent(.catalogCloudChanges(session, disk.accountIdentifier, fetchedConflicts))
-      }
-      await sendEvent(.catalogCloudStatus(session, pending ? .pending : .ready))
-    } catch {
-      await sendEvent(.catalogCloudStatus(session, .failed))
     }
   }
 
@@ -463,7 +523,7 @@ extension CatalogCloudSync {
           syncEngine.state.remove(pendingRecordZoneChanges: [.deleteRecord(recordID)])
           acknowledgedDeletions.append(id)
         } else {
-          failureStatus = .failed
+          failureStatus = Self.isTransient(error) ? .offline : .failed
         }
       }
     }
@@ -558,6 +618,10 @@ extension CatalogCloudSync {
   private static func isOffline(_ error: CKError) -> Bool {
     error.code == .networkUnavailable || error.code == .networkFailure
       || error.code == .serviceUnavailable || error.code == .zoneBusy
+  }
+
+  static func isTransient(_ error: CKError) -> Bool {
+    isOffline(error) || error.code == .notAuthenticated || error.code == .operationCancelled
   }
 
   private func reportAccountUnavailable(

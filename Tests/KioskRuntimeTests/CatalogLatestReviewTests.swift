@@ -148,6 +148,59 @@ struct CatalogLatestReviewTests {
       })
   }
 
+  @Test func cloudChangesQueuedDuringAFailedSaveArePersisted() throws {
+    let fixture = RuntimeFixture()
+    defer { fixture.runtime.stop() }
+    let snapshot = try #require(CatalogSnapshot(fixture.profile()))
+    let local = try #require(CatalogEntry(id: UUID(), name: "Local", snapshot: snapshot))
+    let remote = try #require(
+      CatalogEntry(
+        id: UUID(), name: "Remote", snapshot: snapshot, scope: .iCloud,
+        accountIdentifier: "account-a"))
+    try startCatalog(fixture, entries: [local])
+    let session = try #require(fixture.runtime.snapshot.root.catalogCloudSessionOperation)
+    fixture.runtime.send(
+      .catalogVisibilityRequested(id: local.id, visible: false), from: .settings)
+    let failed = try #require(fixture.runtime.snapshot.root.catalogSaveOperation)
+    fixture.runtime.send(
+      .catalogCloudChanges(session, "account-a", [.upsert(remote)]), from: .cloudCatalog)
+    fixture.port.deliver(.catalogSaveFailed(failed), source: .catalogRepository)
+    let retry = try #require(fixture.runtime.snapshot.root.catalogSaveOperation)
+    #expect(retry != failed)
+    try finishCatalogSave(fixture)
+    #expect(fixture.runtime.snapshot.root.catalog.entries.contains { $0.id == remote.id })
+  }
+
+  @Test func failedCloudFactRetryStopsAfterOneAttemptAndCanBeRequestedAgain() throws {
+    let fixture = RuntimeFixture()
+    defer { fixture.runtime.stop() }
+    let snapshot = try #require(CatalogSnapshot(fixture.profile()))
+    let remote = try #require(
+      CatalogEntry(
+        id: UUID(), name: "Remote", snapshot: snapshot, scope: .iCloud,
+        accountIdentifier: "account-a"))
+    try startCatalog(fixture, entries: [])
+    let session = try #require(fixture.runtime.snapshot.root.catalogCloudSessionOperation)
+    fixture.runtime.send(
+      .catalogCloudChanges(session, "account-a", [.upsert(remote)]),
+      from: .cloudCatalog)
+    let first = try #require(fixture.runtime.snapshot.root.catalogSaveOperation)
+    fixture.runtime.send(
+      .catalogCloudChanges(session, "account-a", [.upsert(remote)]),
+      from: .cloudCatalog)
+    fixture.port.deliver(.catalogSaveFailed(first), source: .catalogRepository)
+    let automatic = try #require(fixture.runtime.snapshot.root.catalogSaveOperation)
+    fixture.port.deliver(.catalogSaveFailed(automatic), source: .catalogRepository)
+    #expect(fixture.runtime.snapshot.root.catalogSaveOperation == nil)
+    #expect(fixture.runtime.snapshot.root.catalogSyncStatus == .failed)
+    fixture.runtime.send(.catalogCloudStatus(session, .ready), from: .cloudCatalog)
+    #expect(fixture.runtime.snapshot.root.catalogSyncStatus == .failed)
+    #expect(
+      fixture.runtime.send(.catalogSyncRetryRequested, from: .settings).reply == .accepted)
+    try finishCatalogSave(fixture)
+    #expect(fixture.runtime.snapshot.root.catalog.entries.contains { $0.id == remote.id })
+  }
+
   private func startCatalog(
     _ fixture: RuntimeFixture, entries: [CatalogEntry], conflicts: [CatalogConflict] = []
   ) throws {

@@ -242,7 +242,13 @@ struct SettingsCatalogSection: View {
         L10n.string("iCloud account changed; sync is off", locale: locale),
         systemImage: "person.crop.circle.badge.exclamationmark")
     case .failed:
-      Label(L10n.string("Sync failed", locale: locale), systemImage: "exclamationmark.icloud")
+      HStack {
+        Label(L10n.string("Sync failed", locale: locale), systemImage: "exclamationmark.icloud")
+        Spacer()
+        Button(L10n.string("Try again", locale: locale)) { send(.retryCatalogSync) }
+          .disabled(!props.canManage)
+          .accessibilityIdentifier("catalog-sync-retry")
+      }
     }
   }
 }
