@@ -148,6 +148,7 @@ public struct SettingsView: View {
         SettingsCatalogSection(props: props.catalog, send: send) {
           showsCatalogImporter = true
         }
+        SettingsInformationSection(licenseSheetPresented: props.licenseSheetPresented, send: send)
         SettingsWebManagementSection(props: props, send: send)
         if !props.validationMessages.isEmpty {
           Section {

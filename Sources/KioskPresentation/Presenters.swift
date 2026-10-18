@@ -92,7 +92,8 @@ public enum Presenters {
       externalDisplayModes: root.mobileDisplays?.displayModes ?? [],
       externalDisplayCurrentMode: root.mobileDisplays?.currentMode,
       webServerURL: root.webServerURL,
-      webServerFailure: root.webServerFailure
+      webServerFailure: root.webServerFailure,
+      licenseSheetPresented: root.licenseSheetPresented
     )
   }
 

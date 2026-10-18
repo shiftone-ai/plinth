@@ -1,5 +1,12 @@
 import Foundation
 import KioskCore
+import KioskLocalization
+
+#if os(macOS)
+  import AppKit
+#else
+  import UIKit
+#endif
 
 @MainActor
 public final class NativeEffectPort: EffectPort {
@@ -36,6 +43,9 @@ public final class NativeEffectPort: EffectPort {
   public func perform(_ effect: Effect) async -> Event? {
     if Task.isCancelled { return nil }
     switch effect.kind {
+    case .openInformationPage(let page, let locale):
+      await openInformationPage(page, locale: locale)
+      return .informationPageOpenCompleted(effect.token)
     case .bootstrap:
       return await bootstrap(effect.token)
     case .prepareExternalScene:
@@ -191,6 +201,23 @@ public final class NativeEffectPort: EffectPort {
       } catch { return .catalogImportFailed(effect.token) }
     default: return nil
     }
+  }
+
+  private func openInformationPage(_ page: InformationPage, locale: String) async {
+    let language = L10n.languageCode(for: Locale(identifier: locale))
+    let name = page == .privacy ? "privacy" : "support"
+    var address = "https://shiftone-ai.github.io/plinth/\(language)/\(name).html"
+    #if DEBUG
+      if let testAddress = ProcessInfo.processInfo.environment["PLINTH_TEST_INFORMATION_PAGE_URL"] {
+        address = testAddress
+      }
+    #endif
+    guard !Task.isCancelled, let url = URL(string: address) else { return }
+    #if os(macOS)
+      _ = NSWorkspace.shared.open(url)
+    #else
+      _ = await UIApplication.shared.open(url)
+    #endif
   }
 
   public nonisolated static func timerInterval(until deadline: Double, now: Double) -> Double {

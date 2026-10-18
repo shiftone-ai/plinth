@@ -10,6 +10,9 @@ public enum RootMediator {
     case .webRestartExhibitionRequested, .webStopExhibitionRequested,
       .webResumeExhibitionRequested:
       return reduceWebExhibition(state, envelope, context: context)
+    case .openInformationPageRequested, .informationPageOpenCompleted,
+      .openLicensesRequested, .closeLicensesRequested:
+      return reduceInformation(state, envelope)
     case .bootstrapped:
       return withWebServerLifecycle(bootstrapCompleted(state, envelope), before: state, envelope)
     case .catalogLoadRequested, .catalogLoaded, .catalogLoadFailed, .catalogLoadCorrupt,
@@ -302,11 +305,14 @@ public enum RootMediator {
       }
       guard state.mode == .administration else { return .reject(state, .unauthenticated) }
       next.mode = .terminating
+      next.licenseSheetPresented = false
+      next.informationPageOperation = nil
       next.externalSceneOperation = nil
       return .handled(
         .init(
           next, reply: .accepted,
-          effects: state.externalSceneOperation.map { [Effect(token, .cancelOperation($0))] } ?? [],
+          effects: (state.externalSceneOperation.map { [Effect(token, .cancelOperation($0))] } ?? [])
+            + (state.informationPageOperation.map { [Effect(token, .cancelOperation($0))] } ?? []),
           childControls: [
             .init(.administration, .cancelAuthentication), .init(.exhibition, .stopExhibition),
           ]))
@@ -418,6 +424,8 @@ public enum RootMediator {
   ) -> Mediation<RootState> {
     var next = state
     next.mode = .enteringKiosk
+    next.licenseSheetPresented = false
+    next.informationPageOperation = nil
     next.webExitDestination = nil
     next.pointerCaptureFailed = false
     next.foregroundResume = .none
@@ -444,7 +452,8 @@ public enum RootMediator {
     return .handled(
       .init(
         next, reply: reply,
-        effects: fileEffects + [Effect(token, .applyPresentation(request))],
+        effects: (state.informationPageOperation.map { [Effect(token, .cancelOperation($0))] } ?? [])
+          + fileEffects + [Effect(token, .applyPresentation(request))],
         childControls: controls))
   }
 
