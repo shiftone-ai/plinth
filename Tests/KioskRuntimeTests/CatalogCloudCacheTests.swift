@@ -102,6 +102,41 @@ struct CatalogCloudCacheTests {
     #expect(try CatalogCloudSync.loadDisk(at: file)?.accountIdentifier == "account-a")
   }
 
+  @Test @MainActor func invalidDecodedCloudEntriesAreQuarantined() throws {
+    let fixture = RuntimeFixture()
+    defer { fixture.runtime.stop() }
+    let id = UUID()
+    let valid = try #require(
+      CatalogEntry(
+        id: id, name: "Shared", snapshot: CatalogSnapshot(fixture.profile())!,
+        scope: .iCloud, accountIdentifier: "account-a"))
+    var invalid = valid
+    invalid.version = 0
+    let disks = [
+      CatalogCloudSync.DiskState(
+        accountIdentifier: "account-a", engineState: nil, entries: [:],
+        serverEntries: [id: invalid], serverDeletions: [], recordSystemFields: [:],
+        conflicts: []),
+      CatalogCloudSync.DiskState(
+        accountIdentifier: "account-a", engineState: nil, entries: [UUID(): valid],
+        serverEntries: [:], serverDeletions: [], recordSystemFields: [:], conflicts: []),
+    ]
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
+      "plinth-cloud-validation-\(UUID())", isDirectory: true)
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    for (index, disk) in disks.enumerated() {
+      let file = directory.appendingPathComponent("catalog-cloud-\(index).json")
+      try JSONEncoder().encode(disk).write(to: file)
+      #expect(try CatalogCloudSync.loadDisk(at: file)?.accountIdentifier == nil)
+      #expect(!FileManager.default.fileExists(atPath: file.path))
+      #expect(
+        try FileManager.default.contentsOfDirectory(atPath: directory.path).contains {
+          $0.hasPrefix(file.lastPathComponent + ".invalid-")
+        })
+    }
+  }
+
   @Test @MainActor func aFetchedEditBlocksDeletionOfAnOlderVersion() throws {
     let fixture = RuntimeFixture()
     defer { fixture.runtime.stop() }

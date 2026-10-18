@@ -631,7 +631,12 @@ extension CatalogCloudSync {
     guard FileManager.default.fileExists(atPath: stateURL.path) else { return nil }
     let data = try Data(contentsOf: stateURL)
     do {
-      return try JSONDecoder().decode(DiskState.self, from: data)
+      let disk = try JSONDecoder().decode(DiskState.self, from: data)
+      guard disk.isValid else {
+        throw DecodingError.dataCorrupted(
+          .init(codingPath: [], debugDescription: "Invalid catalog cloud cache"))
+      }
+      return disk
     } catch is DecodingError {
       let quarantine = URL(fileURLWithPath: stateURL.path + ".invalid-" + UUID().uuidString)
       try FileManager.default.moveItem(at: stateURL, to: quarantine)

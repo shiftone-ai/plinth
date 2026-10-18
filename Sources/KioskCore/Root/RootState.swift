@@ -108,7 +108,7 @@ public struct RootState: Equatable, Sendable {
   }
   public func catalogEntryAvailable(_ entry: CatalogEntry) -> Bool {
     entry.scope == .device
-      || (entry.accountIdentifier == catalog.accountIdentifier
+      || (catalog.syncEnabled && entry.accountIdentifier == catalog.accountIdentifier
         && catalogSyncStatus != .checking
         && catalogSyncStatus != .accountChanged
         && catalogSyncStatus != .signInRequired)
