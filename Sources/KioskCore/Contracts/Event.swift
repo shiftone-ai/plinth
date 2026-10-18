@@ -8,6 +8,7 @@ public enum Event: Equatable, Sendable {
     OperationToken, displayCount: Int, credentialsConfigured: Bool, profileCorrupt: Bool)
   case applicationDeactivated
   case applicationActivated
+  case mobileLastSceneDisconnected
   case systemWillSleep
   case systemDidWake
   case startExhibitionRequested

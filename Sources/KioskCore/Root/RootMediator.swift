@@ -37,7 +37,8 @@ public enum RootMediator {
       .biometricChangeCompleted, .biometricChangeCancelled,
       .biometricUnlockRequested, .biometricUnlockCancelled, .biometricUnlockCompleted:
       return reduceBiometric(state, envelope)
-    case .applicationDeactivated, .systemWillSleep, .unlockDeadlineReached,
+    case .applicationDeactivated, .mobileLastSceneDisconnected, .systemWillSleep,
+      .unlockDeadlineReached,
       .unlockCancelled, .authenticationVerified:
       return withWebServerLifecycle(
         reduceUnlockLifecycle(state, envelope), before: state, envelope)
@@ -59,6 +60,26 @@ public enum RootMediator {
   ) -> Mediation<RootState> {
     let token = envelope.token(owner: .root, epoch: state.epoch)
     switch envelope.event {
+    case .mobileLastSceneDisconnected:
+      guard envelope.source == .platform, state.mobileDisplays != nil else {
+        return .reject(state, .wrongSource)
+      }
+      var next = state
+      next.mobileForeground = false
+      next.administratorSession = false
+      guard state.mode == .administration, state.credentialsConfigured else {
+        return .handled(.init(next))
+      }
+      next.mode = .safeHold
+      let effects = cancelCatalogFileOperations(&next, token: token)
+      return .handled(
+        .init(
+          next, effects: effects,
+          childControls: [
+            .init(.administration, .cancelAuthentication),
+            .init(.administration, .catalogPassphraseCleared),
+          ]))
+
     case .applicationDeactivated:
       guard envelope.source == .platform else { return .reject(state, .wrongSource) }
       var next = state
@@ -186,6 +207,10 @@ public enum RootMediator {
       if succeeded {
         next.credentialsConfigured = true
         next.webSession = nil
+        if state.mobileDisplays?.deviceAvailable == false && state.mode == .administration {
+          next.mode = .safeHold
+          next.administratorSession = false
+        }
       }
       let controls: [ChildControl] =
         succeeded
@@ -424,6 +449,10 @@ public enum RootMediator {
     RootState
   > {
     var next = state
+    if state.mobileDisplays != nil, state.credentialsConfigured, !state.administratorSession {
+      next.mode = .safeHold
+      return .handled(.init(next))
+    }
     next.mode = .administration
     next.activeProfile = nil
     let statusToken = OperationToken(

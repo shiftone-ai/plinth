@@ -335,12 +335,10 @@ extension RootMediator {
       }
       let followup = reconcileQueuedCloudFacts(state, into: document)
       if followup != document {
-        next.queuedCatalogCloudChanges = []
-        next.queuedCatalogAcknowledgements = [:]
-        next.queuedCatalogDeletionAcknowledgements = []
         if case .handled(var transition) = commitCatalog(
           next, followup, token: token, publish: false)
         {
+          transition.state.catalogQueuedReconcileAttempted = true
           transition.effects.insert(contentsOf: effects, at: 0)
           transition.childControls.append(contentsOf: controls)
           return .handled(transition)
@@ -373,7 +371,9 @@ extension RootMediator {
           return .handled(transition)
         }
       }
-      if hasQueuedCloudFacts(state) { next.catalogSyncStatus = .failed }
+      if hasQueuedCloudFacts(state) || state.catalogStartAfterSave {
+        next.catalogSyncStatus = .failed
+      }
       if recheckAccount {
         next.catalogSyncStatus = .checking
         next.catalogAccountCheckOperation = token
