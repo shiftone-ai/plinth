@@ -14,7 +14,7 @@ Mac・iPad・iPhoneでWebコンテンツを展示するキオスクランタイ�
 
 Mac専用版，iPad・iPhone版を実装し，実機とSimulatorで設定・URL制限・無操作復帰・管理者解除を確認した．iPadの外部表示では，解像度・全4方向の回転・設定から戻った後の復帰も確認した．物理トラックパッドによるWeb操作と画面の端での制限，実ケーブルの抜き差し，複数画面のMacと1週間の実時間運転は未確認．検証範囲は [開発と検証](docs/development.md) を参照する．
 
-多言語対応（[#1](https://github.com/shiftone-ai/plinth/issues/1)），Webからの設定（[#2](https://github.com/shiftone-ai/plinth/issues/2)），生体認証による解除（[#3](https://github.com/shiftone-ai/plinth/issues/3)）は後続の機能として管理する．[iPadの対応方針](docs/design-docs/ipad-support.md) と [実機への配布](docs/distribution.md) を参照する．
+管理画面は日本語・英語・韓国語・簡体字中国語に対応する．端末で有効にした場合は，同じローカルネットワークのブラウザから設定できる．この通信はHTTPであり，隔離したネットワークで運用する．対応端末では，管理者が有効にした生体認証で設定画面を開ける．[iPadの対応方針](docs/design-docs/ipad-support.md) と [実機への配布](docs/distribution.md) を参照する．
 
 ## ビルドとテスト
 

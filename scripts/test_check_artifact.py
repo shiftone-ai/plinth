@@ -153,12 +153,14 @@ class CheckArtifactTests(unittest.TestCase):
         self.assertIn("生体認証用Keychain", result.stdout)
 
     def test_plinth_mac_export_requires_biometric_entitlement(self) -> None:
-        app = self.signed_mac_bundle(
-            self.work / "Exported/Plinth.app", None, bundle_id="ai.shiftone.plinth"
-        )
-        result = self.run_check(app)
-        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
-        self.assertIn("生体認証用Keychainの権限がない", result.stdout)
+        for bundle_id in ("ai.shiftone.plinth", "ai.shiftone.plinth.mobile"):
+            with self.subTest(bundle_id=bundle_id):
+                app = self.signed_mac_bundle(
+                    self.work / f"Exported-{bundle_id}/Plinth.app", None, bundle_id=bundle_id
+                )
+                result = self.run_check(app)
+                self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+                self.assertIn("生体認証用Keychainの権限がない", result.stdout)
 
     def test_app_changed_after_signing_fails(self) -> None:
         app = self.signed_mac_app(None)

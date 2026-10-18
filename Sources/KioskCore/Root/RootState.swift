@@ -77,6 +77,8 @@ public struct RootState: Equatable, Sendable {
   public var unlockID: UInt64?
   public var unlockReturnMode: AppMode?
   public var saveOperation: OperationToken?
+  public var informationPageOperation: OperationToken?
+  public var licenseSheetPresented = false
   public var pendingProfile: KioskProfile?
   public var input = InputState()
   public init() {}

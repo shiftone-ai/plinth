@@ -11,6 +11,8 @@ public enum SettingsIntent: Sendable {
   case prepareExternalScene
   case addOriginRule
   case removeOriginRule(UInt64)
+  case openInformationPage(InformationPage, locale: String)
+  case openLicenses, closeLicenses
 }
 
 public enum UnlockIntent: Sendable {

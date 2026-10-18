@@ -45,6 +45,7 @@ public struct SettingsProps: Equatable, Sendable {
   public let externalDisplayCurrentMode: ExternalDisplayMode?
   public let webServerURL: String?
   public let webServerFailure: WebServerFailure?
+  public let licenseSheetPresented: Bool
 }
 
 public struct SettingsValidationMessage: Equatable, Encodable, Sendable, Identifiable {
