@@ -194,6 +194,7 @@ struct CatalogLatestReviewTests {
     #expect(retry != failed)
     try finishCatalogSave(fixture)
     #expect(fixture.runtime.snapshot.root.catalog.entries.contains { $0.id == remote.id })
+    #expect(!fixture.runtime.snapshot.root.catalogSaveFailed)
   }
 
   @Test func failedCloudFactRetryStopsAfterOneAttemptAndCanBeRequestedAgain() throws {

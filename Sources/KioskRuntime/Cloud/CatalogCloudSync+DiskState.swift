@@ -34,6 +34,18 @@ extension CatalogCloudSync {
       self.opaqueRecordIDs = opaqueRecordIDs
     }
 
+    var isValid: Bool {
+      !accountIdentifier.isEmpty
+        && entries.allSatisfy { id, entry in
+          id == entry.id && entry.isValid && entry.scope == .iCloud
+            && entry.accountIdentifier == accountIdentifier
+        }
+        && serverEntries.allSatisfy { id, entry in
+          id == entry.id && entry.isValid && entry.scope == .iCloud
+            && entry.accountIdentifier == accountIdentifier
+        }
+    }
+
     init(from decoder: Decoder) throws {
       let values = try decoder.container(keyedBy: CatalogCloudDiskCodingKeys.self)
       accountIdentifier = try values.decode(String.self, forKey: .accountIdentifier)

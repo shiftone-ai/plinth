@@ -234,6 +234,7 @@ extension RootMediator {
       next.catalogSaveOperation = nil
       next.pendingCatalog = nil
       next.catalogQueuedReconcileAttempted = false
+      next.catalogSaveFailed = false
       if let accountID = document.accountIdentifier,
         !document.conflictIDs(for: accountID).isEmpty && next.catalogSyncStatus == .ready
       {
@@ -248,6 +249,7 @@ extension RootMediator {
         next.catalogSyncStatus =
           state.catalogSyncStatus == .accountChanged ? .accountChanged : .disabled
         next.catalogCloudSessionOperation = nil
+        next.catalogAccountCheckOperation = nil
         effects.append(Effect(token, .stopCatalogCloudSync))
       }
       if state.catalogCheckAfterSave && document.syncEnabled {
@@ -368,7 +370,6 @@ extension RootMediator {
         {
           transition.state.catalogQueuedReconcileAttempted = true
           transition.state.catalogCheckAfterSave = recheckAccount
-          transition.state.catalogSaveFailed = true
           return .handled(transition)
         }
       }

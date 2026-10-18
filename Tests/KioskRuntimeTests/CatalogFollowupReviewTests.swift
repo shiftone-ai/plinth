@@ -154,6 +154,27 @@ struct CatalogFollowupReviewTests {
     #expect(fixture.runtime.snapshot.root.catalogCloudSessionOperation == nil)
   }
 
+  @Test func lateAccountFailureCannotChangeDisabledSyncStatus() throws {
+    let fixture = RuntimeFixture()
+    defer { fixture.runtime.stop() }
+    fixture.runtime.send(
+      .bootstrapped(profile: nil, credentialsConfigured: false, displayCount: 1), from: .root)
+    fixture.runtime.send(.catalogLoadRequested, from: .root)
+    let load = try #require(fixture.runtime.snapshot.root.catalogLoadOperation)
+    fixture.port.deliver(
+      .catalogLoaded(load, SettingsCatalog(syncEnabled: true)), source: .catalogRepository)
+    let check = try #require(fixture.runtime.snapshot.root.catalogAccountCheckOperation)
+    #expect(fixture.runtime.send(.catalogSyncDisableRequested, from: .settings).reply == .accepted)
+    let saving = try #require(fixture.runtime.snapshot.root.catalogSaveOperation)
+    let document = try #require(fixture.runtime.snapshot.root.pendingCatalog)
+    fixture.port.deliver(.catalogSaved(saving, document), source: .catalogRepository)
+    #expect(fixture.runtime.snapshot.root.catalogSyncStatus == .disabled)
+    #expect(
+      fixture.runtime.send(.catalogAccountCheckDeferred(check), from: .cloudCatalog).reply
+        == .rejected(.staleOperation))
+    #expect(fixture.runtime.snapshot.root.catalogSyncStatus == .disabled)
+  }
+
   @Test func oversizedEntryRemainsOnThisDeviceAfterShareConfirmation() throws {
     let fixture = RuntimeFixture()
     defer { fixture.runtime.stop() }
