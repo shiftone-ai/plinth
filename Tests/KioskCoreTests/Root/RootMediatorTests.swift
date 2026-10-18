@@ -9,7 +9,7 @@ struct RootMediatorTests {
       .openInformationPageRequested(.privacy, locale: "zh-Hant"), source: .settings)
     let accepted = try #require(handled(RootMediator.reduce(state, request)))
     #expect(accepted.reply == .accepted)
-    #expect(accepted.state == state)
+    #expect(accepted.state.informationPageOperation == accepted.effects.first?.token)
     #expect(accepted.effects.map(\.kind) == [.openInformationPage(.privacy, locale: "zh-Hant")])
 
     let forged = try #require(
@@ -24,6 +24,48 @@ struct RootMediatorTests {
     let unavailable = try #require(handled(RootMediator.reduce(state, request)))
     #expect(unavailable.reply == .rejected(.invalidState))
     #expect(unavailable.effects.isEmpty)
+  }
+
+  @Test func openingInformationPageIsCancelledWhenExhibitionStarts() throws {
+    var state = RootState()
+    state.mode = .administration
+    state.savedProfile = try fixtureProfile()
+    state.credentialsConfigured = true
+    let opened = try #require(
+      handled(
+        RootMediator.reduce(
+          state, envelope(.openInformationPageRequested(.privacy, locale: "en"), source: .settings))
+      ))
+    let operation = try requireToken(opened.state.informationPageOperation)
+
+    let started = try #require(
+      handled(
+        RootMediator.reduce(
+          opened.state, envelope(.startExhibitionRequested, source: .settings, id: 2))))
+    #expect(started.state.mode == .enteringKiosk)
+    #expect(started.state.informationPageOperation == nil)
+    #expect(started.effects.map(\.kind).contains(.cancelOperation(operation)))
+  }
+
+  @Test func licenseSheetIsRootOwnedAndClosesOnExhibitionStart() throws {
+    var state = RootState()
+    state.mode = .administration
+    state.savedProfile = try fixtureProfile()
+    state.credentialsConfigured = true
+    let opened = try #require(
+      handled(
+        RootMediator.reduce(state, envelope(.openLicensesRequested, source: .settings))))
+    #expect(opened.state.licenseSheetPresented)
+    let closed = try #require(
+      handled(
+        RootMediator.reduce(
+          opened.state, envelope(.closeLicensesRequested, source: .settings, id: 2))))
+    #expect(!closed.state.licenseSheetPresented)
+    let started = try #require(
+      handled(
+        RootMediator.reduce(
+          opened.state, envelope(.startExhibitionRequested, source: .settings, id: 3))))
+    #expect(!started.state.licenseSheetPresented)
   }
 
   @Test func missingProfileWithExistingCredentialsRequiresAuthentication() throws {

@@ -2,8 +2,8 @@ import KioskLocalization
 import SwiftUI
 
 struct LicensesView: View {
-  @Environment(\.dismiss) private var dismiss
   @Environment(\.locale) private var locale
+  let onClose: () -> Void
 
   var body: some View {
     NavigationStack {
@@ -16,7 +16,7 @@ struct LicensesView: View {
       .navigationTitle(L10n.string("Licenses", locale: locale))
       .toolbar {
         ToolbarItem(placement: .confirmationAction) {
-          Button(L10n.string("Close", locale: locale)) { dismiss() }
+          Button(L10n.string("Close", locale: locale), action: onClose)
             .accessibilityIdentifier("license-close")
         }
       }

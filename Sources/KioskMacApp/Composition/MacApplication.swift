@@ -175,6 +175,8 @@ public final class MacApplication: NSObject, NSApplicationDelegate, NSWindowDele
     case .prepareExternalScene: event = .prepareExternalSceneRequested
     case .openInformationPage(let page, let locale):
       event = .openInformationPageRequested(page, locale: locale)
+    case .openLicenses: event = .openLicensesRequested
+    case .closeLicenses: event = .closeLicensesRequested
     case .quit:
       NSApplication.shared.terminate(nil)
       return

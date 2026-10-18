@@ -5,7 +5,7 @@ import SwiftUI
 
 struct SettingsInformationSection: View {
   @Environment(\.locale) private var locale
-  @State private var showingLicenses = false
+  let licenseSheetPresented: Bool
   let send: (SettingsIntent) -> Void
 
   var body: some View {
@@ -23,12 +23,18 @@ struct SettingsInformationSection: View {
       }
       .accessibilityIdentifier("support")
       Button {
-        showingLicenses = true
+        send(.openLicenses)
       } label: {
         Label(L10n.string("Licenses", locale: locale), systemImage: "doc.text")
       }
       .accessibilityIdentifier("licenses")
-      .sheet(isPresented: $showingLicenses) { LicensesView() }
+      .sheet(
+        isPresented: Binding(
+          get: { licenseSheetPresented },
+          set: { if !$0 { send(.closeLicenses) } })
+      ) {
+        LicensesView(onClose: { send(.closeLicenses) })
+      }
     }
   }
 

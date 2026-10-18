@@ -214,6 +214,8 @@
       case .prepareExternalScene: event = .prepareExternalSceneRequested
       case .openInformationPage(let page, let locale):
         event = .openInformationPageRequested(page, locale: locale)
+      case .openLicenses: event = .openLicensesRequested
+      case .closeLicenses: event = .closeLicensesRequested
       case .quit: return
       }
       runtime.send(event, from: .settings)

@@ -105,7 +105,7 @@ public final class RootRuntime {
   private func isCurrent(_ effect: Effect) -> Bool {
     switch effect.kind {
     case .openInformationPage:
-      store.root.mode == .administration && store.root.epoch == effect.token.ownerEpoch
+      store.root.mode == .administration && store.root.informationPageOperation == effect.token
     case .bootstrap: store.root.bootstrapOperation == effect.token
     case .prepareExternalScene: store.root.externalSceneOperation == effect.token
     case .captureExternalPointer: store.root.pointerCaptureOperation == effect.token

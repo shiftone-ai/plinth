@@ -66,6 +66,9 @@ public enum Event: Equatable, Sendable {
   case draftEdited(ProfileDraftEdit)
   case saveDraftRequested
   case openInformationPageRequested(InformationPage, locale: String)
+  case informationPageOpenCompleted(OperationToken)
+  case openLicensesRequested
+  case closeLicensesRequested
   case discardDraftRequested
   case addOriginRuleRequested
   case removeOriginRuleRequested(UInt64)
@@ -109,7 +112,8 @@ public enum Event: Equatable, Sendable {
       .nativeInput, .externalWebControlRequested, .externalWebControlExecutionRequested,
       .externalMouseInput,
       .navigationRequested, .profileCommitRequested, .draftChanged, .draftEdited,
-      .saveDraftRequested, .openInformationPageRequested, .passcodeSubmitted,
+      .saveDraftRequested, .openInformationPageRequested, .openLicensesRequested,
+      .closeLicensesRequested, .passcodeSubmitted,
       .cancelAuthentication, .configurePasscodeRequested,
       .passcodeEdited, .discardDraftRequested, .webCapabilityRequested, .addOriginRuleRequested,
       .removeOriginRuleRequested, .prepareExternalSceneRequested, .credentialConfigurationRequested,

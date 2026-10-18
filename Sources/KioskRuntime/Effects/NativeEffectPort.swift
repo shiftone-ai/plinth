@@ -39,7 +39,7 @@ public final class NativeEffectPort: EffectPort {
     switch effect.kind {
     case .openInformationPage(let page, let locale):
       await openInformationPage(page, locale: locale)
-      return nil
+      return .informationPageOpenCompleted(effect.token)
     case .bootstrap:
       do {
         async let profile = repository.load()
@@ -126,7 +126,7 @@ public final class NativeEffectPort: EffectPort {
         address = testAddress
       }
     #endif
-    guard let url = URL(string: address) else { return }
+    guard !Task.isCancelled, let url = URL(string: address) else { return }
     #if os(macOS)
       _ = NSWorkspace.shared.open(url)
     #else

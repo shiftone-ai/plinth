@@ -143,7 +143,7 @@ public struct SettingsView: View {
           }
         }
         SettingsPasscodeSection(props: props, send: send)
-        SettingsInformationSection(send: send)
+        SettingsInformationSection(licenseSheetPresented: props.licenseSheetPresented, send: send)
         SettingsWebManagementSection(props: props, send: send)
         if !props.validationMessages.isEmpty {
           Section {

@@ -10,6 +10,9 @@ public enum RootMediator {
     case .webRestartExhibitionRequested, .webStopExhibitionRequested,
       .webResumeExhibitionRequested:
       return reduceWebExhibition(state, envelope, context: context)
+    case .openInformationPageRequested, .informationPageOpenCompleted,
+      .openLicensesRequested, .closeLicensesRequested:
+      return reduceInformation(state, envelope)
     case .bootstrapped:
       return withWebServerLifecycle(bootstrapCompleted(state, envelope), before: state, envelope)
     case .biometricStatusRequested, .biometricStatusRead, .biometricChangeRequested,
@@ -87,13 +90,6 @@ public enum RootMediator {
     var next = state
     let token = envelope.token(owner: .root, epoch: state.epoch)
     switch envelope.event {
-    case .openInformationPageRequested(let page, let locale):
-      guard envelope.source == .settings else { return .reject(state, .wrongSource) }
-      guard state.mode == .administration else { return .reject(state, .invalidState) }
-      return .handled(
-        .init(
-          state, reply: .accepted,
-          effects: [Effect(token, .openInformationPage(page, locale: locale))]))
     case .bootstrapRequested:
       guard state.mode == .bootstrapping, state.bootstrapOperation == nil,
         envelope.source == .root
@@ -258,11 +254,14 @@ public enum RootMediator {
       }
       guard state.mode == .administration else { return .reject(state, .unauthenticated) }
       next.mode = .terminating
+      next.licenseSheetPresented = false
+      next.informationPageOperation = nil
       next.externalSceneOperation = nil
       return .handled(
         .init(
           next, reply: .accepted,
-          effects: state.externalSceneOperation.map { [Effect(token, .cancelOperation($0))] } ?? [],
+          effects: (state.externalSceneOperation.map { [Effect(token, .cancelOperation($0))] } ?? [])
+            + (state.informationPageOperation.map { [Effect(token, .cancelOperation($0))] } ?? []),
           childControls: [
             .init(.administration, .cancelAuthentication), .init(.exhibition, .stopExhibition),
           ]))
@@ -374,6 +373,8 @@ public enum RootMediator {
   ) -> Mediation<RootState> {
     var next = state
     next.mode = .enteringKiosk
+    next.licenseSheetPresented = false
+    next.informationPageOperation = nil
     next.webExitDestination = nil
     next.pointerCaptureFailed = false
     next.foregroundResume = .none
@@ -394,7 +395,10 @@ public enum RootMediator {
       externalDisplayRotation: usesExternalDisplay
         ? profile.externalDisplayRotation ?? .standard : .standard)
     return .handled(
-      .init(next, reply: reply, effects: [Effect(token, .applyPresentation(request))]))
+      .init(
+        next, reply: reply,
+        effects: (state.informationPageOperation.map { [Effect(token, .cancelOperation($0))] } ?? [])
+          + [Effect(token, .applyPresentation(request))]))
   }
 
   static func administration(_ state: RootState, token: OperationToken) -> Mediation<
