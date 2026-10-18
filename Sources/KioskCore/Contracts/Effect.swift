@@ -20,6 +20,7 @@ public struct Effect: Equatable, Sendable {
     case changeBiometricUnlock(Bool)
     case performBiometricUnlock
     case saveProfile(KioskProfile)
+    case openInformationPage(InformationPage, locale: String)
     case startWebServer
     case stopWebServer
     case cancelOperation(OperationToken)

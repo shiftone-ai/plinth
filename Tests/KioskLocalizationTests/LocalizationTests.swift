@@ -5,6 +5,16 @@ import KioskPresentation
 import Testing
 
 struct LocalizationTests {
+  @Test(arguments: [
+    ("zh-Hans", "zh-Hans"),
+    ("zh-CN", "zh-Hans"),
+    ("zh-Hant", "en"),
+    ("ja-JP", "ja"),
+  ])
+  func publicPageLanguageMatchesInterface(language: String, expected: String) {
+    #expect(L10n.languageCode(for: Locale(identifier: language)) == expected)
+  }
+
   @Test @MainActor func screenLanguageChoicePersistsAndCanReturnToSystem() throws {
     let suite = "ai.shiftone.plinth.tests.language.\(UUID())"
     let defaults = try #require(UserDefaults(suiteName: suite))
