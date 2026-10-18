@@ -175,6 +175,13 @@ extension RootMediator {
       {
         return .handled(.init(state))
       }
+      if status == .ready, let accountID = state.catalog.accountIdentifier,
+        !state.catalog.conflictIDs(for: accountID).isEmpty
+          || state.pendingCatalog?.conflictIDs(for: accountID).isEmpty == false
+      {
+        next.catalogSyncStatus = .pending
+        return .handled(.init(next))
+      }
       next.catalogSyncStatus = status
       return .handled(.init(next))
 
