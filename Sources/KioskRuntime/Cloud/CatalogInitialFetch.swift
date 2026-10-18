@@ -4,14 +4,12 @@ import KioskCore
 nonisolated struct CatalogInitialFetch: Sendable {
   private var missing: Set<UUID>
   private let pendingDeletionVersions: [UUID: UInt64]
-  private let hasPendingDeletions: Bool
 
   init(
     entries: [UUID: CatalogEntry], pendingDeletions: [CatalogPendingDeletion],
     opaqueRecordIDs: Set<UUID>
   ) {
     let pending = Set(pendingDeletions.map(\.id))
-    hasPendingDeletions = !pendingDeletions.isEmpty
     pendingDeletionVersions = Dictionary(
       uniqueKeysWithValues: pendingDeletions.compactMap { deletion in
         deletion.baseVersion.map { (deletion.id, $0) }
@@ -22,8 +20,6 @@ nonisolated struct CatalogInitialFetch: Sendable {
           ? id : nil
       })
   }
-
-  var hasCandidates: Bool { !missing.isEmpty || hasPendingDeletions }
 
   func pendingDeletionVersion(for id: UUID) -> UInt64? { pendingDeletionVersions[id] }
 

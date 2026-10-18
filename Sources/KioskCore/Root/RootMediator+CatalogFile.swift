@@ -5,10 +5,12 @@ extension RootMediator {
     _ state: inout RootState, token: OperationToken
   ) -> [Effect] {
     let operations = [state.catalogExportOperation, state.catalogImportOperation].compactMap { $0 }
+    state.catalogExportCandidateIDs = nil
     state.catalogExportOperation = nil
     state.catalogExportData = nil
     state.catalogExportFailed = false
     state.catalogImportOperation = nil
+    state.catalogImportSelectedURL = nil
     state.catalogImportPreview = nil
     state.catalogImportFailed = false
     return operations.map { Effect(token, .cancelOperation($0)) }
@@ -20,11 +22,45 @@ extension RootMediator {
     var next = state
     let token = envelope.token(owner: .root, epoch: state.epoch)
     switch envelope.event {
+    case .catalogExportPromptRequested(let ids):
+      guard envelope.source == .settings, state.mode == .administration,
+        state.catalogLoaded, state.catalogSaveOperation == nil,
+        state.catalogExportCandidateIDs == nil, state.catalogExportOperation == nil,
+        state.catalogExportData == nil, state.catalogImportSelectedURL == nil,
+        state.catalogImportOperation == nil, state.catalogImportPreview == nil,
+        Set(ids).count == ids.count
+      else { return .reject(state, .invalidState) }
+      let available = state.catalog.entries.filter(state.catalogEntryAvailable)
+      guard !available.isEmpty,
+        ids.allSatisfy({ id in available.contains(where: { $0.id == id }) })
+      else { return .reject(state, .invalidState) }
+      next.catalogExportCandidateIDs = ids
+      next.catalogExportFailed = false
+      return .handled(
+        .init(
+          next, reply: .accepted,
+          childControls: [.init(.administration, .catalogPassphraseCleared)]))
+
+    case .catalogExportPromptCancelled:
+      guard envelope.source == .settings, state.mode == .administration,
+        state.catalogExportCandidateIDs != nil
+      else { return .reject(state, .invalidState) }
+      next.catalogExportCandidateIDs = nil
+      next.catalogExportOperation = nil
+      next.catalogExportFailed = false
+      let effects = state.catalogExportOperation.map { [Effect(token, .cancelOperation($0))] } ?? []
+      return .handled(
+        .init(
+          next, reply: .accepted, effects: effects,
+          childControls: [.init(.administration, .catalogPassphraseCleared)]))
+
     case .catalogExportOperationRequested(let ids, let passphrase):
       guard envelope.source == .administration, state.mode == .administration,
         state.catalogLoaded, state.catalogSaveOperation == nil,
         state.catalogExportOperation == nil, state.catalogExportData == nil,
-        state.catalogImportOperation == nil, state.catalogImportPreview == nil,
+        state.catalogImportSelectedURL == nil, state.catalogImportOperation == nil,
+        state.catalogImportPreview == nil,
+        state.catalogExportCandidateIDs == nil || state.catalogExportCandidateIDs == ids,
         Set(ids).count == ids.count
       else { return .reject(state, .invalidState) }
       let entries: [CatalogEntry]
@@ -51,6 +87,7 @@ extension RootMediator {
       else { return .reject(state, .staleOperation) }
       next.catalogExportOperation = nil
       next.catalogExportData = data
+      next.catalogExportCandidateIDs = nil
       return .handled(
         .init(
           next,
@@ -72,6 +109,7 @@ extension RootMediator {
         return .reject(state, .invalidState)
       }
       next.catalogExportOperation = nil
+      next.catalogExportCandidateIDs = nil
       next.catalogExportData = nil
       let effects =
         state.catalogExportOperation.map {
@@ -89,12 +127,29 @@ extension RootMediator {
       next.catalogExportFailed = !succeeded
       return .handled(.init(next, reply: .accepted))
 
+    case .catalogImportFileSelected(let url):
+      guard envelope.source == .settings, state.mode == .administration,
+        state.catalogLoaded, state.catalogSaveOperation == nil,
+        state.catalogExportCandidateIDs == nil, state.catalogExportOperation == nil,
+        state.catalogExportData == nil, state.catalogImportSelectedURL == nil,
+        state.catalogImportOperation == nil, state.catalogImportPreview == nil,
+        url.isFileURL
+      else { return .reject(state, .invalidState) }
+      next.catalogImportSelectedURL = url
+      next.catalogImportFailed = false
+      return .handled(
+        .init(
+          next, reply: .accepted,
+          childControls: [.init(.administration, .catalogPassphraseCleared)]))
+
     case .catalogImportOperationRequested(let url, let passphrase):
       guard envelope.source == .administration, state.mode == .administration,
         state.catalogLoaded, state.catalogImportOperation == nil,
-        state.catalogImportPreview == nil, state.catalogExportOperation == nil,
+        state.catalogImportPreview == nil, state.catalogExportCandidateIDs == nil,
+        state.catalogExportOperation == nil,
         state.catalogExportData == nil,
-        state.catalogSaveOperation == nil, url.isFileURL
+        state.catalogSaveOperation == nil, url.isFileURL,
+        state.catalogImportSelectedURL == nil || state.catalogImportSelectedURL == url
       else { return .reject(state, .invalidState) }
       next.catalogImportOperation = token
       next.catalogImportPreview = nil
@@ -110,6 +165,7 @@ extension RootMediator {
         !entries.isEmpty && entries.allSatisfy({ $0.scope == .device })
       else { return .reject(state, .staleOperation) }
       next.catalogImportOperation = nil
+      next.catalogImportSelectedURL = nil
       next.catalogImportPreview = entries
       return .handled(
         .init(
@@ -179,6 +235,7 @@ extension RootMediator {
       else { return .reject(state, .invalidState) }
       next.catalogImportOperation = nil
       next.catalogImportPreview = nil
+      next.catalogImportSelectedURL = nil
       next.catalogImportFailed = false
       let effects =
         state.catalogImportOperation.map {

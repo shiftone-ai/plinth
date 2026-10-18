@@ -30,6 +30,14 @@ extension Presenters {
         else { return false }
         return cloudPayloadTooLarge(entry, snapshot: savedSnapshot)
       } ?? false
+    let fileIdle =
+      root.mode == .administration && root.catalogLoaded
+      && root.catalogSaveOperation == nil && root.catalogExportOperation == nil
+      && root.catalogImportOperation == nil && root.catalogImportPreview == nil
+      && root.catalogExportData == nil
+    let passphraseValid =
+      administration.catalogPassphrase.precomposedStringWithCanonicalMapping
+      .count >= 16 && administration.catalogPassphrase.utf8.count <= 1024
     return CatalogProps(
       syncEnabled: root.catalog.syncEnabled, cloudAvailable: root.catalogCloudAvailable,
       syncStatus: root.catalogSyncStatus,
@@ -106,21 +114,19 @@ extension Presenters {
       },
       passphrase: administration.catalogPassphrase,
       confirmPassphrase: administration.catalogConfirmPassphrase,
-      canExport: root.mode == .administration && root.catalogLoaded
-        && !available.isEmpty && root.catalogSaveOperation == nil
-        && root.catalogExportOperation == nil && root.catalogImportOperation == nil
-        && root.catalogImportPreview == nil
-        && root.catalogExportData == nil
-        && administration.catalogPassphrase.precomposedStringWithCanonicalMapping.count >= 16
-        && administration.catalogPassphrase.utf8.count <= 1024
+      exportSelection: root.catalogExportCandidateIDs,
+      canStartExport: fileIdle && !available.isEmpty
+        && root.catalogExportCandidateIDs == nil && root.catalogImportSelectedURL == nil,
+      canExport: fileIdle && !available.isEmpty
+        && root.catalogExportCandidateIDs != nil && root.catalogImportSelectedURL == nil
+        && passphraseValid
         && administration.catalogPassphrase.precomposedStringWithCanonicalMapping
           == administration.catalogConfirmPassphrase.precomposedStringWithCanonicalMapping,
-      canImport: root.mode == .administration && root.catalogLoaded
-        && root.catalogImportOperation == nil && root.catalogImportPreview == nil
-        && root.catalogExportOperation == nil && root.catalogExportData == nil
-        && root.catalogSaveOperation == nil
-        && administration.catalogPassphrase.precomposedStringWithCanonicalMapping.count >= 16
-        && administration.catalogPassphrase.utf8.count <= 1024,
+      importFileURL: root.catalogImportSelectedURL,
+      canStartImport: fileIdle && root.catalogExportCandidateIDs == nil
+        && root.catalogImportSelectedURL == nil,
+      canImport: fileIdle && root.catalogImportSelectedURL != nil
+        && root.catalogExportCandidateIDs == nil && passphraseValid,
       exporting: root.catalogExportOperation != nil, exportData: root.catalogExportData,
       exportFailed: root.catalogExportFailed,
       importing: root.catalogImportOperation != nil,

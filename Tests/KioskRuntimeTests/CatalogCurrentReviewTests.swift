@@ -74,8 +74,20 @@ struct CatalogCurrentReviewTests {
     fixture.runtime.send(.catalogPassphraseEdited("long-enough-file-passphrase"), from: .settings)
     fixture.runtime.send(
       .catalogConfirmPassphraseEdited("long-enough-file-passphrase"), from: .settings)
+    #expect(fixture.runtime.settingsProps.props.catalog.canStartExport)
+    #expect(fixture.runtime.settingsProps.props.catalog.canStartImport)
+    #expect(!fixture.runtime.settingsProps.props.catalog.canExport)
+    #expect(!fixture.runtime.settingsProps.props.catalog.canImport)
+    #expect(
+      fixture.runtime.send(
+        .catalogExportPromptRequested(ids: [entry.id]), from: .settings
+      ).reply == .accepted)
+    #expect(!fixture.runtime.settingsProps.props.catalog.canStartImport)
+    #expect(!fixture.runtime.settingsProps.props.catalog.canExport)
+    fixture.runtime.send(.catalogPassphraseEdited("long-enough-file-passphrase"), from: .settings)
+    fixture.runtime.send(
+      .catalogConfirmPassphraseEdited("long-enough-file-passphrase"), from: .settings)
     #expect(fixture.runtime.settingsProps.props.catalog.canExport)
-    #expect(fixture.runtime.settingsProps.props.catalog.canImport)
 
     #expect(
       fixture.runtime.send(
@@ -95,9 +107,12 @@ struct CatalogCurrentReviewTests {
     fixture.port.deliver(.catalogExportPrepared(export, Data([1])), source: .catalogRepository)
     #expect(!fixture.runtime.settingsProps.props.catalog.canImport)
     fixture.runtime.send(.catalogFileExportCompleted(true), from: .settings)
+    #expect(
+      fixture.runtime.send(.catalogImportFileSelected(fileURL), from: .settings).reply
+        == .accepted)
+    #expect(!fixture.runtime.settingsProps.props.catalog.canImport)
     fixture.runtime.send(.catalogPassphraseEdited("long-enough-file-passphrase"), from: .settings)
-    fixture.runtime.send(
-      .catalogConfirmPassphraseEdited("long-enough-file-passphrase"), from: .settings)
+    #expect(fixture.runtime.settingsProps.props.catalog.canImport)
 
     #expect(
       fixture.runtime.send(
@@ -115,6 +130,32 @@ struct CatalogCurrentReviewTests {
     fixture.port.deliver(
       .catalogImportPreviewReady(importer, [entry]), source: .catalogRepository)
     #expect(!fixture.runtime.settingsProps.props.catalog.canExport)
+  }
+
+  @Test func failedFileUnlockCanBeRetriedWithoutChoosingTheFileAgain() throws {
+    let fixture = RuntimeFixture()
+    defer { fixture.runtime.stop() }
+    try load(fixture, SettingsCatalog())
+    let fileURL = FileManager.default.temporaryDirectory.appendingPathComponent(
+      "backup.plinthsettings")
+    #expect(
+      fixture.runtime.send(.catalogImportFileSelected(fileURL), from: .settings).reply
+        == .accepted)
+    fixture.runtime.send(.catalogPassphraseEdited("incorrect-passphrase"), from: .settings)
+    #expect(
+      fixture.runtime.send(.catalogImportFileRequested(fileURL), from: .settings).reply
+        == .accepted)
+    let operation = try #require(fixture.runtime.snapshot.root.catalogImportOperation)
+    fixture.port.deliver(.catalogImportFailed(operation), source: .catalogRepository)
+    #expect(fixture.runtime.settingsProps.props.catalog.importFileURL == fileURL)
+    #expect(fixture.runtime.settingsProps.props.catalog.importFailed)
+    #expect(fixture.runtime.settingsProps.props.catalog.passphrase.isEmpty)
+    fixture.runtime.send(.catalogPassphraseEdited("correct-file-passphrase"), from: .settings)
+    #expect(fixture.runtime.settingsProps.props.catalog.canImport)
+    #expect(
+      fixture.runtime.send(.catalogImportCancelled, from: .settings).reply == .accepted)
+    #expect(fixture.runtime.settingsProps.props.catalog.importFileURL == nil)
+    #expect(fixture.runtime.settingsProps.props.catalog.passphrase.isEmpty)
   }
 
   private func load(

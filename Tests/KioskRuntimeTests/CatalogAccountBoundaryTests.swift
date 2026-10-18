@@ -135,6 +135,50 @@ struct CatalogAccountBoundaryTests {
     #expect(fixture.runtime.snapshot.root.catalog.pendingDeletions.isEmpty)
   }
 
+  @Test func remoteDeletionClearsTheSelectedEntryConfirmation() throws {
+    let fixture = RuntimeFixture()
+    defer { fixture.runtime.stop() }
+    let entry = try #require(
+      CatalogEntry(
+        id: UUID(), name: "Shared", snapshot: CatalogSnapshot(fixture.profile())!,
+        scope: .iCloud, accountIdentifier: "account-a", syncedVersion: 1))
+    try load(
+      fixture, SettingsCatalog(syncEnabled: true, accountIdentifier: "account-a", entries: [entry]),
+      account: "account-a")
+    #expect(
+      fixture.runtime.send(.catalogSelectRequested(entry.id), from: .settings).reply == .accepted)
+    #expect(
+      fixture.runtime.send(
+        .catalogRenameRequested(id: entry.id, name: "Stale name"), from: .settings
+      ).reply == .accepted)
+    #expect(
+      fixture.runtime.send(.catalogRemovePromptRequested(entry.id), from: .settings).reply
+        == .accepted)
+    let session = try #require(fixture.runtime.snapshot.root.catalogCloudSessionOperation)
+    fixture.runtime.send(
+      .catalogCloudChanges(session, "account-a", [.delete(entry.id)]), from: .cloudCatalog)
+    try finishSave(fixture)
+    #expect(fixture.runtime.settingsProps.props.catalog.selectedEntry == nil)
+    #expect(fixture.runtime.snapshot.root.catalogRenameCandidate == nil)
+    #expect(fixture.runtime.snapshot.root.catalogUpdateCandidateID == nil)
+    #expect(fixture.runtime.snapshot.root.catalogRemovalCandidateID == nil)
+    fixture.runtime.send(
+      .catalogCloudChanges(session, "account-a", [.upsert(entry)]), from: .cloudCatalog)
+    try finishSave(fixture)
+    let returned = try #require(
+      fixture.runtime.snapshot.root.catalog.entries.first { $0.id == entry.id })
+    #expect(!returned.isVisible)
+    #expect(
+      fixture.runtime.send(
+        .catalogVisibilityRequested(id: entry.id, visible: true), from: .settings
+      ).reply == .accepted)
+    try finishSave(fixture)
+    #expect(
+      fixture.runtime.send(.catalogSelectRequested(entry.id), from: .settings).reply == .accepted)
+    #expect(fixture.runtime.settingsProps.props.catalog.renameCandidate == nil)
+    #expect(fixture.runtime.settingsProps.props.catalog.removalCandidate == nil)
+  }
+
   @Test func deletingACollidingRemoteEntryKeepsTheDeviceCopy() throws {
     let fixture = RuntimeFixture()
     defer { fixture.runtime.stop() }

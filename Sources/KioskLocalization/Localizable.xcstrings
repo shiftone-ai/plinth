@@ -3361,6 +3361,16 @@
         }
       }
     },
+    "Save encrypted file": {
+      "comment": "Button that prepares an encrypted settings file and opens the system save panel.",
+      "extractionState": "manual",
+      "localizations": {
+        "ja": { "stringUnit": { "state": "translated", "value": "暗号化したファイルを保存" } },
+        "en": { "stringUnit": { "state": "translated", "value": "Save encrypted file" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "암호화된 파일 저장" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "保存加密文件" } }
+      }
+    },
     "Import file": {
       "comment": "Interface text for encrypted settings files.",
       "extractionState": "manual",
@@ -3389,6 +3399,26 @@
             "value": "导入文件"
           }
         }
+      }
+    },
+    "Open encrypted file": {
+      "comment": "Title for the passphrase sheet after selecting a settings file.",
+      "extractionState": "manual",
+      "localizations": {
+        "ja": { "stringUnit": { "state": "translated", "value": "暗号化ファイルを開く" } },
+        "en": { "stringUnit": { "state": "translated", "value": "Open encrypted file" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "암호화된 파일 열기" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "打开加密文件" } }
+      }
+    },
+    "Review settings": {
+      "comment": "Button that decrypts an imported settings file for review before adding it.",
+      "extractionState": "manual",
+      "localizations": {
+        "ja": { "stringUnit": { "state": "translated", "value": "設定を確認" } },
+        "en": { "stringUnit": { "state": "translated", "value": "Review settings" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "설정 검토" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "检查设置" } }
       }
     },
     "Could not export settings": {

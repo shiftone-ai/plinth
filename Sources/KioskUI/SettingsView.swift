@@ -208,15 +208,27 @@ public struct SettingsView: View {
     }
     .sheet(
       isPresented: Binding(
-        get: { props.catalog.importPreview != nil },
+        get: { props.catalog.exportSelection != nil },
+        set: { if !$0 { send(.cancelCatalogExport) } }
+      )
+    ) {
+      CatalogExportSheet(props: props.catalog, send: send)
+    }
+    .sheet(
+      isPresented: Binding(
+        get: { props.catalog.importFileURL != nil || props.catalog.importPreview != nil },
         set: { if !$0 { send(.cancelCatalogImport) } }
       )
     ) {
-      CatalogImportPreview(
-        entries: props.catalog.importPreview ?? [],
-        canConfirm: props.catalog.canConfirmImport,
-        matches: props.catalog.importMatches,
-        contents: props.catalog.importContents, send: send)
+      if props.catalog.importPreview != nil {
+        CatalogImportPreview(
+          entries: props.catalog.importPreview ?? [],
+          canConfirm: props.catalog.canConfirmImport,
+          matches: props.catalog.importMatches,
+          contents: props.catalog.importContents, send: send)
+      } else {
+        CatalogImportPassphraseSheet(props: props.catalog, send: send)
+      }
     }
     .fileExporter(
       isPresented: Binding(
@@ -239,7 +251,7 @@ public struct SettingsView: View {
     }
     .fileImporter(isPresented: $showsCatalogImporter, allowedContentTypes: [.plinthSettings]) {
       switch $0 {
-      case .success(let url): send(.importCatalogFile(url))
+      case .success(let url): send(.selectCatalogImportFile(url))
       case .failure: send(.cancelCatalogImport)
       }
     }

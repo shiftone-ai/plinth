@@ -103,7 +103,11 @@ public struct CatalogProps: Equatable, Sendable {
   public let removalCandidate: CatalogEntry?
   public let passphrase: String
   public let confirmPassphrase: String
+  public let exportSelection: [UUID]?
+  public let canStartExport: Bool
   public let canExport: Bool
+  public let importFileURL: URL?
+  public let canStartImport: Bool
   public let canImport: Bool
   public let exporting: Bool
   public let exportData: Data?

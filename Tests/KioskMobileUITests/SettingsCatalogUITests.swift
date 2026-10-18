@@ -16,9 +16,6 @@ final class SettingsCatalogUITests: XCTestCase {
     reach(recover, in: app)
     recover.tap()
     app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.585)).tap()
-    let passphrase = app.secureTextFields["catalog-passphrase"]
-    reach(passphrase, in: app)
-    try await enterFilePassphrase(passphrase)
     let importer = app.buttons["catalog-import-file"]
     reach(importer, in: app)
     try await enabled(importer)
@@ -41,18 +38,18 @@ final class SettingsCatalogUITests: XCTestCase {
     addTeardownBlock { await MainActor.run { app.terminate() } }
     app.launch()
     try await registerSavedSettings(in: app)
-    let passphrase = app.secureTextFields["catalog-passphrase"]
-    reach(passphrase, in: app)
-    try await enterFilePassphrase(passphrase)
-    let confirm = app.secureTextFields["catalog-confirm-passphrase"]
-    reach(confirm, in: app)
-    confirm.tap()
-    confirm.typeText("abcdefghijklmnop")
-    try await secureCount(confirm, count: 16)
     let export = app.buttons["catalog-export-all"]
     reach(export, in: app)
     try await enabled(export)
     export.tap()
+    let passphrase = app.secureTextFields["catalog-export-passphrase"]
+    try await exists(passphrase)
+    try await enterFilePassphrase(passphrase)
+    let confirm = app.secureTextFields["catalog-export-confirm-passphrase"]
+    confirm.tap()
+    confirm.typeText("abcdefghijklmnop")
+    try await secureCount(confirm, count: 16)
+    app.buttons["catalog-export-save-file"].tap()
     let files = app.cells["DOC.sidebar.item.On My iPad"]
     try await exists(files)
     let screenshot = XCTAttachment(screenshot: app.screenshot())
@@ -71,24 +68,50 @@ final class SettingsCatalogUITests: XCTestCase {
     add(after)
     let closed = expectation(for: NSPredicate(format: "exists == false"), evaluatedWith: files)
     await fulfillment(of: [closed], timeout: 10)
-    reach(passphrase, in: app)
-    try await enterFilePassphrase(passphrase)
+    let entry = app.buttons.matching(
+      NSPredicate(format: "identifier BEGINSWITH %@", "catalog-entry-")
+    ).firstMatch
+    reach(entry, in: app)
+    entry.tap()
+    let remove = app.buttons["catalog-remove"]
+    reach(remove, in: app)
+    remove.tap()
+    app.buttons["Remove"].tap()
+    let removed = expectation(for: NSPredicate(format: "exists == false"), evaluatedWith: entry)
+    await fulfillment(of: [removed], timeout: 10)
     let importer = app.buttons["catalog-import-file"]
     reach(importer, in: app)
     try await enabled(importer)
     importer.tap()
+    let localFiles = app.cells["DOC.sidebar.item.On My iPad"]
+    try await exists(localFiles)
+    localFiles.tap()
     let savedFile = app.cells.matching(
       NSPredicate(format: "identifier BEGINSWITH %@", "settings.plinthsettings")
     ).firstMatch
     try await exists(savedFile)
     savedFile.tap()
+    let importPassphrase = app.secureTextFields["catalog-import-passphrase"]
+    try await exists(importPassphrase)
+    try await enterFilePassphrase(importPassphrase)
+    app.buttons["catalog-import-review"].tap()
     try await exists(app.staticTexts["Review imported settings"])
-    try await exists(app.staticTexts["https://example.com/home"])
+    try await exists(
+      app.staticTexts.matching(
+        NSPredicate(format: "label CONTAINS %@", "https://example.com/home")
+      ).firstMatch)
     let preview = XCTAttachment(screenshot: app.screenshot())
     preview.name = "catalog-imported-file-preview"
     preview.lifetime = .keepAlways
     add(preview)
-    app.buttons["Cancel"].tap()
+    let addToCollection = app.buttons["catalog-import-confirm"]
+    try await enabled(addToCollection)
+    addToCollection.tap()
+    try await exists(entry)
+    let imported = XCTAttachment(screenshot: app.screenshot())
+    imported.name = "catalog-imported-file-added"
+    imported.lifetime = .keepAlways
+    add(imported)
   }
 
   @MainActor func testSavedEntrySurvivesRestartAndLoadsIntoEditor() async throws {

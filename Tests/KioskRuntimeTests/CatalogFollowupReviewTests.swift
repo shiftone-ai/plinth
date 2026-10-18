@@ -84,6 +84,9 @@ struct CatalogFollowupReviewTests {
     let load = try #require(fixture.runtime.snapshot.root.catalogLoadOperation)
     fixture.port.deliver(
       .catalogLoaded(load, SettingsCatalog(entries: [entry])), source: .catalogRepository)
+    #expect(
+      fixture.runtime.send(.catalogExportPromptRequested(ids: [entry.id]), from: .settings).reply
+        == .accepted)
     fixture.runtime.send(.catalogPassphraseEdited("long-enough-file-passphrase"), from: .settings)
     fixture.runtime.send(
       .catalogConfirmPassphraseEdited("long-enough-file-passphrase"), from: .settings)

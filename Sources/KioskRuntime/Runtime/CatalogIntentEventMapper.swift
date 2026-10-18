@@ -25,9 +25,12 @@ public enum CatalogIntentEventMapper {
     case .confirmCatalogRemoval(let id): .catalogRemoveConfirmed(id)
     case .editCatalogPassphrase(let value): .catalogPassphraseEdited(value)
     case .editCatalogConfirmPassphrase(let value): .catalogConfirmPassphraseEdited(value)
+    case .requestCatalogExport(let ids): .catalogExportPromptRequested(ids: ids)
+    case .cancelCatalogExport: .catalogExportPromptCancelled
     case .exportCatalog(let ids): .catalogExportRequested(ids: ids)
     case .fileExportCompleted(let succeeded): .catalogFileExportCompleted(succeeded)
     case .dismissCatalogExport: .catalogExportDismissed
+    case .selectCatalogImportFile(let url): .catalogImportFileSelected(url)
     case .importCatalogFile(let url): .catalogImportFileRequested(url)
     case .confirmCatalogImport:
       .catalogImportConfirmed(replacementIDs: (0..<importCount).map { _ in UUID() })

@@ -30,9 +30,12 @@ public enum SettingsIntent: Sendable {
   case confirmCatalogRemoval(UUID)
   case editCatalogPassphrase(String)
   case editCatalogConfirmPassphrase(String)
+  case requestCatalogExport([UUID])
+  case cancelCatalogExport
   case exportCatalog([UUID])
   case fileExportCompleted(Bool)
   case dismissCatalogExport
+  case selectCatalogImportFile(URL)
   case importCatalogFile(URL)
   case confirmCatalogImport
   case cancelCatalogImport
