@@ -145,6 +145,13 @@ mac_biometric_test = obj(
     path="Tests/KioskUITests/MacBiometricUITests.swift",
     sourceTree="SOURCE_ROOT",
 )
+mac_catalog_file_test = obj(
+    "MacCatalogFileUISource",
+    "PBXFileReference",
+    lastKnownFileType="sourcecode.swift",
+    path="Tests/KioskUITests/MacCatalogFileUITests.swift",
+    sourceTree="SOURCE_ROOT",
+)
 fixture = obj(
     "FixtureSource",
     "PBXFileReference",
@@ -192,6 +199,7 @@ group = obj(
         localization_test,
         shield_test,
         mac_biometric_test,
+        mac_catalog_file_test,
         fixture,
         fixture_video,
         products,
@@ -207,6 +215,9 @@ test_build = obj("TestBuild", "PBXBuildFile", fileRef=test)
 localization_test_build = obj("MacLocalizationTestBuild", "PBXBuildFile", fileRef=localization_test)
 shield_test_build = obj("MacDisplayShieldTestBuild", "PBXBuildFile", fileRef=shield_test)
 mac_biometric_test_build = obj("MacBiometricTestBuild", "PBXBuildFile", fileRef=mac_biometric_test)
+mac_catalog_file_test_build = obj(
+    "MacCatalogFileTestBuild", "PBXBuildFile", fileRef=mac_catalog_file_test
+)
 fixture_build = obj("FixtureBuild", "PBXBuildFile", fileRef=fixture)
 fixture_video_build = obj("FixtureVideoBuild", "PBXBuildFile", fileRef=fixture_video)
 
@@ -317,6 +328,7 @@ test_target = obj(
                 localization_test_build,
                 shield_test_build,
                 mac_biometric_test_build,
+                mac_catalog_file_test_build,
                 fixture_build,
             ],
         ),
