@@ -99,6 +99,12 @@ public struct CatalogEntry: Equatable, Codable, Sendable, Identifiable {
     !value.isEmpty && value.utf8.count <= 120
       && value.unicodeScalars.allSatisfy { !CharacterSet.controlCharacters.contains($0) }
   }
+
+  public var isValid: Bool {
+    formatVersion == 1 && Self.validName(name) && version > 0 && snapshot.isValid
+      && ((scope == .device && accountIdentifier == nil)
+        || (scope == .iCloud && !(accountIdentifier ?? "").isEmpty))
+  }
 }
 
 public struct CatalogCloudPayload: Codable, Sendable {
@@ -218,15 +224,11 @@ public struct SettingsCatalog: Equatable, Codable, Sendable {
         !deletionSet.contains(
           CatalogAccountKey(id: entry.id, accountIdentifier: entry.accountIdentifier))
       }
-      && entries.allSatisfy {
-        $0.formatVersion == 1 && CatalogEntry.validName($0.name)
-          && $0.version > 0 && $0.snapshot.isValid
-          && (($0.scope == .device && $0.accountIdentifier == nil)
-            || ($0.scope == .iCloud && !($0.accountIdentifier ?? "").isEmpty))
-      }
+      && entries.allSatisfy(\.isValid)
       && conflicts.allSatisfy {
         $0.remote == nil
-          || ($0.remote?.id == $0.id && $0.remote?.scope == .iCloud
+          || ($0.remote?.id == $0.id && $0.remote?.isValid == true
+            && $0.remote?.scope == .iCloud
             && ($0.accountIdentifier == nil
               || $0.accountIdentifier == $0.remote?.accountIdentifier))
       }

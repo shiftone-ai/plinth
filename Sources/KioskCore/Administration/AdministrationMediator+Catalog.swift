@@ -86,6 +86,22 @@ extension AdministrationMediator {
       next.catalogSelectionNameDraft = entry.name
       return .handled(.init(next))
 
+    case .catalogSelectionRefreshed(let entry):
+      guard envelope.source == .root, mode == .administration,
+        state.catalogSelection != nil,
+        entry == nil || state.catalogSelection?.id == entry?.id
+      else { return .reject(state, .invalidState) }
+      if let entry {
+        if state.catalogSelectionNameDraft == state.catalogSelection?.name {
+          next.catalogSelectionNameDraft = entry.name
+        }
+        next.catalogSelection = entry
+      } else {
+        next.catalogSelection = nil
+        next.catalogSelectionNameDraft = ""
+      }
+      return .handled(.init(next))
+
     case .catalogSelectionDismissed:
       guard envelope.source == .settings, mode == .administration else {
         return .reject(state, .invalidState)

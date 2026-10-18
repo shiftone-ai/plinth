@@ -5,6 +5,35 @@ import Testing
 
 @MainActor
 struct CatalogPersistenceTests {
+  @Test func damagedRemoteConflictIsRejectedDuringLoad() async throws {
+    let fixture = RuntimeFixture()
+    defer { fixture.runtime.stop() }
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
+      "plinth-invalid-conflict-\(UUID())")
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let id = UUID()
+    let valid = try #require(
+      CatalogEntry(
+        id: id, name: "Lobby", snapshot: CatalogSnapshot(fixture.profile())!,
+        scope: .iCloud, accountIdentifier: "account-a"))
+    let document = SettingsCatalog(
+      entries: [valid], conflicts: [.init(id: id, remote: valid)])
+    var json = try #require(
+      JSONSerialization.jsonObject(with: JSONEncoder().encode(document)) as? [String: Any])
+    var conflicts = try #require(json["conflicts"] as? [[String: Any]])
+    var remote = try #require(conflicts[0]["remote"] as? [String: Any])
+    remote["formatVersion"] = 2
+    conflicts[0]["remote"] = remote
+    json["conflicts"] = conflicts
+    let fileURL = directory.appendingPathComponent("catalog.json")
+    try JSONSerialization.data(withJSONObject: json).write(to: fileURL)
+    let repository = CatalogRepository(fileURL: fileURL)
+    await #expect(throws: CatalogRepository.Failure.corruptCatalog) {
+      try await repository.load()
+    }
+  }
+
   @Test func existingConflictFilesWithoutAccountFieldStillLoad() throws {
     let fixture = RuntimeFixture()
     defer { fixture.runtime.stop() }
