@@ -62,7 +62,7 @@ jobs:
         run: just build-ios
 
   mac-store-ui:
-    if: github.event_name == 'pull_request' && github.head_ref == 'issue-28-store-readiness'
+    if: github.event_name == 'pull_request'
     runs-on: xcode-27
     timeout-minutes: 20
     steps:
