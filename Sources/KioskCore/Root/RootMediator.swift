@@ -22,9 +22,10 @@ public enum RootMediator {
       .catalogUpdateRequested, .catalogUpdateConfirmed, .catalogUpdateCancelled,
       .catalogRemovePromptRequested, .catalogRemovePromptCancelled,
       .catalogVisibilityRequested, .catalogRemoveConfirmed, .catalogSaved, .catalogSaveFailed,
+      .catalogExportPromptRequested, .catalogExportPromptCancelled,
       .catalogExportOperationRequested, .catalogExportPrepared, .catalogExportFailed,
       .catalogExportDismissed, .catalogFileExportCompleted,
-      .catalogImportOperationRequested, .catalogImportPreviewReady,
+      .catalogImportFileSelected, .catalogImportOperationRequested, .catalogImportPreviewReady,
       .catalogImportFailed, .catalogImportConfirmed, .catalogImportCancelled,
       .catalogSyncEnableRequested, .catalogSyncEnableConfirmed,
       .catalogSyncEnableCancelled, .catalogSyncDisableRequested, .catalogSyncRetryRequested,
@@ -71,6 +72,14 @@ public enum RootMediator {
       next.mobileForeground = false
       next.administratorSession = false
       next.webSession = nil
+      if state.mode == .unlocking {
+        var result = hold(next, token: token)
+        if case .handled(var transition) = result {
+          transition.childControls.append(.init(.administration, .invalidateWebAuthentication))
+          result = .handled(transition)
+        }
+        return result
+      }
       guard state.mode == .administration, state.credentialsConfigured else {
         return .handled(
           .init(next, childControls: [.init(.administration, .invalidateWebAuthentication)]))
@@ -370,6 +379,7 @@ public enum RootMediator {
     next.externalPointer = nil
     next.externalButtonDown = false
     next.unlockID = nil
+    next.unlockReturnMode = nil
     next.unlockTimeoutOperation = nil
     next.unlockDeadline = nil
     next.biometricUnlockOperation = nil

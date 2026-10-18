@@ -36,11 +36,12 @@ struct CatalogEntryDetail: View {
         }
         Section(L10n.string("Contents", locale: locale)) {
           ForEach(props.contents) { value in
-            HStack(alignment: .top) {
+            VStack(alignment: .leading, spacing: 4) {
               Text(L10n.string(value.labelKey, locale: locale))
-              Spacer()
+                .font(.caption).foregroundStyle(.secondary)
               comparisonValue(value.selected)
-                .multilineTextAlignment(.trailing)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .fixedSize(horizontal: false, vertical: true)
             }
           }
         }
@@ -51,10 +52,12 @@ struct CatalogEntryDetail: View {
                 Text(L10n.string(difference.labelKey, locale: locale)).font(.headline)
                 HStack(alignment: .top, spacing: 12) {
                   comparisonValue(difference.current)
+                    .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
                   Image(systemName: "arrow.right").foregroundStyle(.secondary)
                     .accessibilityHidden(true)
                   comparisonValue(difference.selected)
+                    .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
               }
@@ -92,27 +95,15 @@ struct CatalogEntryDetail: View {
           .accessibilityIdentifier("catalog-remove")
         }
         Section(L10n.string("File", locale: locale)) {
-          SecureField(
-            L10n.string("File passphrase", locale: locale),
-            text: Binding(
-              get: { props.passphrase }, set: { send(.editCatalogPassphrase($0)) })
-          )
-          .privacySensitive()
-          SecureField(
-            L10n.string("Confirm passphrase for export", locale: locale),
-            text: Binding(
-              get: { props.confirmPassphrase },
-              set: { send(.editCatalogConfirmPassphrase($0)) })
-          )
-          .privacySensitive()
           Button(L10n.string("Export this setting", locale: locale)) {
             send(.dismissCatalogSelection)
-            send(.exportCatalog([entry.id]))
+            send(.requestCatalogExport([entry.id]))
           }
-          .disabled(!props.canExport)
+          .disabled(!props.canStartExport)
           .accessibilityIdentifier("catalog-export-item")
         }
       }
+      .formStyle(.grouped)
       .navigationTitle(entry.name)
       .toolbar {
         ToolbarItem(placement: .cancellationAction) {

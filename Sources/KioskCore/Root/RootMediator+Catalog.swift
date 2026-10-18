@@ -18,9 +18,10 @@ extension RootMediator {
       .catalogRemovePromptCancelled, .catalogRemoveConfirmed,
       .catalogSaved, .catalogSaveFailed:
       return reduceCatalogLocal(state, envelope, context: context)
-    case .catalogExportOperationRequested, .catalogExportPrepared, .catalogExportFailed,
+    case .catalogExportPromptRequested, .catalogExportPromptCancelled,
+      .catalogExportOperationRequested, .catalogExportPrepared, .catalogExportFailed,
       .catalogExportDismissed, .catalogFileExportCompleted,
-      .catalogImportOperationRequested, .catalogImportPreviewReady,
+      .catalogImportFileSelected, .catalogImportOperationRequested, .catalogImportPreviewReady,
       .catalogImportFailed, .catalogImportConfirmed, .catalogImportCancelled:
       return reduceCatalogFile(state, envelope)
     case .catalogSyncEnableRequested, .catalogSyncEnableCancelled,

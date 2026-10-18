@@ -76,12 +76,15 @@ public enum Event: Equatable, Sendable {
   case catalogPassphraseEdited(String)
   case catalogConfirmPassphraseEdited(String)
   case catalogPassphraseCleared
+  case catalogExportPromptRequested(ids: [UUID])
+  case catalogExportPromptCancelled
   case catalogExportRequested(ids: [UUID])
   case catalogExportOperationRequested(ids: [UUID], passphrase: String)
   case catalogExportPrepared(OperationToken, Data)
   case catalogExportFailed(OperationToken)
   case catalogExportDismissed
   case catalogFileExportCompleted(Bool)
+  case catalogImportFileSelected(URL)
   case catalogImportFileRequested(URL)
   case catalogImportOperationRequested(URL, passphrase: String)
   case catalogImportPreviewReady(OperationToken, [CatalogEntry])
@@ -198,9 +201,10 @@ public enum Event: Equatable, Sendable {
       .catalogNameEdited, .catalogSelectionNameEdited:
       true
     case .catalogPassphraseEdited, .catalogConfirmPassphraseEdited,
+      .catalogExportPromptRequested, .catalogExportPromptCancelled,
       .catalogExportRequested, .catalogExportOperationRequested,
       .catalogExportDismissed, .catalogFileExportCompleted,
-      .catalogImportFileRequested, .catalogImportOperationRequested,
+      .catalogImportFileSelected, .catalogImportFileRequested, .catalogImportOperationRequested,
       .catalogImportConfirmed, .catalogImportCancelled:
       true
     case .catalogSyncEnableRequested, .catalogSyncEnableConfirmed,

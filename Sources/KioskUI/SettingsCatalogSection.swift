@@ -69,49 +69,21 @@ struct SettingsCatalogSection: View {
         }
       }
       Section(L10n.string("File", locale: locale)) {
-        SecureField(
-          L10n.string("File passphrase", locale: locale),
-          text: Binding(
-            get: { props.passphrase }, set: { send(.editCatalogPassphrase($0)) })
-        )
-        .privacySensitive()
-        .accessibilityIdentifier("catalog-passphrase")
-        SecureField(
-          L10n.string("Confirm passphrase for export", locale: locale),
-          text: Binding(
-            get: { props.confirmPassphrase },
-            set: { send(.editCatalogConfirmPassphrase($0)) })
-        )
-        .privacySensitive()
-        .accessibilityIdentifier("catalog-confirm-passphrase")
-        if !props.passphrase.isEmpty && props.passphrase.count < 16 {
-          Label(
-            L10n.string("Use at least 16 characters", locale: locale),
-            systemImage: "info.circle"
-          ).font(.caption).foregroundStyle(.secondary)
-        }
-        Label(
-          L10n.string("A lost passphrase cannot be recovered", locale: locale),
-          systemImage: "key"
-        ).font(.caption).foregroundStyle(.secondary)
-        Text(L10n.string("A weak passphrase may be guessed", locale: locale))
-          .font(.caption).foregroundStyle(.secondary)
         Button(L10n.string("Export collection", locale: locale)) {
-          send(.exportCatalog([]))
+          send(.requestCatalogExport([]))
         }
-        .disabled(!props.canExport)
+        .disabled(!props.canStartExport)
         .accessibilityIdentifier("catalog-export-all")
         Button(L10n.string("Import file", locale: locale)) { openImporter() }
-          .disabled(!props.canImport)
+          .disabled(!props.canStartImport)
           .accessibilityIdentifier("catalog-import-file")
-        if props.exporting || props.importing { ProgressView().controlSize(.small) }
-        if props.exportFailed {
+        if props.exportFailed && props.exportSelection == nil {
           Label(
             L10n.string("Could not export settings", locale: locale),
             systemImage: "exclamationmark.circle"
           ).foregroundStyle(.red)
         }
-        if props.importFailed {
+        if props.importFailed && props.importFileURL == nil {
           Label(
             L10n.string("Could not import settings", locale: locale),
             systemImage: "exclamationmark.circle"

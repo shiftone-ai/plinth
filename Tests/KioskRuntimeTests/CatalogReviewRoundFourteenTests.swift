@@ -86,6 +86,25 @@ struct CatalogReviewRoundFourteenTests {
     #expect(fixture.runtime.snapshot.root.mode == .unlocking)
   }
 
+  @Test func closingTheLastMobileSceneCancelsAnOutstandingUnlock() throws {
+    let fixture = RuntimeFixture()
+    defer { fixture.runtime.stop() }
+    fixture.runtime.send(
+      .mobileDisplaysChanged(.init(deviceAvailable: true, externalAvailable: false)),
+      from: .platform)
+    fixture.runtime.send(
+      .bootstrapped(profile: nil, credentialsConfigured: true, displayCount: 1), from: .root)
+    #expect(fixture.runtime.send(.unlockRequested, from: .platform).reply == .accepted)
+    let unlockID = try #require(fixture.runtime.snapshot.root.unlockID)
+    fixture.runtime.send(.mobileLastSceneDisconnected, from: .platform)
+    #expect(fixture.runtime.snapshot.root.mode == .safeHold)
+    #expect(fixture.runtime.snapshot.root.unlockID == nil)
+    #expect(
+      fixture.runtime.send(.authenticationVerified(unlockID: unlockID), from: .administration)
+        .reply == .rejected(.staleOperation))
+    #expect(!fixture.runtime.snapshot.root.administratorSession)
+  }
+
   @Test func closingTheLastSceneDuringUnlockCompletionCannotReopenAdministration() throws {
     let fixture = RuntimeFixture()
     defer { fixture.runtime.stop() }

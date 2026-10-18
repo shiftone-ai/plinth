@@ -331,6 +331,11 @@ extension RootMediator {
         let selected = document.entries.first {
           $0.id == selectedID && $0.isVisible && next.catalogEntryAvailable($0)
         }
+        if selected == nil {
+          next.catalogRenameCandidate = nil
+          next.catalogUpdateCandidateID = nil
+          next.catalogRemovalCandidateID = nil
+        }
         controls.append(.init(.administration, .catalogSelectionRefreshed(selected)))
       }
       let followup = reconcileQueuedCloudFacts(state, into: document)

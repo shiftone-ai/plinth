@@ -104,12 +104,11 @@ public actor CatalogCloudSync: CKSyncEngineDelegate {
             ? (entry.id, entry) : nil
         })
       if disk.engineState == nil {
-        let fetch = CatalogInitialFetch(
+        initialFetch = CatalogInitialFetch(
           entries: local,
           pendingDeletions: pendingDeletions.filter {
             $0.accountIdentifier == accountIdentifier
           }, opaqueRecordIDs: disk.opaqueRecordIDs)
-        if fetch.hasCandidates { initialFetch = fetch }
       }
       let prior = disk.entries
       let replay =

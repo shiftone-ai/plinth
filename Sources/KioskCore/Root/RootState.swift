@@ -54,10 +54,12 @@ public struct RootState: Equatable, Sendable {
   public var catalogRenameCandidate: CatalogRenameCandidate?
   public var catalogUpdateCandidateID: UUID?
   public var catalogSaveFailed = false
+  public var catalogExportCandidateIDs: [UUID]?
   public var catalogExportOperation: OperationToken?
   public var catalogExportData: Data?
   public var catalogExportFailed = false
   public var catalogImportOperation: OperationToken?
+  public var catalogImportSelectedURL: URL?
   public var catalogImportPreview: [CatalogEntry]?
   public var catalogImportFailed = false
   public var pendingCatalogImport = false

@@ -37,6 +37,7 @@ struct CatalogImportPreview: View {
           }
         }
       }
+      .formStyle(.grouped)
       .navigationTitle(L10n.string("Import settings", locale: locale))
       .toolbar {
         ToolbarItem(placement: .cancellationAction) {
