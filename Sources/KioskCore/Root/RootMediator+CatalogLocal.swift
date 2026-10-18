@@ -316,10 +316,16 @@ extension RootMediator {
         }
       }
       next.pendingCatalogPublishes = true
-      let controls: [ChildControl] =
+      var controls: [ChildControl] =
         registrationID.map {
           [.init(.administration, .catalogRegistrationSucceeded($0))]
         } ?? []
+      if state.mode == .administration, let selectedID = context.catalogSelectionID {
+        let selected = document.entries.first {
+          $0.id == selectedID && $0.isVisible && next.catalogEntryAvailable($0)
+        }
+        controls.append(.init(.administration, .catalogSelectionRefreshed(selected)))
+      }
       let followup = reconcileQueuedCloudFacts(state, into: document)
       if followup != document {
         next.queuedCatalogCloudChanges = []

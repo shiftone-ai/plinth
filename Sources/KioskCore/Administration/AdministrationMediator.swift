@@ -147,7 +147,8 @@ public enum AdministrationMediator {
     case .catalogPassphraseEdited, .catalogConfirmPassphraseEdited,
       .catalogPassphraseCleared, .catalogExportRequested, .catalogImportFileRequested,
       .catalogRegisterRequested, .catalogNameEdited, .catalogSelectionNameEdited,
-      .catalogRegistrationSucceeded, .catalogSelectionOpened, .catalogSelectionDismissed,
+      .catalogRegistrationSucceeded, .catalogSelectionOpened, .catalogSelectionRefreshed,
+      .catalogSelectionDismissed,
       .catalogSelectionApplied:
       return reduceCatalog(state, envelope, mode: mode)
 

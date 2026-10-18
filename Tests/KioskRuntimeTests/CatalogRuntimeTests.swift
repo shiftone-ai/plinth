@@ -5,6 +5,53 @@ import Testing
 
 @MainActor
 struct CatalogRuntimeTests {
+  @Test func remoteRenameRefreshesAnUntouchedDetailName() throws {
+    let fixture = RuntimeFixture()
+    defer { fixture.runtime.stop() }
+    let runtime = fixture.runtime
+    let id = UUID()
+    let snapshot = try #require(CatalogSnapshot(fixture.profile()))
+    let original = try #require(
+      CatalogEntry(
+        id: id, name: "Lobby", snapshot: snapshot, scope: .iCloud,
+        accountIdentifier: "account-a", syncedVersion: 1))
+    runtime.send(
+      .bootstrapped(profile: nil, credentialsConfigured: false, displayCount: 1), from: .root)
+    runtime.send(.catalogLoadRequested, from: .root)
+    let load = try #require(runtime.snapshot.root.catalogLoadOperation)
+    fixture.port.deliver(
+      .catalogLoaded(
+        load,
+        SettingsCatalog(
+          syncEnabled: true, accountIdentifier: "account-a", entries: [original])),
+      source: .catalogRepository)
+    let accountCheck = try #require(runtime.snapshot.root.catalogAccountCheckOperation)
+    fixture.port.deliver(.catalogAccountChecked(accountCheck, "account-a"), source: .cloudCatalog)
+    let session = try #require(runtime.snapshot.root.catalogCloudSessionOperation)
+    #expect(runtime.send(.catalogSelectRequested(id), from: .settings).reply == .accepted)
+    #expect(runtime.snapshot.administration.catalogSelectionNameDraft == "Lobby")
+
+    let renamed = try #require(
+      CatalogEntry(
+        id: id, name: "Entrance", snapshot: snapshot, version: 2, scope: .iCloud,
+        accountIdentifier: "account-a", syncedVersion: 2))
+    runtime.send(
+      .catalogCloudChanges(session, "account-a", [.upsert(renamed)]), from: .cloudCatalog)
+    finishCatalogSave(fixture)
+    #expect(runtime.snapshot.administration.catalogSelectionNameDraft == "Entrance")
+    #expect(!runtime.settingsProps.props.catalog.canRename)
+
+    runtime.send(.catalogSelectionNameEdited("Gallery"), from: .settings)
+    let renamedAgain = try #require(
+      CatalogEntry(
+        id: id, name: "Main entrance", snapshot: snapshot, version: 3, scope: .iCloud,
+        accountIdentifier: "account-a", syncedVersion: 3))
+    runtime.send(
+      .catalogCloudChanges(session, "account-a", [.upsert(renamedAgain)]), from: .cloudCatalog)
+    finishCatalogSave(fixture)
+    #expect(runtime.snapshot.administration.catalogSelectionNameDraft == "Gallery")
+  }
+
   @Test func concurrentRemoteEditDoesNotRestoreALocallyRemovedSharedEntry() throws {
     let fixture = RuntimeFixture()
     defer { fixture.runtime.stop() }

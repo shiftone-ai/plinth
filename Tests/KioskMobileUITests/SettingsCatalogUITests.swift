@@ -18,9 +18,7 @@ final class SettingsCatalogUITests: XCTestCase {
     app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.585)).tap()
     let passphrase = app.secureTextFields["catalog-passphrase"]
     reach(passphrase, in: app)
-    passphrase.tap()
-    passphrase.typeText("abcdefghijklmnop")
-    try await secureCount(passphrase, count: 16)
+    try await enterFilePassphrase(passphrase)
     let importer = app.buttons["catalog-import-file"]
     reach(importer, in: app)
     try await enabled(importer)
@@ -30,7 +28,7 @@ final class SettingsCatalogUITests: XCTestCase {
     add(screenshot)
   }
 
-  @MainActor func testExportToLocalFiles() async throws {
+  @MainActor func testExportAndImportWithLocalFiles() async throws {
     guard ProcessInfo.processInfo.environment["PLINTH_TEST_FILE_PROVIDER_UI"] == "1" else {
       throw XCTSkip(
         "Run with TEST_RUNNER_PLINTH_TEST_FILE_PROVIDER_UI=1 on a dedicated iPad Simulator")
@@ -45,9 +43,7 @@ final class SettingsCatalogUITests: XCTestCase {
     try await registerSavedSettings(in: app)
     let passphrase = app.secureTextFields["catalog-passphrase"]
     reach(passphrase, in: app)
-    passphrase.tap()
-    passphrase.typeText("abcdefghijklmnop")
-    try await secureCount(passphrase, count: 16)
+    try await enterFilePassphrase(passphrase)
     let confirm = app.secureTextFields["catalog-confirm-passphrase"]
     reach(confirm, in: app)
     confirm.tap()
@@ -57,21 +53,42 @@ final class SettingsCatalogUITests: XCTestCase {
     reach(export, in: app)
     try await enabled(export)
     export.tap()
-    let files = app.staticTexts["On My iPad"]
+    let files = app.cells["DOC.sidebar.item.On My iPad"]
     try await exists(files)
-    files.tap()
     let screenshot = XCTAttachment(screenshot: app.screenshot())
     screenshot.name = "catalog-files-before-save"
     screenshot.lifetime = .keepAlways
     add(screenshot)
-    let savePoint = app.coordinate(withNormalizedOffset: CGVector(dx: 0.96, dy: 0.055))
-    savePoint.tap()
+    app.buttons["Save"].tap()
+    let replace = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+      .alerts["Replace Existing Item"]
+    if replace.waitForExistence(timeout: 2) {
+      replace.buttons["Keep Both"].tap()
+    }
     let after = XCTAttachment(screenshot: app.screenshot())
     after.name = "catalog-files-after-save"
     after.lifetime = .keepAlways
     add(after)
-    XCTAssertFalse(files.exists)
-    XCTAssertTrue(app.buttons["catalog-import-file"].waitForExistence(timeout: 10))
+    let closed = expectation(for: NSPredicate(format: "exists == false"), evaluatedWith: files)
+    await fulfillment(of: [closed], timeout: 10)
+    reach(passphrase, in: app)
+    try await enterFilePassphrase(passphrase)
+    let importer = app.buttons["catalog-import-file"]
+    reach(importer, in: app)
+    try await enabled(importer)
+    importer.tap()
+    let savedFile = app.cells.matching(
+      NSPredicate(format: "identifier BEGINSWITH %@", "settings.plinthsettings")
+    ).firstMatch
+    try await exists(savedFile)
+    savedFile.tap()
+    try await exists(app.staticTexts["Review imported settings"])
+    try await exists(app.staticTexts["https://example.com/home"])
+    let preview = XCTAttachment(screenshot: app.screenshot())
+    preview.name = "catalog-imported-file-preview"
+    preview.lifetime = .keepAlways
+    add(preview)
+    app.buttons["Cancel"].tap()
   }
 
   @MainActor func testSavedEntrySurvivesRestartAndLoadsIntoEditor() async throws {
@@ -115,6 +132,10 @@ final class SettingsCatalogUITests: XCTestCase {
     let register = app.buttons["catalog-register"]
     try await enabled(register)
     register.tap()
+    try await exists(
+      app.buttons.matching(
+        NSPredicate(format: "identifier BEGINSWITH %@", "catalog-entry-")
+      ).firstMatch)
   }
 
   @MainActor private func unlockIfNeeded(in app: XCUIApplication) async throws {
@@ -178,5 +199,19 @@ final class SettingsCatalogUITests: XCTestCase {
       for: NSPredicate(format: "value.length == %d", count), evaluatedWith: element)
     await fulfillment(of: [ready], timeout: 5)
     XCTAssertEqual((element.value as? String)?.count, count)
+  }
+
+  @MainActor private func enterFilePassphrase(_ field: XCUIElement) async throws {
+    field.tap()
+    field.typeText("a")
+    let app = XCUIApplication()
+    // iPadOS can offer an account password for this file passphrase field.
+    if app.buttons["GenerateStrongPasswordButton"].waitForExistence(timeout: 2) {
+      app.buttons["xmark"].tap()
+    }
+    let count = (field.value as? String)?.count ?? 0
+    field.tap()
+    field.typeText(count == 1 ? "bcdefghijklmnop" : "abcdefghijklmnop")
+    try await secureCount(field, count: 16)
   }
 }

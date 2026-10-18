@@ -55,6 +55,7 @@ public enum Event: Equatable, Sendable {
   case catalogRegistrationRequested(id: UUID, name: String, profile: KioskProfile)
   case catalogSelectRequested(UUID)
   case catalogSelectionOpened(CatalogEntry)
+  case catalogSelectionRefreshed(CatalogEntry?)
   case catalogSelectionDismissed
   case catalogApplyRequested
   case catalogSelectionApplied(CatalogEntry)
