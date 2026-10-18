@@ -272,6 +272,10 @@
       case .removeOriginRule(let id): event = .removeOriginRuleRequested(id)
       case .start: event = .startExhibitionRequested
       case .prepareExternalScene: event = .prepareExternalSceneRequested
+      case .openInformationPage(let page, let locale):
+        event = .openInformationPageRequested(page, locale: locale)
+      case .openLicenses: event = .openLicensesRequested
+      case .closeLicenses: event = .closeLicensesRequested
       case .quit: return
       default: return
       }

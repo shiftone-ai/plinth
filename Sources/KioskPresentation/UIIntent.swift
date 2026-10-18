@@ -44,6 +44,8 @@ public enum SettingsIntent: Sendable {
   case confirmCatalogShare(UUID)
   case cancelCatalogShare
   case resolveCatalogConflict(UUID, useRemote: Bool)
+  case openInformationPage(InformationPage, locale: String)
+  case openLicenses, closeLicenses
 }
 
 public enum UnlockIntent: Sendable {

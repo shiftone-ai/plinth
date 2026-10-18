@@ -37,6 +37,7 @@ public struct Effect: Equatable, Sendable {
       deletions: [CatalogPendingDeletion])
     case prepareCatalogExport([CatalogEntry], passphrase: String)
     case importCatalogFile(URL, passphrase: String)
+    case openInformationPage(InformationPage, locale: String)
     case startWebServer
     case stopWebServer
     case cancelOperation(OperationToken)

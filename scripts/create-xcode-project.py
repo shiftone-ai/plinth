@@ -131,6 +131,13 @@ localization_test = obj(
     path="Tests/KioskUITests/MacLocalizationUITests.swift",
     sourceTree="SOURCE_ROOT",
 )
+information_test = obj(
+    "MacInformationUISource",
+    "PBXFileReference",
+    lastKnownFileType="sourcecode.swift",
+    path="Tests/KioskUITests/MacInformationPageUITests.swift",
+    sourceTree="SOURCE_ROOT",
+)
 shield_test = obj(
     "MacDisplayShieldUISource",
     "PBXFileReference",
@@ -197,6 +204,7 @@ group = obj(
         main,
         test,
         localization_test,
+        information_test,
         shield_test,
         mac_biometric_test,
         mac_catalog_file_test,
@@ -213,6 +221,7 @@ library_build = obj("MacLibraryBuild", "PBXBuildFile", productRef=library)
 main_build = obj("MainBuild", "PBXBuildFile", fileRef=main)
 test_build = obj("TestBuild", "PBXBuildFile", fileRef=test)
 localization_test_build = obj("MacLocalizationTestBuild", "PBXBuildFile", fileRef=localization_test)
+information_test_build = obj("MacInformationTestBuild", "PBXBuildFile", fileRef=information_test)
 shield_test_build = obj("MacDisplayShieldTestBuild", "PBXBuildFile", fileRef=shield_test)
 mac_biometric_test_build = obj("MacBiometricTestBuild", "PBXBuildFile", fileRef=mac_biometric_test)
 mac_catalog_file_test_build = obj(
@@ -268,6 +277,15 @@ if options.app_store:
 elif options.developer_id:
     app_settings["CODE_SIGN_ENTITLEMENTS"] = "Resources/MacDeveloperID.entitlements"
 mac_assets_build = obj("MacAssetsBuild", "PBXBuildFile", fileRef=identifier("MobileAssets"))
+privacy = obj(
+    "PrivacyManifest",
+    "PBXFileReference",
+    lastKnownFileType="text.xml",
+    path="Resources/PrivacyInfo.xcprivacy",
+    sourceTree="SOURCE_ROOT",
+)
+objects[group]["children"].append(privacy)
+mac_privacy_build = obj("MacPrivacyBuild", "PBXBuildFile", fileRef=privacy)
 # Keep the wrapper's target name distinct from the package's Plinth executable.
 if options.mac_test_bundle_id:
     app_settings["PRODUCT_BUNDLE_IDENTIFIER"] = options.mac_test_bundle_id
@@ -285,7 +303,7 @@ app_target = obj(
     buildPhases=[
         phase("AppSources", "PBXSourcesBuildPhase", [main_build]),
         phase("AppFrameworks", "PBXFrameworksBuildPhase", [library_build]),
-        phase("AppResources", "PBXResourcesBuildPhase", [mac_assets_build]),
+        phase("AppResources", "PBXResourcesBuildPhase", [mac_assets_build, mac_privacy_build]),
     ],
 )
 proxy = obj(
@@ -326,6 +344,7 @@ test_target = obj(
             [
                 test_build,
                 localization_test_build,
+                information_test_build,
                 shield_test_build,
                 mac_biometric_test_build,
                 mac_catalog_file_test_build,
@@ -391,6 +410,13 @@ mobile_catalog_test = obj(
     path="Tests/KioskMobileUITests/SettingsCatalogUITests.swift",
     sourceTree="SOURCE_ROOT",
 )
+mobile_information_test = obj(
+    "MobileInformationTest",
+    "PBXFileReference",
+    lastKnownFileType="sourcecode.swift",
+    path="Tests/KioskMobileUITests/MobileInformationPageUITests.swift",
+    sourceTree="SOURCE_ROOT",
+)
 mobile_product = obj(
     "MobileProduct",
     "PBXFileReference",
@@ -425,6 +451,7 @@ objects[group]["children"] += [
     mobile_main,
     mobile_test,
     mobile_catalog_test,
+    mobile_information_test,
     mobile_localization_test,
     mobile_biometric_test,
 ]
@@ -440,6 +467,9 @@ mobile_main_build = obj("MobileMainBuild", "PBXBuildFile", fileRef=mobile_main)
 mobile_test_build = obj("MobileTestBuild", "PBXBuildFile", fileRef=mobile_test)
 mobile_catalog_test_build = obj(
     "MobileCatalogTestBuild", "PBXBuildFile", fileRef=mobile_catalog_test
+)
+mobile_information_test_build = obj(
+    "MobileInformationTestBuild", "PBXBuildFile", fileRef=mobile_information_test
 )
 mobile_localization_test_build = obj(
     "MobileLocalizationTestBuild", "PBXBuildFile", fileRef=mobile_localization_test
@@ -482,16 +512,7 @@ face_id_group = obj(
 )
 face_id_build = obj("FaceIDStringsBuild", "PBXBuildFile", fileRef=face_id_strings)
 objects[group]["children"].append(face_id_group)
-# 無操作の経過時間をsystemUptimeで測るため，iOSでは利用理由をPrivacy Manifestで申告する．
-mobile_privacy = obj(
-    "MobilePrivacy",
-    "PBXFileReference",
-    lastKnownFileType="text.xml",
-    path="Resources/PrivacyInfo.xcprivacy",
-    sourceTree="SOURCE_ROOT",
-)
-mobile_privacy_build = obj("MobilePrivacyBuild", "PBXBuildFile", fileRef=mobile_privacy)
-objects[group]["children"].append(mobile_privacy)
+mobile_privacy_build = obj("MobilePrivacyBuild", "PBXBuildFile", fileRef=privacy)
 mobile_base = {
     "SDKROOT": "iphoneos",
     "IPHONEOS_DEPLOYMENT_TARGET": "18.4",
@@ -510,7 +531,7 @@ mobile_settings = {
     "CODE_SIGN_ENTITLEMENTS": "Resources/Mobile.entitlements",
     "PRODUCT_BUNDLE_IDENTIFIER": "ai.shiftone.plinth.mobile",
     "PRODUCT_NAME": "PlinthMobile",
-    "MARKETING_VERSION": "0.1.0",
+    "MARKETING_VERSION": "1.0",
     "CURRENT_PROJECT_VERSION": "1",
     "ASSETCATALOG_COMPILER_APPICON_NAME": "AppIcon",
     "SWIFT_DEFAULT_ACTOR_ISOLATION": "MainActor",
@@ -576,6 +597,7 @@ mobile_test_target = obj(
             [
                 mobile_test_build,
                 mobile_catalog_test_build,
+                mobile_information_test_build,
                 mobile_localization_test_build,
                 mobile_biometric_test_build,
                 fixture_build,
