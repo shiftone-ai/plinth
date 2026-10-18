@@ -34,6 +34,8 @@ public actor CatalogCloudSync: CKSyncEngineDelegate {
   private var processingPublications = false
   private var retryPublicationsAfterProcessing = false
   private var initializingGeneration: UInt64?
+  private var initialFetch: CatalogInitialFetch?
+  private var deferredEngineState: CKSyncEngine.State.Serialization?
 
   public init(
     stateURL: URL, containerIdentifier: String = CatalogCloudSync.containerIdentifier,
@@ -68,6 +70,8 @@ public actor CatalogCloudSync: CKSyncEngineDelegate {
     self.session = session
     active = false
     initializingGeneration = startedGeneration
+    initialFetch = nil
+    deferredEngineState = nil
     publications.reset(for: session)
     let previous = engine
     engine = nil
@@ -99,6 +103,14 @@ public actor CatalogCloudSync: CKSyncEngineDelegate {
           entry.scope == .iCloud && entry.accountIdentifier == accountIdentifier
             ? (entry.id, entry) : nil
         })
+      if disk.engineState == nil {
+        let fetch = CatalogInitialFetch(
+          entries: local,
+          pendingDeletions: pendingDeletions.filter {
+            $0.accountIdentifier == accountIdentifier
+          }, opaqueRecordIDs: disk.opaqueRecordIDs)
+        if fetch.hasCandidates { initialFetch = fetch }
+      }
       let prior = disk.entries
       let replay =
         disk.serverEntries.values.compactMap { remote -> CatalogCloudChange? in
@@ -167,11 +179,13 @@ public actor CatalogCloudSync: CKSyncEngineDelegate {
       if !replay.isEmpty {
         await sendEvent(.catalogCloudChanges(session, accountIdentifier, replay))
       }
-      if generation == startedGeneration {
+      if generation == startedGeneration && initialFetch == nil {
         initializingGeneration = nil
         await processPublications()
       }
     } catch {
+      initialFetch = nil
+      deferredEngineState = nil
       initializingGeneration = nil
       await sendEvent(.catalogCloudStatus(session, .failed))
     }
@@ -187,6 +201,8 @@ public actor CatalogCloudSync: CKSyncEngineDelegate {
     generation &+= 1
     active = false
     initializingGeneration = nil
+    initialFetch = nil
+    deferredEngineState = nil
     session = nil
     publications.reset(for: nil)
     let previous = engine
@@ -310,7 +326,12 @@ extension CatalogCloudSync {
     guard active, engine === syncEngine, var disk, let session else { return }
     switch event {
     case .stateUpdate(let update):
-      disk.engineState = update.stateSerialization
+      if initialFetch == nil {
+        disk.engineState = update.stateSerialization
+      } else {
+        deferredEngineState = update.stateSerialization
+        disk.engineState = nil
+      }
       self.disk = disk
       do { try persistDisk() } catch { await sendEvent(.catalogCloudStatus(session, .failed)) }
 
@@ -322,6 +343,9 @@ extension CatalogCloudSync {
       }
       generation &+= 1
       active = false
+      initialFetch = nil
+      initializingGeneration = nil
+      deferredEngineState = nil
       engine = nil
       self.session = nil
       await sendEvent(.catalogCloudAccountChanged(session))
@@ -331,6 +355,9 @@ extension CatalogCloudSync {
 
     case .fetchedDatabaseChanges(let update):
       if update.deletions.contains(where: { $0.zoneID == Self.catalogZoneID }) {
+        initialFetch = nil
+        initializingGeneration = nil
+        deferredEngineState = nil
         let pending = syncEngine.state.pendingRecordZoneChanges.filter { change in
           switch change {
           case .saveRecord(let id), .deleteRecord(let id):
@@ -360,6 +387,7 @@ extension CatalogCloudSync {
           return
         }
         await sendEvent(.catalogCloudStatus(session, .pending))
+        await processPublications()
         if !completedDeletions.isEmpty {
           await sendEvent(
             .catalogCloudDeletionsAcknowledged(
@@ -381,13 +409,11 @@ extension CatalogCloudSync {
       fetchFailed = false
 
     case .didFetchRecordZoneChanges(let update):
-      if update.zoneID == Self.catalogZoneID, let error = update.error {
-        fetchFailed = true
-        await sendEvent(.catalogCloudStatus(session, Self.isOffline(error) ? .offline : .failed))
-      }
+      await handleDidFetchRecordZoneChanges(update, syncEngine: syncEngine, session: session)
 
     case .didFetchChanges, .didSendChanges:
-      if !fetchFailed && syncEngine.state.pendingRecordZoneChanges.isEmpty
+      if !fetchFailed && initialFetch == nil
+        && syncEngine.state.pendingRecordZoneChanges.isEmpty
         && syncEngine.state.pendingDatabaseChanges.isEmpty && disk.conflicts.isEmpty
         && disk.opaqueRecordIDs.isEmpty
       {
@@ -396,6 +422,50 @@ extension CatalogCloudSync {
 
     default: break
     }
+  }
+
+  private func handleDidFetchRecordZoneChanges(
+    _ update: CKSyncEngine.Event.DidFetchRecordZoneChanges, syncEngine: CKSyncEngine,
+    session: OperationToken
+  ) async {
+    guard update.zoneID == Self.catalogZoneID else { return }
+    if let error = update.error {
+      fetchFailed = true
+      await sendEvent(.catalogCloudStatus(session, Self.isOffline(error) ? .offline : .failed))
+    } else {
+      await finishInitialFetch(syncEngine: syncEngine, session: session)
+    }
+  }
+
+  private func finishInitialFetch(syncEngine: CKSyncEngine, session: OperationToken) async {
+    guard let initialFetch, var disk else { return }
+    let changes = initialFetch.reconcile(&disk)
+    disk.engineState = deferredEngineState
+    self.disk = disk
+    do { try persistDisk() } catch {
+      await sendEvent(.catalogCloudStatus(session, .failed))
+      return
+    }
+    self.initialFetch = nil
+    deferredEngineState = nil
+    initializingGeneration = nil
+    let staleSaves = changes.compactMap { change -> CKSyncEngine.PendingRecordZoneChange? in
+      if case .delete(let id) = change { return .saveRecord(Self.recordID(id)) }
+      return nil
+    }
+    syncEngine.state.remove(pendingRecordZoneChanges: staleSaves)
+    if !changes.isEmpty {
+      await sendEvent(.catalogCloudChanges(session, disk.accountIdentifier, changes))
+    }
+    await processPublications()
+    let pending = syncEngine.state.pendingRecordZoneChanges
+    if !pending.isEmpty { syncEngine.state.add(pendingRecordZoneChanges: pending) }
+  }
+
+  private func observeInitialFetch(_ id: UUID) {
+    guard var initialFetch else { return }
+    initialFetch.observe(id)
+    self.initialFetch = initialFetch
   }
 
   private func handleFetchedRecordZoneChanges(
@@ -412,6 +482,7 @@ extension CatalogCloudSync {
       switch Self.classifyFetchedRecord(record, accountIdentifier: disk.accountIdentifier) {
       case .unrelated: continue
       case .opaque(let opaqueID):
+        observeInitialFetch(opaqueID)
         disk.opaqueRecordIDs.insert(opaqueID)
         syncEngine.state.remove(pendingRecordZoneChanges: [
           .saveRecord(record.recordID), .deleteRecord(record.recordID),
@@ -421,6 +492,7 @@ extension CatalogCloudSync {
       case .valid(let validID, let validEntry):
         id = validID
         payload = validEntry
+        observeInitialFetch(id)
         disk.opaqueRecordIDs.remove(id)
       }
       if syncEngine.state.pendingRecordZoneChanges.contains(.saveRecord(record.recordID)) {
@@ -440,6 +512,12 @@ extension CatalogCloudSync {
         {
           continue
         }
+        if initialFetch?.pendingDeletionVersion(for: id) == payload.version {
+          disk.recordSystemFields[id] = Self.systemFields(record)
+          disk.serverEntries[id] = payload
+          disk.serverDeletions.remove(id)
+          continue
+        }
         disk.conflicts.insert(id)
         syncEngine.state.remove(pendingRecordZoneChanges: [.deleteRecord(record.recordID)])
       }
@@ -451,6 +529,7 @@ extension CatalogCloudSync {
     }
     for deletion in update.deletions {
       guard let id = Self.catalogID(from: deletion.recordID) else { continue }
+      observeInitialFetch(id)
       disk.opaqueRecordIDs.remove(id)
       if syncEngine.state.pendingRecordZoneChanges.contains(.saveRecord(deletion.recordID)) {
         disk.conflicts.insert(id)
@@ -592,7 +671,7 @@ extension CatalogCloudSync {
   public func nextRecordZoneChangeBatch(
     _ context: CKSyncEngine.SendChangesContext, syncEngine: CKSyncEngine
   ) async -> CKSyncEngine.RecordZoneChangeBatch? {
-    guard active, engine === syncEngine, let session else { return nil }
+    guard active, engine === syncEngine, initialFetch == nil, let session else { return nil }
     let batchGeneration = generation
     let availability = await accountAvailability()
     guard active, engine === syncEngine, generation == batchGeneration,
