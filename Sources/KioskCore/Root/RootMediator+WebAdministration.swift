@@ -108,6 +108,7 @@ extension RootMediator {
       guard envelope.source == .administration else { return .reject(state, .wrongSource) }
       guard state.savedProfile?.webAdministrationEnabled == true,
         state.credentialsConfigured,
+        state.mobileDisplays?.deviceAvailable != false,
         state.mode != .bootstrapping, state.mode != .terminating
       else { return .reject(state, .invalidState) }
       next.webSession = WebAdministrationSession(token: token, createdAt: envelope.timestamp)
@@ -157,7 +158,7 @@ extension RootMediator {
         transition.state.webSession = nil
         stopWebServer(&transition, event: envelope)
       }
-    case .applicationDeactivated:
+    case .applicationDeactivated, .mobileLastSceneDisconnected:
       if before.mobileDisplays != nil { stopWebServer(&transition, event: envelope) }
     case .applicationActivated:
       if before.mobileDisplays != nil,

@@ -67,8 +67,10 @@ public enum RootMediator {
       var next = state
       next.mobileForeground = false
       next.administratorSession = false
+      next.webSession = nil
       guard state.mode == .administration, state.credentialsConfigured else {
-        return .handled(.init(next))
+        return .handled(
+          .init(next, childControls: [.init(.administration, .invalidateWebAuthentication)]))
       }
       next.mode = .safeHold
       let effects = cancelCatalogFileOperations(&next, token: token)
@@ -76,6 +78,7 @@ public enum RootMediator {
         .init(
           next, effects: effects,
           childControls: [
+            .init(.administration, .invalidateWebAuthentication),
             .init(.administration, .cancelAuthentication),
             .init(.administration, .catalogPassphraseCleared),
           ]))
