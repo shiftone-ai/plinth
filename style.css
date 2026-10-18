@@ -12,16 +12,6 @@ body { margin: 0; }
 
 a { color: #16528b; }
 a:focus-visible { outline: 3px solid #e5a43f; outline-offset: 3px; }
-.contact-button {
-  border: 0;
-  padding: 0;
-  background: transparent;
-  color: #16528b;
-  font: inherit;
-  text-decoration: underline;
-  cursor: pointer;
-}
-.contact-button:focus-visible { outline: 3px solid #e5a43f; outline-offset: 3px; }
 
 .landing, .document {
   max-width: 46rem;
