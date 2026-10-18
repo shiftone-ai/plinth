@@ -201,6 +201,7 @@
         }
       }
       displaysChanged()
+      if scenes.isEmpty { runtime.send(.mobileLastSceneDisconnected, from: .platform) }
     }
 
     func continueActivity(_ activity: NSUserActivity, in scene: UIScene) {
