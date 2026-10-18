@@ -108,14 +108,16 @@ public struct RootState: Equatable, Sendable {
   }
   public func catalogEntryAvailable(_ entry: CatalogEntry) -> Bool {
     entry.scope == .device
-      || (catalog.syncEnabled && entry.accountIdentifier == catalog.accountIdentifier
+      || (catalogCloudAvailable && catalog.syncEnabled
+        && entry.accountIdentifier == catalog.accountIdentifier
         && catalogSyncStatus != .checking
         && catalogSyncStatus != .accountChanged
         && catalogSyncStatus != .signInRequired)
   }
 
   public func catalogConflictAvailable(_ conflict: CatalogConflict) -> Bool {
-    guard catalog.syncEnabled, let accountID = catalog.accountIdentifier,
+    guard catalogCloudAvailable, catalog.syncEnabled,
+      let accountID = catalog.accountIdentifier,
       catalogSyncStatus != .checking, catalogSyncStatus != .accountChanged,
       catalogSyncStatus != .signInRequired
     else { return false }
