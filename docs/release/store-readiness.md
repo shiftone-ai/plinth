@@ -13,23 +13,23 @@ Issue #28の提出可否を判断する表．iPhone／iPad版とMac専用版はA
 | 公開のプライバシーURL | 確認済み | [4言語のURL](public-pages.md)が未ログインで到達可能．App Store Connectにも言語別URLを保存した．アプリ内導線の残りの端末での確認は別項目 | 実装担当 |
 | 公開のサポートURL | 確認済み | [4言語のURL](public-pages.md)が未ログインで到達可能．連絡先は利用者が承認した `contact@shiftone.ai` | 実装担当 |
 | アプリ内のページとライセンス | 確認済み | iPhone SimulatorのiOS 27英語・iOS 26.4簡体字中国語と，iPad Pro 13インチ SimulatorのiOS 26.4日本語でプライバシー・サポートの遷移が成功した．iPhoneとiPadでライセンス表示が成功した．開けないURLの試験用設定では，両Simulatorで設定保存・展示開始・管理者解除が成功した．統合後のMac archiveを開発用に再署名して起動し，Safariへのプライバシー・サポート遷移，ライセンス表示，展示ページ移動と管理者解除を手元のMacで確認した．同じ環境で開けないURLを保存して展示を始めると「Exhibition stopped」が表示され，管理者パスワードで設定へ戻れた．Web管理はローカルブラウザからログイン・設定保存・展示開始を操作し，無効化後の接続拒否も確認した．基本操作の検証にはSimulatorの結果を採用する．App Store配布署名の状態での照合は別項目 | 実装担当 |
-| App Privacy | 要確認 | 利用者の承認を受け，App Store Connectで「アプリから収集するデータなし」を公開した．[データ取扱い](privacy-facts.md)にWeb管理を加え，WebViewのオープンWeb例外に関する推測・不確実性を記した．現在の候補と回答を再照合する | 公開担当 |
+| App Privacy | 申告済み・審査待ち | 利用者の承認を受け，App Store Connectで「アプリから収集するデータなし」を公開した．[データ取扱い](privacy-facts.md)にWeb管理とWebViewのオープンWeb例外に関する推測を記録した．利用者はAppleへの個別照会を省き，審査結果を受けて必要なら修正する方針 | 公開担当 |
 | Privacy Manifest | 確認済み | `systemUptime`の35F9.1と`UserDefaults`のCA92.1をソースと照合し，統合後のiOS archiveとMacの配布用パッケージ内アプリでmanifestを検査した．配布用IPAは`check-artifact.py`でmanifestの同梱を確認した | 実装担当 |
 | 年齢制限 | 確認済み | App Store Connectで任意のWebページへのアクセスを「あり」，同梱の成熟表現などを「なし」と回答し保存した．iOS 26以降の表示は原則16+，旧OSは17+ | 実装担当 |
 | 第三者コンテンツの権利 | 確認済み | 審査用の[展示サンプル](public-pages.md)は自作．管理者が展示サイトの表示権利・許可を確認する運用を利用者が承認し，4言語の[サポートページ](public-pages.md)に記した．App Store Connectで第三者コンテンツを扱い必要な権利がある旨を保存し，再読込で確認した | 公開担当 |
 | 暗号利用 | 確認済み | iOSの配布用IPAとMacの配布用パッケージ内アプリで`ITSAppUsesNonExemptEncryption=false`を確認した．App Store Connectの両候補のBuild Metadataにも`App Uses Non-Exempt Encryption: No`と表示された．独自の暗号処理を持たず，OSのKeychain，HTTPS，PBKDF2を使用する範囲をソースと照合した | 実装担当 |
 | 価格・税区分 | 確認済み | 利用者の指定に従い，App Store Connectで基本価格$0.00を保存した．税区分は「App Store software」 | 実装担当 |
 | 提供地域・公開方法 | 確認済み | 利用者の指定に従い，全175地域を「App Release後に提供」で保存した．iOS版とMac版を手動公開に設定した | 実装担当 |
-| 審査用サイト・手順 | 要確認 | [自作の展示サンプル](public-pages.md)は公開済み．iOS・Macの審査メモをApp Store Connectへ保存した．[原稿](review-notes.md)のMac操作は開発用署名の候補で確認した．配布署名の候補を実機で再照合する | 実装担当 |
+| 審査用サイト・手順 | 端末単体を確認済み | [自作の展示サンプル](public-pages.md)は公開済み．iOS・Macの審査メモをApp Store Connectへ保存した．[原稿](review-notes.md)の端末単体の操作はiPhone・iPad Simulatorと開発用署名のMac候補で確認した．配布署名のiOS候補と外部ディスプレイの操作は未確認 | 実装担当 |
 | 審査連絡先 | 確認済み | 利用者が提示した氏名・電話番号・メールアドレスをApp Store ConnectのiOS・Mac両版の審査情報へ保存し，再読込で確認した．公開文書に非公開の連絡先を置かない | 実装担当 |
-| 署名済み候補と実機 | 要確認 | Web管理の修正とCI試験を含む`main`を取り込んだ後，iOS配布用IPAとMac配布用パッケージを書き出した．Apple Distribution署名と`check-artifact.py`を確認してApp Store Connectへアップロードし，iOS版にビルド`20261017024237`，Mac版に`20261017024541`を選択・保存した．Macパッケージは`pkgutil`でも署名と内容を検査した．両候補を本人だけのTestFlight内部グループへ割り当てた．Macの旧版を更新し，`/Applications/Plinth.app`のビルド番号とTestFlight Beta Distribution署名を確認した．起動時に保存済みの展示ページが表示されることを実画面で確認した．管理画面・解除などは開発用署名の候補とSimulatorで確認済み．iPhoneとiPadで先に完了した実機試験は[対応方針](../design-docs/ipad-support.md)に記録済み．接続中のiPhone 15 Pro Maxには今回のiOS候補ビルドが入っていることを端末のアプリ一覧で確認したが，操作していない．接続中のiPad miniは旧ビルドのまま | 実装担当 |
+| 署名済み候補と実機 | 配布物確認済み・実機操作は一部未実施 | Web管理の修正とCI試験を含む`main`を取り込んだ後，iOS配布用IPAとMac配布用パッケージを書き出した．Apple Distribution署名と`check-artifact.py`を確認してApp Store Connectへアップロードし，iOS版にビルド`20261017024237`，Mac版に`20261017024541`を選択・保存した．Macパッケージは`pkgutil`でも署名と内容を検査した．両候補を本人だけのTestFlight内部グループへ割り当てた．Macの旧版を更新し，`/Applications/Plinth.app`のビルド番号とTestFlight Beta Distribution署名を確認した．起動時に保存済みの展示ページが表示されることを実画面で確認した．管理画面・解除などは開発用署名の候補とSimulatorで確認済み．iPhoneとiPadで先に完了した実機試験は[対応方針](../design-docs/ipad-support.md)に記録済み．接続中のiPhone 15 Pro Maxには今回のiOS候補ビルドが入っていることを端末のアプリ一覧で確認したが，操作していない．接続中のiPad miniは旧ビルドのまま | 実装担当 |
 
 ## 現在の判定
 
-**審査提出不可**．iOS・Macの両版は「提出準備中」のままにした．24枚の言語別画像は下書きに登録済み．開発用署名のMac候補では管理・展示画面，公開ページへの導線，Web管理，通信失敗時の解除を確認した．TestFlight配布版のMac候補は起動して保存済みの展示を表示した．今回のiOS配布候補の実機操作と，外部ディスプレイ・物理入力を使う経路は未確認．App PrivacyのWebView通信に対する解釈が未確定であり，現在公開中の「アプリから収集するデータなし」との整合を再判断する必要がある．サポート窓口はGoogle Workspaceの問い合わせグループの別名で，会話履歴と組織の自動削除はオフ．受信者のメールや複製の削除条件を確認できていない．[運用手順](support-data.md)の期限を満たすと確認できるまで，公開ポリシーには期限を記載しない．
+**審査用の下書きに登録済み・未送信**．App Store ConnectのiOS版とMac版は「Ready for Review」と表示され，それぞれの下書きに候補ビルドを追加した．両版とも承認後は手動公開に設定している．24枚の言語別画像は登録済み．開発用署名のMac候補では管理・展示画面，公開ページへの導線，Web管理，通信失敗時の解除を確認した．TestFlight配布版のMac候補は起動して保存済みの展示を表示した．利用者は端末単体の基本操作にSimulatorの結果を採用する．今回のiOS配布候補の実機操作と，外部ディスプレイ・物理入力を使う経路は未確認．App PrivacyのWebView通信に対する例外の適用は推測であり，利用者は個別照会を省いて審査を受ける方針を示した．サポート窓口はGoogle Workspaceの問い合わせグループの別名で，過去の配信実績を確認した．受信者のメールや複製の削除条件は未確認のため，公開ポリシーには保存期限を約束していない．
 
 ## 残る確認
 
 1. `contact@shiftone.ai` はGoogle Workspaceの問い合わせグループの別名．会話履歴とGmailの自動削除はオフ，Vaultの保持ルールと保留は未設定．外部投稿は許可され，2人のオーナーのうち1人が投稿ごとのメールを受け取る設定で，もう1人は配信エラーが表示される．受信者のGmailには別名宛ての既存メールがあり，過去の配信実績は確認できた．保留中のメッセージが1件ある．新たな受信試験と受信・保留メールの削除範囲を調べ，[運用手順](support-data.md)の削除を実行できる状態にする．公開ポリシーの期限はその後に決める．
-2. 管理者が任意の展示先を設定できる点を根拠に，WebViewの通信をAppleの「オープンWeb閲覧」の例外として扱えるか再判断する．現行の回答とコードで確認したデータの流れ，Appleの[App Privacy説明](https://developer.apple.com/app-store/app-privacy-details/)を[調査記録](privacy-facts.md)に記した．この例外の適用は推測であり，Appleによる個別の確認は得ていない．
+2. 管理者が任意の展示先を設定できる点を根拠に，WebViewの通信をAppleの「オープンWeb閲覧」の例外として扱う推測を[調査記録](privacy-facts.md)に記した．Appleへの個別照会は行わない．審査で変更を求められた場合は，App Privacyの回答と公開ポリシーを照合して修正する．
 3. 今回のiOS配布候補で実機操作を行う場合は，保存済みの設定を確認してから初回設定・展示・解除・再起動・通信失敗を試す．外部ディスプレイと物理入力を使う経路には対応機器が必要．基本操作はSimulatorで検証済みであり，実機での未確認範囲を区別して記録する．
