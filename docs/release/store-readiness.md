@@ -22,11 +22,11 @@ Issue #28の提出可否を判断する表．iPhone／iPad版とMac専用版はA
 | 提供地域・公開方法 | 確認済み | 利用者の指定に従い，全175地域を「App Release後に提供」で保存した．iOS版とMac版を手動公開に設定した | 実装担当 |
 | 審査用サイト・手順 | 端末単体を確認済み | [自作の展示サンプル](public-pages.md)は公開済み．iOS・Macの審査メモをApp Store Connectへ保存した．[原稿](review-notes.md)の端末単体の操作はiPhone・iPad Simulatorと開発用署名のMac候補で確認した．配布署名のiOS候補と外部ディスプレイの操作は未確認 | 実装担当 |
 | 審査連絡先 | 確認済み | 利用者が提示した氏名・電話番号・メールアドレスをApp Store ConnectのiOS・Mac両版の審査情報へ保存し，再読込で確認した．公開文書に非公開の連絡先を置かない | 実装担当 |
-| 署名済み候補と実機 | 配布物確認済み・実機操作は一部未実施 | Web管理の修正とCI試験を含む`main`を取り込んだ後，iOS配布用IPAとMac配布用パッケージを書き出した．Apple Distribution署名と`check-artifact.py`を確認してApp Store Connectへアップロードし，iOS版にビルド`20261017024237`，Mac版に`20261017024541`を選択・保存した．Macパッケージは`pkgutil`でも署名と内容を検査した．両候補を本人だけのTestFlight内部グループへ割り当てた．Macの旧版を更新し，`/Applications/Plinth.app`のビルド番号とTestFlight Beta Distribution署名を確認した．起動時に保存済みの展示ページが表示されることを実画面で確認した．管理画面・解除などは開発用署名の候補とSimulatorで確認済み．iPhoneとiPadで先に完了した実機試験は[対応方針](../design-docs/ipad-support.md)に記録済み．接続中のiPhone 15 Pro Maxには今回のiOS候補ビルドが入っていることを端末のアプリ一覧で確認したが，操作していない．接続中のiPad miniは旧ビルドのまま | 実装担当 |
+| 署名済み候補と実機 | 修正版を審査へ送信・実機操作は一部未実施 | 最初の審査候補はiOS`20261017024237`，Mac`20261017024541`．PRレビュー後にライセンス画面の状態管理，管理終了時の遅延ページ起動，直接ビルドの著作権欄を修正した．修正版のiOS`20261018160254`とMac`20261018160517`はApple Distribution署名と`check-artifact.py`を通過し，App Store Connectで「Ready to Submit」と表示された．両版の旧申請を取り下げ，修正版を選択して審査へ再提出した．両修正版を本人だけのTestFlight内部グループに割り当てた．MacのTestFlight版は修正版へ更新し，`/Applications/Plinth.app`のビルド番号とTestFlight Beta Distribution署名を確認した．起動時に保存済みの管理画面が表示された．管理画面・解除などは開発用署名の候補とSimulatorで確認済み．iPhoneとiPadで先に完了した実機試験は[対応方針](../design-docs/ipad-support.md)に記録済み．接続中のiPhone 15 Pro Maxには旧iOS候補ビルドが入っているが操作していない．接続中のiPad miniも旧ビルドのまま | 実装担当 |
 
 ## 現在の判定
 
-**iOS 1.0とmacOS 0.1.0を審査へ送信済み**．利用者の承認後，App Store Connectの両版で「Submit for Review」を実行し，それぞれ「1 Item Submitted」と「Waiting for Review」を確認した．両版とも承認後は手動公開に設定している．24枚の言語別画像は登録済み．開発用署名のMac候補では管理・展示画面，公開ページへの導線，Web管理，通信失敗時の解除を確認した．TestFlight配布版のMac候補は起動して保存済みの展示を表示した．利用者は端末単体の基本操作にSimulatorの結果を採用する．今回のiOS配布候補の実機操作と，外部ディスプレイ・物理入力を使う経路は未確認．App PrivacyのWebView通信に対する例外の適用は推測であり，利用者は個別照会を省いて審査を受ける方針を示した．サポート窓口はGoogle Workspaceの問い合わせグループの別名で，過去の配信実績を確認した．受信者のメールや複製の削除条件は未確認のため，公開ポリシーには保存期限を約束していない．
+**修正版のiOS 1.0とmacOS 0.1.0を審査へ送信済み**．PRレビューで見つかった不具合3件を修正し，旧申請を両方取り下げてから修正版を再提出した．App Store ConnectでiOS`20261018160254`とMac`20261018160517`の「1 Item Submitted」と「Waiting for Review」を確認し，旧申請は両方「Removed」と表示された．承認後の公開は手動に設定している．24枚の言語別画像は登録済み．開発用署名のMac候補では管理・展示画面，公開ページへの導線，Web管理，通信失敗時の解除を確認した．TestFlight配布版の修正後Mac候補は更新して起動し，保存済みの管理画面が表示された．利用者は端末単体の基本操作にSimulatorの結果を採用する．今回のiOS配布候補の実機操作と，外部ディスプレイ・物理入力を使う経路は未確認．App PrivacyのWebView通信に対する例外の適用は推測であり，利用者は個別照会を省いて審査を受ける方針を示した．サポート窓口はGoogle Workspaceの問い合わせグループの別名で，過去の配信実績を確認した．受信者のメールや複製の削除条件は未確認のため，公開ポリシーには保存期限を約束していない．
 
 ## 残る確認
 
