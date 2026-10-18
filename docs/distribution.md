@@ -39,7 +39,7 @@ iOS版とMac版はPrivacy Manifest `Resources/PrivacyInfo.xcprivacy` で，理�
 
 ## MacのApp Store配布
 
-`python3 scripts/create-xcode-project.py --app-store` でMac App Store用のprojectを生成する．archive時はXcodeのビルド設定 `PLINTH_COPYRIGHT` に，権利取得年と権利者名を含む承認済みの表記を渡す．この値は `Resources/Info.plist` の `NSHumanReadableCopyright` に入る．個人名をprojectやリポジトリに保存しない．配布前にarchive内の値を `plutil` で確認する．
+`python3 scripts/create-xcode-project.py --app-store` でMac App Store用のprojectを生成する．archive時はXcodeのビルド設定 `PLINTH_COPYRIGHT` に，権利取得年と権利者名を含む承認済みの表記を渡す．この値は `Resources/Info.plist` の `NSHumanReadableCopyright` に入る．直接ビルドする `scripts/build-app.sh` はビルド設定を展開しないため，そのキーを削除する．個人名をprojectやリポジトリに保存しない．配布前にarchive内の値を `plutil` で確認する．
 
 ## MacのDeveloper ID配布
 
