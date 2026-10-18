@@ -148,6 +148,31 @@ struct CatalogLatestReviewTests {
       })
   }
 
+  @Test func replayedConflictCannotReportSyncReady() throws {
+    let fixture = RuntimeFixture()
+    defer { fixture.runtime.stop() }
+    let snapshot = try #require(CatalogSnapshot(fixture.profile()))
+    let id = UUID()
+    let local = try #require(
+      CatalogEntry(
+        id: id, name: "Local", snapshot: snapshot, version: 2, scope: .iCloud,
+        accountIdentifier: "account-a", syncedVersion: 1))
+    let remote = try #require(
+      CatalogEntry(
+        id: id, name: "Remote", snapshot: snapshot, version: 2, scope: .iCloud,
+        accountIdentifier: "account-a", syncedVersion: 2))
+    try startCatalog(fixture, entries: [local])
+    let session = try #require(fixture.runtime.snapshot.root.catalogCloudSessionOperation)
+    fixture.runtime.send(
+      .catalogCloudChanges(session, "account-a", [.upsert(remote)]), from: .cloudCatalog)
+    fixture.runtime.send(.catalogCloudStatus(session, .ready), from: .cloudCatalog)
+    #expect(fixture.runtime.snapshot.root.catalogSyncStatus != .ready)
+    try finishCatalogSave(fixture)
+    #expect(fixture.runtime.snapshot.root.catalog.conflicts.map(\.id) == [id])
+    fixture.runtime.send(.catalogCloudStatus(session, .ready), from: .cloudCatalog)
+    #expect(fixture.runtime.snapshot.root.catalogSyncStatus != .ready)
+  }
+
   @Test func cloudChangesQueuedDuringAFailedSaveArePersisted() throws {
     let fixture = RuntimeFixture()
     defer { fixture.runtime.stop() }

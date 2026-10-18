@@ -234,6 +234,11 @@ extension RootMediator {
       next.catalogSaveOperation = nil
       next.pendingCatalog = nil
       next.catalogQueuedReconcileAttempted = false
+      if let accountID = document.accountIdentifier,
+        !document.conflictIDs(for: accountID).isEmpty && next.catalogSyncStatus == .ready
+      {
+        next.catalogSyncStatus = .pending
+      }
       if state.pendingCatalogImport { next.catalogImportPreview = nil }
       next.pendingCatalogImport = false
       let registrationID = next.pendingCatalogRegistrationID
