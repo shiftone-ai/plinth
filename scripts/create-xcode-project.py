@@ -410,6 +410,13 @@ mobile_main = obj(
     path="Sources/PlinthMobile/main.swift",
     sourceTree="SOURCE_ROOT",
 )
+mobile_shortcut = obj(
+    "MobileShortcut",
+    "PBXFileReference",
+    lastKnownFileType="sourcecode.swift",
+    path="Sources/PlinthMobile/ResetExhibitionIntent.swift",
+    sourceTree="SOURCE_ROOT",
+)
 mobile_test = obj(
     "MobileTest",
     "PBXFileReference",
@@ -463,6 +470,7 @@ mobile_biometric_test = obj(
 )
 objects[group]["children"] += [
     mobile_main,
+    mobile_shortcut,
     mobile_test,
     mobile_catalog_test,
     mobile_information_test,
@@ -478,6 +486,7 @@ mobile_library = obj(
 )
 mobile_library_build = obj("MobileLibraryBuild", "PBXBuildFile", productRef=mobile_library)
 mobile_main_build = obj("MobileMainBuild", "PBXBuildFile", fileRef=mobile_main)
+mobile_shortcut_build = obj("MobileShortcutBuild", "PBXBuildFile", fileRef=mobile_shortcut)
 mobile_test_build = obj("MobileTestBuild", "PBXBuildFile", fileRef=mobile_test)
 mobile_catalog_test_build = obj(
     "MobileCatalogTestBuild", "PBXBuildFile", fileRef=mobile_catalog_test
@@ -500,6 +509,17 @@ mobile_assets = obj(
 )
 mobile_assets_build = obj("MobileAssetsBuild", "PBXBuildFile", fileRef=mobile_assets)
 objects[group]["children"].append(mobile_assets)
+mobile_shortcut_strings = obj(
+    "MobileShortcutStrings",
+    "PBXFileReference",
+    lastKnownFileType="text.json.xcstrings",
+    path="Resources/Shortcuts.xcstrings",
+    sourceTree="SOURCE_ROOT",
+)
+mobile_shortcut_strings_build = obj(
+    "MobileShortcutStringsBuild", "PBXBuildFile", fileRef=mobile_shortcut_strings
+)
+objects[group]["children"].append(mobile_shortcut_strings)
 face_id_strings = obj(
     "FaceIDStrings",
     "PBXVariantGroup",
@@ -563,12 +583,17 @@ mobile_target = obj(
     dependencies=[],
     packageProductDependencies=[mobile_library],
     buildPhases=[
-        phase("MobileSources", "PBXSourcesBuildPhase", [mobile_main_build]),
+        phase("MobileSources", "PBXSourcesBuildPhase", [mobile_main_build, mobile_shortcut_build]),
         phase("MobileFrameworks", "PBXFrameworksBuildPhase", [mobile_library_build]),
         phase(
             "MobileResources",
             "PBXResourcesBuildPhase",
-            [mobile_assets_build, mobile_privacy_build, face_id_build],
+            [
+                mobile_assets_build,
+                mobile_privacy_build,
+                face_id_build,
+                mobile_shortcut_strings_build,
+            ],
         ),
     ],
 )

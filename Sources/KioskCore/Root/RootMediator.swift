@@ -37,6 +37,8 @@ public enum RootMediator {
       .catalogSharePromptRequested, .catalogSharePromptCancelled,
       .catalogShareConfirmed, .catalogConflictResolved:
       return reduceCatalog(state, envelope, context: context)
+    case .shortcutResetRequested:
+      return reduceShortcutReset(state, envelope, context: context)
     case .biometricStatusRequested, .biometricStatusRead, .biometricChangeRequested,
       .biometricChangeCompleted, .biometricChangeCancelled,
       .biometricUnlockRequested, .biometricUnlockCancelled, .biometricUnlockCompleted:
@@ -70,6 +72,8 @@ public enum RootMediator {
       }
       var next = state
       next.mobileForeground = false
+      next.mobileExhibitionResumePending = false
+      next.shortcutResetAcceptedDuringResume = false
       next.administratorSession = false
       next.webSession = nil
       if state.mode == .unlocking {
@@ -377,6 +381,8 @@ public enum RootMediator {
   ) -> Mediation<RootState> {
     var next = state
     next.foregroundResume = resumeOnActivation ? .awaitingActivation : .none
+    next.mobileExhibitionResumePending = resumeOnActivation
+    if !resumeOnActivation { next.shortcutResetAcceptedDuringResume = false }
     guard [.enteringKiosk, .exhibiting, .unlocking].contains(state.mode) else {
       return .handled(.init(next))
     }
@@ -482,6 +488,8 @@ public enum RootMediator {
     RootState
   > {
     var next = state
+    next.mobileExhibitionResumePending = false
+    next.shortcutResetAcceptedDuringResume = false
     if state.mobileDisplays != nil, state.credentialsConfigured, !state.administratorSession {
       next.mode = .safeHold
       return .handled(.init(next))
@@ -500,6 +508,8 @@ public enum RootMediator {
   static func pause(_ state: RootState) -> Mediation<RootState> {
     var next = state
     next.mode = .paused
+    next.mobileExhibitionResumePending = false
+    next.shortcutResetAcceptedDuringResume = false
     next.webExitDestination = nil
     next.webRestartInProgress = false
     return .handled(.init(next))
