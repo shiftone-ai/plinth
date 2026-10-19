@@ -1,7 +1,9 @@
 import Foundation
 
 extension RootMediator {
-  static func reduceCatalogCloud(_ state: RootState, _ envelope: EventEnvelope)
+  static func reduceCatalogCloud(
+    _ state: RootState, _ envelope: EventEnvelope, context: ReadonlyContext
+  )
     -> Mediation<RootState>
   {
     var next = state
@@ -65,6 +67,8 @@ extension RootMediator {
           if case .handled(var transition) = result {
             transition.state.catalogQueuedReconcileAttempted = true
             transition.state.catalogCheckAfterSave = true
+            transition.childControls.append(
+              contentsOf: closeSharedCatalogSelection(state, context: context))
             result = .handled(transition)
           }
           return result
@@ -79,7 +83,9 @@ extension RootMediator {
         state.catalogCloudSessionOperation == nil
         ? .checkCatalogAccount : .checkCatalogAccountAfterStopping
       return .handled(
-        .init(next, reply: .accepted, effects: [Effect(token, kind)]))
+        .init(
+          next, reply: .accepted, effects: [Effect(token, kind)],
+          childControls: closeSharedCatalogSelection(state, context: context)))
 
     case .catalogAccountChecked(let completed, let accountID):
       guard envelope.source == .cloudCatalog,
@@ -148,7 +154,10 @@ extension RootMediator {
       let kind: Effect.Kind =
         state.catalogCloudSessionOperation == nil
         ? .checkCatalogAccount : .checkCatalogAccountAfterStopping
-      return .handled(.init(next, effects: [Effect(token, kind)]))
+      return .handled(
+        .init(
+          next, effects: [Effect(token, kind)],
+          childControls: closeSharedCatalogSelection(state, context: context)))
 
     case .catalogCloudAccountChanged(let session):
       guard envelope.source == .cloudCatalog, state.catalog.syncEnabled,
@@ -164,7 +173,8 @@ extension RootMediator {
       return .handled(
         .init(
           next,
-          effects: [Effect(token, .checkCatalogAccountAfterStopping)]))
+          effects: [Effect(token, .checkCatalogAccountAfterStopping)],
+          childControls: closeSharedCatalogSelection(state, context: context)))
 
     case .catalogCloudStatus(let session, let status):
       guard envelope.source == .cloudCatalog, state.catalog.syncEnabled,
@@ -363,6 +373,18 @@ extension RootMediator {
     clearCatalogCandidates(&state)
     state.catalogSyncConsentPending = false
     state.catalogRecoveryPending = false
+  }
+
+  private static func closeSharedCatalogSelection(
+    _ state: RootState, context: ReadonlyContext
+  ) -> [ChildControl] {
+    guard state.mode == .administration,
+      let selectedID = context.catalogSelectionID,
+      let selected = state.catalog.entries.first(where: {
+        $0.id == selectedID && $0.isVisible && state.catalogEntryAvailable($0)
+      }), selected.scope == .iCloud
+    else { return [] }
+    return [.init(.administration, .catalogSelectionRefreshed(nil))]
   }
 
   private static func clearQueuedCatalogCloudFacts(_ state: inout RootState) {
