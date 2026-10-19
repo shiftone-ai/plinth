@@ -85,7 +85,12 @@ public enum RootMediator {
           .init(next, childControls: [.init(.administration, .invalidateWebAuthentication)]))
       }
       next.mode = .safeHold
-      let effects = cancelCatalogFileOperations(&next, token: token)
+      clearCatalogAdministrationConfirmations(&next)
+      next.licenseSheetPresented = false
+      next.informationPageOperation = nil
+      let effects =
+        cancelCatalogFileOperations(&next, token: token)
+        + (state.informationPageOperation.map { [Effect(token, .cancelOperation($0))] } ?? [])
       return .handled(
         .init(
           next, effects: effects,
@@ -443,7 +448,7 @@ public enum RootMediator {
     next.presentationOperation = token
     next.presentationAcquisition = token
     next.administratorSession = false
-    clearCatalogCandidates(&next)
+    clearCatalogAdministrationConfirmations(&next)
     let fileEffects = cancelCatalogFileOperations(&next, token: token)
     let settings = state.mobileDisplays == nil ? profile.macOutput ?? .init() : .init()
     let display = state.macDisplays.flatMap { DisplaySelection.select(settings, from: $0) }
