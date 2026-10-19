@@ -21,6 +21,6 @@ App Store Connect の App Privacy には「アプリから収集するデータ�
 
 先に公開したApp Privacyの回答は「アプリが収集するデータなし」．この回答は設定集を含まない版を前提とする．端末内保存とOSLogはAppleの定義する収集には当たらない．管理者が任意のサイトを選べるため，WebView通信にはオープンWebの例外が当たると推測する．ただしAppleは，管理者だけがURLを変更できるキオスクや，許可リスト方式で表示先を制限する場合の扱いを明示していない．[Appleの別の説明](https://developer.apple.com/app-store/user-privacy-and-data-use/)は，アプリの機能として使うWebViewを原則ネイティブ機能と同様に扱うとしている．利用者はAppleへの個別照会を省き，この推測を明記したまま審査で判断を受ける方針を示した．審査結果は申告の正確さを代わりに保証するものではない．
 
-設定集を含む版の提出前には，App Privacyの回答と`PrivacyInfo.xcprivacy`を改めて確認する．[Appleの定義](https://developer.apple.com/app-store/app-privacy-details/)は，開発者または組み込んだ第三者が，リクエストの処理時間を超えてアクセスできる形で端末外へ送るデータを「収集」とする．[CloudKit非公開データベースの説明](https://developer.apple.com/documentation/cloudkit/ckcontainer/privateclouddatabase)では，データは利用者の所有で，標準では開発者ポータルから見えない．この仕組みがApp Privacyの回答にどう当てはまるかは，現時点では未確定であり，公開済みの回答を新しい版へそのまま流用しない．
+設定集を含む版について，App Privacyの回答を再点検した．[Appleの定義](https://developer.apple.com/app-store/app-privacy-details/)は，開発者または組み込んだ第三者が，リクエストの処理時間を超えてアクセスできる形で端末外へ送るデータを「収集」とする．Appleの同じ説明は，CloudKitなどのAppleのサービスが集めるデータは開発者に申告を求めないとしている．[CloudKit非公開データベースの説明](https://developer.apple.com/documentation/cloudkit/ckcontainer/privateclouddatabase)では，データは利用者の所有で，標準では開発者ポータルから見えない．実装は利用者の非公開データベースだけを使い，開発者が共有項目を取得する処理を持たない．この範囲なら，現在の「アプリが収集するデータなし」という回答と整合すると判断した．WebViewの表示先に関する前段の不確実性は残る．
 
 Web管理は同じネットワーク上の第三者にパスワードと設定が読まれるおそれがある．端末内の管理画面から有効にした場合だけ使えること，隔離したネットワークで運用することを公開ポリシーに記した．これはアプリが開発者へデータを収集する経路ではない．

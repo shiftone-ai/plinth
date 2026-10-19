@@ -105,6 +105,8 @@ extension Presenters {
       canApply: selection != nil && root.mode == .administration
         && root.catalogSaveOperation == nil
         && !administration.hasUnsavedDraft && !administration.saving,
+      canSelect: root.mode == .administration && root.catalogLoaded
+        && root.catalogSaveOperation == nil && !administration.hasUnsavedDraft,
       canManage: root.mode == .administration && root.catalogLoaded
         && root.catalogSaveOperation == nil,
       canShare: selection?.scope == .device && root.catalogCanShare
