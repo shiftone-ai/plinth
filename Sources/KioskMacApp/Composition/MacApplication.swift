@@ -13,6 +13,7 @@ public final class MacApplication: NSObject, NSApplicationDelegate, NSWindowDele
   private var input: NativeInputAdapter?
   private var lifecycle: LifecycleAdapter?
   private var executor: EffectExecutor?
+  private var cloudBridge: CatalogCloudEventBridge?
   private var webServer: WebAdministrationServer?
   private let preview: Bool
   private let exhibitionInset: Double
@@ -50,12 +51,15 @@ public final class MacApplication: NSObject, NSApplicationDelegate, NSWindowDele
       unlockTitle: { [language] in
         L10n.string("Administrator unlock", locale: language.locale)
       })
+    let cloudBridge = CatalogCloudEventBridge()
     let webServer = WebAdministrationServer()
     let port = makeEffectPort(
       web: web, presentation: presentation, clock: clock, displays: displays,
-      webServer: webServer)
+      cloudBridge: cloudBridge, webServer: webServer)
     let executor = EffectExecutor(port: port)
     let runtime = RootRuntime(clock: clock, executor: executor, diagnostics: DiagnosticLogAdapter())
+    cloudBridge.runtime = runtime
+    self.cloudBridge = cloudBridge
     presentation.pointerEvents = { [weak runtime] in runtime?.send($0, from: .platform) }
     self.window = window
     self.executor = executor
@@ -86,12 +90,21 @@ public final class MacApplication: NSObject, NSApplicationDelegate, NSWindowDele
     window.makeKeyAndOrderFront(nil)
     NSApplication.shared.activate()
     runtime.send(.macDisplaysChanged(displays.availableDisplays), from: .platform)
+    initializeCatalog(runtime)
     runtime.send(.bootstrapRequested, from: .root)
+  }
+
+  private func initializeCatalog(_ runtime: RootRuntime) {
+    if Bundle.main.object(forInfoDictionaryKey: "PlinthCloudKitEntitled") as? String != "YES" {
+      runtime.send(.catalogCloudCapabilityUnavailable, from: .platform)
+    }
+    runtime.send(.catalogLoadRequested, from: .root)
   }
 
   private func makeEffectPort(
     web: WebKitAdapter, presentation: PresentationAdapter, clock: MonotonicClock,
-    displays: DisplayAdapter, webServer: WebAdministrationServer
+    displays: DisplayAdapter, cloudBridge: CatalogCloudEventBridge,
+    webServer: WebAdministrationServer
   ) -> NativeEffectPort {
     let location =
       profileFileURL
@@ -129,7 +142,13 @@ public final class MacApplication: NSObject, NSApplicationDelegate, NSWindowDele
         service: credentialService, keychain: credentialKeychain,
         legacyService: legacyCredentialService),
       biometrics: biometrics,
-      clock: clock, displays: displays, webServer: webServer)
+      clock: clock, displays: displays,
+      catalogRepository: CatalogRepository(
+        fileURL: location.deletingLastPathComponent().appendingPathComponent("catalog.json")),
+      catalogCloudSync: CatalogCloudSync(
+        stateURL: location.deletingLastPathComponent().appendingPathComponent("catalog-cloud.json")
+      ) { [weak cloudBridge] event in cloudBridge?.send(event) },
+      webServer: webServer)
   }
 
   private func makeWindow() -> ExhibitionWindow {
@@ -160,6 +179,12 @@ public final class MacApplication: NSObject, NSApplicationDelegate, NSWindowDele
   }
 
   private func settings(_ intent: SettingsIntent) {
+    if let event = CatalogIntentEventMapper.event(
+      for: intent, importCount: runtime?.settingsProps.props.catalog.importPreview?.count ?? 0
+    ) {
+      runtime?.send(event, from: .settings)
+      return
+    }
     let event: Event
     switch intent {
     case .edit(let edit): event = .draftEdited(edit)
@@ -180,6 +205,7 @@ public final class MacApplication: NSObject, NSApplicationDelegate, NSWindowDele
     case .quit:
       NSApplication.shared.terminate(nil)
       return
+    default: return
     }
     runtime?.send(event, from: .settings)
   }

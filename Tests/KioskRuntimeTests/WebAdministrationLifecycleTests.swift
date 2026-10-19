@@ -4,6 +4,40 @@ import Testing
 
 @MainActor
 struct WebAdministrationLifecycleTests {
+  @Test func lastMobileSceneDisconnectEndsWebAuthentication() throws {
+    let fixture = RuntimeFixture()
+    defer { fixture.runtime.stop() }
+    fixture.runtime.send(
+      .mobileDisplaysChanged(.init(deviceAvailable: true, externalAvailable: false)),
+      from: .platform)
+    var profile = try fixture.profile()
+    profile.webAdministrationEnabled = true
+    fixture.runtime.send(
+      .bootstrapped(profile: profile, credentialsConfigured: true, displayCount: 1), from: .root)
+    let start = try #require(fixture.runtime.snapshot.root.webServerOperation)
+    fixture.port.deliver(
+      .webServerStarted(
+        start, WebServerEndpoint(url: "http://192.0.2.1:47623/", origins: [])),
+      source: .webAdministration)
+    let sessionToken = String(repeating: "a", count: 64)
+    fixture.runtime.send(.webAuthenticationVerified(sessionToken), from: .administration)
+    #expect(fixture.runtime.snapshot.root.webSession != nil)
+    fixture.runtime.send(
+      .mobileDisplaysChanged(.init(deviceAvailable: false, externalAvailable: false)),
+      from: .platform)
+    fixture.runtime.send(.mobileLastSceneDisconnected, from: .platform)
+    #expect(fixture.runtime.snapshot.root.webSession == nil)
+    #expect(!fixture.runtime.snapshot.root.webServerRunning)
+    #expect(fixture.port.effects.contains { $0.kind == .stopWebServer })
+    #expect(
+      fixture.runtime.send(
+        .webSessionRequested(sessionToken, activity: true), from: .webAdministration
+      ).reply == .rejected(.unauthenticated))
+    #expect(
+      fixture.runtime.send(.webAuthenticationVerified(sessionToken), from: .administration).reply
+        == .rejected(.invalidState))
+  }
+
   @Test func delayedBootstrapWhileBackgroundedWaitsForForeground() throws {
     let fixture = RuntimeFixture()
     defer { fixture.runtime.stop() }

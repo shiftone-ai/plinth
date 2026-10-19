@@ -14,9 +14,16 @@
       <p>Plinth is a kiosk app for Mac, iPhone and iPad, provided by Shift One. This policy describes data handled by the app and by our support contact.</p>
 
       <h2>Data on your device</h2>
-      <p>Exhibition settings, including the start URL and display preferences, stay in the app's local storage. The administrator password is stored as a salted verification value in the device Keychain. Plinth uses the operating system's biometric authentication and does not receive biometric data.</p>
+      <p>The settings currently used for exhibition on this device, including the start URL and display preferences, are stored in the app's local storage. The administrator password is stored as a salted verification value in the device Keychain. Plinth uses the operating system's biometric authentication and does not receive biometric data.</p>
       <p>Your language choice stays on the device. On Mac, removing the app does not remove the profile in Application Support or the language preference in UserDefaults. Uninstalling the iPhone or iPad app removes its app container. Keychain items may remain after uninstall; a new administrator password replaces the existing verification value. Contact support for local removal steps.</p>
       <p>Plinth writes limited operational diagnostics to the device's system log, such as state changes and error codes. It does not put your password, full exhibition URL or page content in these records. The operating system manages log retention.</p>
+
+      <h2>Settings collection and iCloud</h2>
+      <p>Items saved to the settings collection stay on the device until an administrator turns on iCloud sync and chooses an item to share. For a shared item, Plinth stores its name and settings snapshot—including the start URL, navigation addresses, interaction rules and display preferences—in an encrypted field of the signed-in Apple Account's private CloudKit database.</p>
+      <p>Administrator passwords, biometric credentials, browsing history and page content are not included. Devices signed in to the same Apple Account can receive the item, but receiving it does not change the settings used for exhibition.</p>
+      <p>Turning off sync does not delete items already in iCloud. Removing a shared item from the collection requests its deletion from iCloud; the change reaches other devices after syncing.</p>
+      <p>Uninstalling the app does not delete iCloud items. To remove a shared item from iCloud, turn on sync with the same Apple Account and remove it from the collection.</p>
+      <p>An encrypted export file is saved to the location chosen in the operating system's file picker; the chosen storage provider handles that file.</p>
 
       <h2>Exhibition websites</h2>
       <p>Plinth loads the website chosen by an administrator. That website and any embedded services may receive network requests and process visitor data under their own policies. Plinth does not control them.</p>
@@ -29,9 +36,11 @@
       <h2>Data sent to us</h2>
       <p>The app does not send exhibition settings, credentials, diagnostics or analytics to Shift One. These pages are hosted on GitHub Pages, which receives the normal connection data needed to serve them.</p>
       <p>If you email support, we use your address and the information you provide to answer your request. Do not send passwords or private exhibition content.</p>
+      <p>Support messages may remain after we reply. We have not yet verified the mailbox and backup retention settings, so we cannot state a maximum retention period. To request deletion, email contact [at] shiftone.ai from the address used for the request. We will confirm what can be removed and report the result.</p>
 
       <h2>Contact</h2>
-      <p class="updated">Updated 17 October 2026</p>
+      <p>For privacy questions or deletion requests, email contact [at] shiftone.ai (replace [at] with the at sign).</p>
+      <p class="updated">Updated 19 October 2026</p>
     </main>
     <footer><a href="../index.html">Language</a></footer>
   </body>

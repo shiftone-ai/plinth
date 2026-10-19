@@ -32,6 +32,13 @@ def referenced_keys(root: Path) -> set[str]:
     guidance = root / "Sources/KioskMobileApp/MobilePointerSetupGuidance.swift"
     if guidance.exists():
         keys.update(re.findall(r'return\s+"([^"\n]+)"', guidance.read_text()))
+    comparison = root / "Sources/KioskPresentation/CatalogComparison.swift"
+    if comparison.exists():
+        keys.update(
+            value
+            for value in re.findall(r'"([^"\n]+)"', comparison.read_text())
+            if value not in {", ", "180°"} and "\\(" not in value
+        )
     remote_page = root / "Sources/KioskRuntime/RemoteAdministration/WebAdministrationPage.swift"
     if remote_page.exists():
         keys.update(re.findall(r'label\("([^"\n]+)"\)', remote_page.read_text()))

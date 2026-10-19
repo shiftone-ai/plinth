@@ -15,11 +15,34 @@ public enum RootMediator {
       return reduceInformation(state, envelope)
     case .bootstrapped:
       return withWebServerLifecycle(bootstrapCompleted(state, envelope), before: state, envelope)
+    case .catalogLoadRequested, .catalogLoaded, .catalogLoadFailed, .catalogLoadCorrupt,
+      .catalogRecoveryRequested, .catalogRecoveryCancelled, .catalogRecoveryConfirmed,
+      .catalogRegistrationRequested, .catalogSelectRequested, .catalogApplyRequested,
+      .catalogRenameRequested, .catalogRenameConfirmed, .catalogRenameCancelled,
+      .catalogUpdateRequested, .catalogUpdateConfirmed, .catalogUpdateCancelled,
+      .catalogRemovePromptRequested, .catalogRemovePromptCancelled,
+      .catalogVisibilityRequested, .catalogRemoveConfirmed, .catalogSaved, .catalogSaveFailed,
+      .catalogExportPromptRequested, .catalogExportPromptCancelled,
+      .catalogExportOperationRequested, .catalogExportPrepared, .catalogExportFailed,
+      .catalogExportDismissed, .catalogFileExportCompleted,
+      .catalogImportFileSelected, .catalogImportOperationRequested, .catalogImportPreviewReady,
+      .catalogImportFailed, .catalogImportConfirmed, .catalogImportCancelled,
+      .catalogSyncEnableRequested, .catalogSyncEnableConfirmed,
+      .catalogSyncEnableCancelled, .catalogSyncDisableRequested, .catalogSyncRetryRequested,
+      .catalogAccountChecked, .catalogAccountCheckDeferred,
+      .catalogAccountAvailabilityChanged, .catalogCloudStatus, .catalogCloudChanges,
+      .catalogCloudCapabilityUnavailable,
+      .catalogCloudAcknowledged, .catalogCloudDeletionsAcknowledged,
+      .catalogCloudAccountChanged,
+      .catalogSharePromptRequested, .catalogSharePromptCancelled,
+      .catalogShareConfirmed, .catalogConflictResolved:
+      return reduceCatalog(state, envelope, context: context)
     case .biometricStatusRequested, .biometricStatusRead, .biometricChangeRequested,
       .biometricChangeCompleted, .biometricChangeCancelled,
       .biometricUnlockRequested, .biometricUnlockCancelled, .biometricUnlockCompleted:
       return reduceBiometric(state, envelope)
-    case .applicationDeactivated, .systemWillSleep, .unlockDeadlineReached,
+    case .applicationDeactivated, .mobileLastSceneDisconnected, .systemWillSleep,
+      .unlockDeadlineReached,
       .unlockCancelled, .authenticationVerified:
       return withWebServerLifecycle(
         reduceUnlockLifecycle(state, envelope), before: state, envelope)
@@ -41,6 +64,42 @@ public enum RootMediator {
   ) -> Mediation<RootState> {
     let token = envelope.token(owner: .root, epoch: state.epoch)
     switch envelope.event {
+    case .mobileLastSceneDisconnected:
+      guard envelope.source == .platform, state.mobileDisplays != nil else {
+        return .reject(state, .wrongSource)
+      }
+      var next = state
+      next.mobileForeground = false
+      next.administratorSession = false
+      next.webSession = nil
+      if state.mode == .unlocking {
+        var result = hold(next, token: token)
+        if case .handled(var transition) = result {
+          transition.childControls.append(.init(.administration, .invalidateWebAuthentication))
+          result = .handled(transition)
+        }
+        return result
+      }
+      guard state.mode == .administration else {
+        return .handled(
+          .init(next, childControls: [.init(.administration, .invalidateWebAuthentication)]))
+      }
+      if state.credentialsConfigured { next.mode = .safeHold }
+      clearCatalogAdministrationConfirmations(&next)
+      next.licenseSheetPresented = false
+      next.informationPageOperation = nil
+      let effects =
+        cancelCatalogFileOperations(&next, token: token)
+        + (state.informationPageOperation.map { [Effect(token, .cancelOperation($0))] } ?? [])
+      return .handled(
+        .init(
+          next, effects: effects,
+          childControls: [
+            .init(.administration, .invalidateWebAuthentication),
+            .init(.administration, .cancelAuthentication),
+            .init(.administration, .catalogPassphraseCleared),
+          ]))
+
     case .applicationDeactivated:
       guard envelope.source == .platform else { return .reject(state, .wrongSource) }
       var next = state
@@ -95,16 +154,20 @@ public enum RootMediator {
         envelope.source == .root
       else { return .reject(state, .invalidState) }
       next.bootstrapOperation = token
+      next.bootstrapReadFailed = false
       return .handled(.init(next, effects: [Effect(token, .bootstrap)]))
 
-    case .bootstrapFailed(let completed, let displayCount):
+    case .bootstrapFailed(let completed, let displayCount, let credentials, let profileCorrupt):
       guard state.mode == .bootstrapping, envelope.source == .profileRepository,
         state.bootstrapOperation == completed
       else {
         return .reject(state, .invalidState)
       }
       next.bootstrapOperation = nil
+      next.bootstrapReadFailed = true
       next.displayCount = displayCount
+      next.credentialsConfigured = credentials
+      next.profileCorrupt = profileCorrupt
       next.mode = .safeHold
       return .handled(.init(next))
 
@@ -166,6 +229,13 @@ public enum RootMediator {
       if succeeded {
         next.credentialsConfigured = true
         next.webSession = nil
+        if state.mobileDisplays != nil
+          && (state.mobileDisplays?.deviceAvailable == false || !state.mobileForeground)
+          && state.mode == .administration
+        {
+          next.mode = .safeHold
+          next.administratorSession = false
+        }
       }
       let controls: [ChildControl] =
         succeeded
@@ -319,6 +389,7 @@ public enum RootMediator {
     next.externalPointer = nil
     next.externalButtonDown = false
     next.unlockID = nil
+    next.unlockReturnMode = nil
     next.unlockTimeoutOperation = nil
     next.unlockDeadline = nil
     next.biometricUnlockOperation = nil
@@ -382,6 +453,8 @@ public enum RootMediator {
     next.presentationOperation = token
     next.presentationAcquisition = token
     next.administratorSession = false
+    clearCatalogAdministrationConfirmations(&next)
+    let fileEffects = cancelCatalogFileOperations(&next, token: token)
     let settings = state.mobileDisplays == nil ? profile.macOutput ?? .init() : .init()
     let display = state.macDisplays.flatMap { DisplaySelection.select(settings, from: $0) }
     let usesExternalDisplay =
@@ -394,17 +467,25 @@ public enum RootMediator {
       usesExternalDisplay: usesExternalDisplay,
       externalDisplayRotation: usesExternalDisplay
         ? profile.externalDisplayRotation ?? .standard : .standard)
+    let controls: [ChildControl] =
+      state.mode == .administration
+      ? [.init(.administration, .catalogPassphraseCleared)] : []
     return .handled(
       .init(
         next, reply: reply,
         effects: (state.informationPageOperation.map { [Effect(token, .cancelOperation($0))] } ?? [])
-          + [Effect(token, .applyPresentation(request))]))
+          + fileEffects + [Effect(token, .applyPresentation(request))],
+        childControls: controls))
   }
 
   static func administration(_ state: RootState, token: OperationToken) -> Mediation<
     RootState
   > {
     var next = state
+    if state.mobileDisplays != nil, state.credentialsConfigured, !state.administratorSession {
+      next.mode = .safeHold
+      return .handled(.init(next))
+    }
     next.mode = .administration
     next.activeProfile = nil
     let statusToken = OperationToken(
