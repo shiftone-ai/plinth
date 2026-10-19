@@ -102,6 +102,20 @@ struct PresentersTests {
     #expect(!Presenters.settings(root, administration).catalog.canSelect)
   }
 
+  @Test func invalidFirstRunDraftAlsoBlocksCatalogSelection() {
+    var root = RootState()
+    root.mode = .administration
+    root.catalogLoaded = true
+    var administration = AdministrationState()
+    administration.draft = ProfileDraft(
+      profile: KioskProfile(startURL: "", navigation: .init(rules: [])))
+    #expect(!administration.hasUnsavedDraft)
+
+    administration.draft?.idleTimeoutText = "invalid"
+    #expect(administration.hasUnsavedDraft)
+    #expect(!Presenters.settings(root, administration).catalog.canSelect)
+  }
+
   @Test func unlockingStopsWebInputWithoutChangingSurfaceIdentity() {
     var root = RootState()
     root.mode = .unlocking

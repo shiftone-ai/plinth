@@ -20,7 +20,10 @@ public struct AdministrationState: Equatable, Sendable {
   public var lastWebLogin: WebLoginResult?
   public var hasUnsavedDraft: Bool {
     guard let draft else { return false }
-    return draft.validatedProfile != savedProfile
+    if let savedProfile { return draft.validatedProfile != savedProfile }
+    return draft
+      != ProfileDraft(
+        profile: KioskProfile(startURL: "", navigation: .init(rules: [])))
   }
   public init() {}
 }
