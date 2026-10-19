@@ -36,6 +36,7 @@ extension CatalogCloudSync {
 
     var isValid: Bool {
       !accountIdentifier.isEmpty
+        && Set(serverEntries.keys).isDisjoint(with: serverDeletions)
         && entries.allSatisfy { id, entry in
           id == entry.id && entry.isValid && entry.scope == .iCloud
             && entry.accountIdentifier == accountIdentifier
