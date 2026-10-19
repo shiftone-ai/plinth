@@ -17,21 +17,46 @@ struct CatalogOpaqueRecoveryTests {
     var disk = CatalogCloudSync.DiskState(
       accountIdentifier: "account-a", engineState: nil, entries: [local.id: local],
       serverEntries: [local.id: local], serverDeletions: [],
-      recordSystemFields: [local.id: Data("old fields".utf8)], conflicts: [],
+      recordSystemFields: [local.id: Data("old fields".utf8)], conflicts: [local.id],
       opaqueRecordIDs: [local.id])
 
-    let change = CatalogCloudSync.reconcileDeletedOpaqueRecord(local.id, disk: &disk)
+    let change = CatalogCloudSync.reconcileDeletedOpaqueRecord(
+      local.id, pendingDeletion: nil, disk: &disk)
     #expect(
       change
-        == .saveRecord(
-          CKRecord.ID(
-            recordName: local.id.uuidString,
-            zoneID: CKRecordZone.ID(zoneName: "SettingsCatalog"))))
+        == .resumeSave(
+          .saveRecord(
+            CKRecord.ID(
+              recordName: local.id.uuidString,
+              zoneID: CKRecordZone.ID(zoneName: "SettingsCatalog")))))
     #expect(disk.entries[local.id] == local)
     #expect(disk.serverEntries[local.id] == nil)
     #expect(disk.recordSystemFields[local.id] == nil)
     #expect(!disk.serverDeletions.contains(local.id))
+    #expect(!disk.conflicts.contains(local.id))
     #expect(disk.opaqueRecordIDs.isEmpty)
+  }
+
+  @Test func pendingDeletionOfOpaqueLocalEntryWinsOverResumingItsSave() throws {
+    let snapshot = try #require(
+      CatalogSnapshot(
+        KioskProfile(startURL: "https://example.com", navigation: NavigationPolicy(rules: []))))
+    let local = try #require(
+      CatalogEntry(
+        id: UUID(), name: "Removed", snapshot: snapshot, scope: .iCloud,
+        accountIdentifier: "account-a"))
+    var disk = CatalogCloudSync.DiskState(
+      accountIdentifier: "account-a", engineState: nil, entries: [local.id: local],
+      serverEntries: [:], serverDeletions: [], recordSystemFields: [:],
+      conflicts: [local.id], opaqueRecordIDs: [local.id])
+    let deletion = CatalogPendingDeletion(id: local.id, accountIdentifier: "account-a")
+
+    #expect(
+      CatalogCloudSync.reconcileDeletedOpaqueRecord(
+        local.id, pendingDeletion: deletion, disk: &disk) == .deleted(local.id))
+    #expect(disk.entries[local.id] == nil)
+    #expect(disk.serverDeletions.contains(local.id))
+    #expect(!disk.conflicts.contains(local.id))
   }
 
   @Test func readableOpaqueRecordResumesMatchingPendingDeletion() throws {

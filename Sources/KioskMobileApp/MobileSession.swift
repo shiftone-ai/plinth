@@ -204,6 +204,10 @@
       if scenes.isEmpty { runtime.send(.mobileLastSceneDisconnected, from: .platform) }
     }
 
+    var shouldRestartAfterBootstrapFailure: Bool {
+      scenes.isEmpty && runtime.snapshot.root.bootstrapReadFailed
+    }
+
     func continueActivity(_ activity: NSUserActivity, in scene: UIScene) {
       guard isExhibitionScene(scene), activity.activityType == Self.exhibitionActivity else {
         return

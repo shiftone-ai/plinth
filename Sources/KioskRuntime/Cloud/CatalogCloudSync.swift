@@ -581,8 +581,14 @@ extension CatalogCloudSync {
     for deletion in update.deletions {
       guard let id = Self.catalogID(from: deletion.recordID) else { continue }
       observeInitialFetch(id)
-      if let resumed = Self.reconcileDeletedOpaqueRecord(id, disk: &disk) {
-        syncEngine.state.add(pendingRecordZoneChanges: [resumed])
+      if let recovered = Self.reconcileDeletedOpaqueRecord(
+        id, pendingDeletion: pendingDeletionByID[id], disk: &disk)
+      {
+        switch recovered {
+        case .resumeSave(let pending):
+          syncEngine.state.add(pendingRecordZoneChanges: [pending])
+        case .deleted(let removedID): changes.append(.delete(removedID))
+        }
         continue
       }
       if syncEngine.state.pendingRecordZoneChanges.contains(.saveRecord(deletion.recordID)) {
@@ -843,17 +849,30 @@ extension CatalogCloudSync {
       }
   }
 
+  enum OpaqueDeletionRecovery: Equatable {
+    case resumeSave(CKSyncEngine.PendingRecordZoneChange)
+    case deleted(UUID)
+  }
+
   static func reconcileDeletedOpaqueRecord(
-    _ id: UUID, disk: inout DiskState
-  ) -> CKSyncEngine.PendingRecordZoneChange? {
+    _ id: UUID, pendingDeletion: CatalogPendingDeletion?, disk: inout DiskState
+  ) -> OpaqueDeletionRecovery? {
     let wasOpaque = disk.opaqueRecordIDs.remove(id) != nil
-    guard wasOpaque, let local = disk.entries[id], local.syncedVersion == nil else {
-      return nil
+    guard wasOpaque else { return nil }
+    if pendingDeletion?.accountIdentifier == disk.accountIdentifier {
+      disk.entries.removeValue(forKey: id)
+      disk.serverEntries.removeValue(forKey: id)
+      disk.serverDeletions.insert(id)
+      disk.recordSystemFields.removeValue(forKey: id)
+      disk.conflicts.remove(id)
+      return .deleted(id)
     }
+    guard let local = disk.entries[id], local.syncedVersion == nil else { return nil }
     disk.serverEntries.removeValue(forKey: id)
     disk.serverDeletions.remove(id)
     disk.recordSystemFields.removeValue(forKey: id)
-    return .saveRecord(recordID(id))
+    disk.conflicts.remove(id)
+    return .resumeSave(.saveRecord(recordID(id)))
   }
 
   static func reconcileReadableOpaqueRecord(

@@ -139,6 +139,7 @@ struct NativeLifecycleTests {
               token, displayCount: 1, credentialsConfigured: true, profileCorrupt: true),
             source: .profileRepository, id: 2))))
     #expect(failed.state.mode == .safeHold)
+    #expect(failed.state.bootstrapReadFailed)
     #expect(failed.state.credentialsConfigured)
     #expect(failed.state.profileCorrupt)
     #expect(failed.childControls.isEmpty)

@@ -39,6 +39,10 @@
     func disconnect(_ scene: UIWindowScene) {
       guard let session else { return }
       session.disconnect(scene)
+      if session.shouldRestartAfterBootstrapFailure {
+        session.stop()
+        self.session = nil
+      }
     }
   }
 

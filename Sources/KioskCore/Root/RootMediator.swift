@@ -154,6 +154,7 @@ public enum RootMediator {
         envelope.source == .root
       else { return .reject(state, .invalidState) }
       next.bootstrapOperation = token
+      next.bootstrapReadFailed = false
       return .handled(.init(next, effects: [Effect(token, .bootstrap)]))
 
     case .bootstrapFailed(let completed, let displayCount, let credentials, let profileCorrupt):
@@ -163,6 +164,7 @@ public enum RootMediator {
         return .reject(state, .invalidState)
       }
       next.bootstrapOperation = nil
+      next.bootstrapReadFailed = true
       next.displayCount = displayCount
       next.credentialsConfigured = credentials
       next.profileCorrupt = profileCorrupt
