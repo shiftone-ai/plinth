@@ -54,7 +54,8 @@ public final class EffectExecutor: EffectExecuting {
       .stopRemoteDirectory, .refreshRemoteDirectory, .setRemoteEnabled,
       .setRemoteVisibility, .generateRemotePairingCode, .sendRemotePairingRequest,
       .respondToRemotePairing, .saveRemoteTargetGrant, .revokeRemoteController,
-      .sendRemoteCommand, .claimRemoteCommand, .sendRemoteCommandResult:
+      .sendRemoteCommand, .claimRemoteCommand, .sendRemoteCommandResult,
+      .rejectRemoteCommand, .reportRemoteCommandProgress:
       source = .cloudRemote
     case .startWebServer: source = .webAdministration
     case .stopWebServer: return

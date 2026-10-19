@@ -40,6 +40,8 @@ public struct RemoteManagementProps: Equatable, Sendable {
   public let pairedDeviceIDs: Set<UUID>
   public let selectedSnapshot: RemoteStatusSnapshot?
   public let statusPhase: RemoteCommandPhase
+  public let unknownResultBeforeRefresh: Bool
+  public let statusIsAutomaticRefresh: Bool
   public let statusRejection: RemoteCommandRejection?
   public let canRefreshStatus: Bool
   public let canEditStartURL: Bool
@@ -47,6 +49,7 @@ public struct RemoteManagementProps: Equatable, Sendable {
   public let canReviewEdit: Bool
   public let savingStartURL: Bool
   public let lastCommandWasSave: Bool
+  public let lastExhibitionAction: RemoteExhibitionAction?
   public let reviewDifferences: [CatalogDifference]
   public let availableExhibitionActions: [RemoteExhibitionAction]
   public let exhibitionReviewAction: RemoteExhibitionAction?

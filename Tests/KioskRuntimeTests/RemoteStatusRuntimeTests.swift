@@ -96,7 +96,9 @@ struct RemoteStatusRuntimeTests {
     target.port.deliver(
       .remoteCommandReceived(
         targetSession,
-        RemoteCommandRequest(header: header, command: command.command),
+        RemoteCommandRequest(
+          header: header, command: command.command,
+          authenticatedSigningPublicKey: controllerIdentity.signingPublicKey),
         receivedAt: 1_700_000_003), source: .cloudRemote)
     let claim = try #require(target.runtime.snapshot.root.remote.commandClaimOperation)
     var claimed = targetInstallation
@@ -150,7 +152,9 @@ struct RemoteStatusRuntimeTests {
     target.port.deliver(
       .remoteCommandReceived(
         targetSession,
-        RemoteCommandRequest(header: staleHeader, command: .saveProfile(patch)),
+        RemoteCommandRequest(
+          header: staleHeader, command: .saveProfile(patch),
+          authenticatedSigningPublicKey: controllerIdentity.signingPublicKey),
         receivedAt: 1_700_000_006), source: .cloudRemote)
     let staleClaim = try #require(target.runtime.snapshot.root.remote.commandClaimOperation)
     claimed.processedRequestExpirations[staleID] = staleHeader.expiresAt
@@ -185,7 +189,9 @@ struct RemoteStatusRuntimeTests {
     target.port.deliver(
       .remoteCommandReceived(
         targetSession,
-        RemoteCommandRequest(header: failedHeader, command: .saveProfile(nextPatch)),
+        RemoteCommandRequest(
+          header: failedHeader, command: .saveProfile(nextPatch),
+          authenticatedSigningPublicKey: controllerIdentity.signingPublicKey),
         receivedAt: 1_700_000_008), source: .cloudRemote)
     let failedClaim = try #require(target.runtime.snapshot.root.remote.commandClaimOperation)
     claimed.processedRequestExpirations[failedID] = failedHeader.expiresAt
@@ -220,7 +226,9 @@ struct RemoteStatusRuntimeTests {
     target.port.deliver(
       .remoteCommandReceived(
         targetSession,
-        RemoteCommandRequest(header: expiredHeader, command: .saveProfile(nextPatch)),
+        RemoteCommandRequest(
+          header: expiredHeader, command: .saveProfile(nextPatch),
+          authenticatedSigningPublicKey: controllerIdentity.signingPublicKey),
         receivedAt: 1_700_000_010), source: .cloudRemote)
     #expect(target.runtime.snapshot.root.remote.commandClaimOperation == previousClaim)
   }
@@ -301,7 +309,10 @@ struct RemoteStatusRuntimeTests {
       source: .cloudRemote)
     target.port.deliver(
       .remoteCommandReceived(
-        targetSession, RemoteCommandRequest(header: header, command: command),
+        targetSession,
+        RemoteCommandRequest(
+          header: header, command: command,
+          authenticatedSigningPublicKey: controllerIdentity.signingPublicKey),
         receivedAt: 1_700_000_001), source: .cloudRemote)
     let claim = try #require(target.runtime.snapshot.root.remote.commandClaimOperation)
     var claimedInstallation = targetInstallation
@@ -350,7 +361,10 @@ struct RemoteStatusRuntimeTests {
     let previousEffects = target.port.effects.count
     target.port.deliver(
       .remoteCommandReceived(
-        targetSession, RemoteCommandRequest(header: header, command: command),
+        targetSession,
+        RemoteCommandRequest(
+          header: header, command: command,
+          authenticatedSigningPublicKey: controllerIdentity.signingPublicKey),
         receivedAt: 1_700_000_004), source: .cloudRemote)
     #expect(target.port.effects.count == previousEffects)
 

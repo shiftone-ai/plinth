@@ -93,8 +93,20 @@ extension MobileWorkflowUITests {
     XCTAssertTrue(app.staticTexts["Gallery iPad"].exists)
     save.tap()
     let result = app.staticTexts["remote-command-status"]
-    XCTAssertTrue(result.waitForExistence(timeout: 10), app.debugDescription)
-    XCTAssertTrue(result.label.contains("Saved on device"), result.label)
+    XCTAssertEqual(
+      XCTWaiter.wait(
+        for: [
+          XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "label CONTAINS %@", "Accepted by device"),
+            object: result)
+        ], timeout: 10), .completed)
+    XCTAssertEqual(
+      XCTWaiter.wait(
+        for: [
+          XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "label CONTAINS %@", "Saved on device"),
+            object: result)
+        ], timeout: 10), .completed)
     let savedURL = app.descendants(matching: .any).matching(
       NSPredicate(format: "label CONTAINS %@", "https://example.com/next")
     ).firstMatch

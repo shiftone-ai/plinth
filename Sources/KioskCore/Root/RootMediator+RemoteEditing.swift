@@ -143,9 +143,11 @@ extension RootMediator {
         let accountIdentifier = state.remote.accountIdentifier,
         grant.accountIdentifier == accountIdentifier,
         state.remote.sessionOperation != nil,
-        ![.sending, .waiting].contains(state.remote.outgoingCommand?.phase ?? .idle)
+        ![.sending, .waiting, .accepted, .applying].contains(
+          state.remote.outgoingCommand?.phase ?? .idle)
       else { return .reject(state, .invalidState) }
       let command = RemoteCommandPayload.saveProfile(editing.patch)
+      next.remote.lastUnknownCommand = nil
       next.remote.outgoingCommand = RemoteOutgoingCommand(
         requestID: requestID, targetID: editing.targetID,
         accountIdentifier: accountIdentifier, deadline: envelope.timestamp + 120,

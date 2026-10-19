@@ -145,6 +145,12 @@ public final class RootRuntime {
       store.root.remote.commandClaimOperation == effect.token
     case .sendRemoteCommandResult:
       store.root.remote.commandResultOperation == effect.token
+    case .rejectRemoteCommand:
+      store.root.remote.sessionOperation != nil
+        && store.root.epoch == effect.token.ownerEpoch
+    case .reportRemoteCommandProgress(let request, _):
+      store.root.remote.incomingCommand?.header.requestID == request.header.requestID
+        && store.root.epoch == effect.token.ownerEpoch
     case .scheduleRemoteCommandDeadline(_, let requestID):
       store.root.remote.outgoingCommand?.requestID == requestID
         && store.root.remote.outgoingCommandDeadlineOperation == effect.token

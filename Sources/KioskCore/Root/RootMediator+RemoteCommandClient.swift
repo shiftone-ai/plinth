@@ -31,8 +31,10 @@ extension RootMediator {
         let accountIdentifier = state.remote.accountIdentifier,
         grant.accountIdentifier == accountIdentifier,
         state.remote.sessionOperation != nil,
-        ![.sending, .waiting].contains(state.remote.outgoingCommand?.phase ?? .idle)
+        ![.sending, .waiting, .accepted, .applying].contains(
+          state.remote.outgoingCommand?.phase ?? .idle)
       else { return .reject(state, .invalidState) }
+      next.remote.lastUnknownCommand = nil
       next.remote.outgoingCommand = RemoteOutgoingCommand(
         requestID: requestID, targetID: id,
         accountIdentifier: accountIdentifier, deadline: envelope.timestamp + 120)
@@ -62,6 +64,7 @@ extension RootMediator {
     _ state: RootState, _ envelope: EventEnvelope
   ) -> Mediation<RootState> {
     var next = state
+    let token = envelope.token(owner: .cloudRemote, epoch: state.epoch)
     switch envelope.event {
     case .remoteCommandCloudSaved(let completed, let requestID):
       guard envelope.source == .cloudRemote,
@@ -95,12 +98,19 @@ extension RootMediator {
         result.header.requestID == outgoing.requestID,
         receivedAt < result.header.expiresAt,
         envelope.timestamp < outgoing.deadline,
-        [.sending, .waiting].contains(outgoing.phase)
+        [.sending, .waiting, .accepted, .applying].contains(outgoing.phase)
       else { return .reject(state, .staleOperation) }
       next.remote.outgoingCommand?.outcome = result.outcome
-      next.remote.outgoingCommandDeadlineOperation = nil
       switch result.outcome {
+      case .accepted:
+        if [.sending, .waiting].contains(outgoing.phase) {
+          next.remote.outgoingCommand?.phase = .accepted
+        }
+      case .stateChanged(let snapshot):
+        next.remote.selectedSnapshot = snapshot
+        next.remote.outgoingCommand?.phase = .applying
       case .succeeded(let snapshot):
+        next.remote.outgoingCommandDeadlineOperation = nil
         next.remote.selectedSnapshot = snapshot
         next.remote.outgoingCommand?.phase = .processed
         if case .saveProfile = outgoing.command {
@@ -111,6 +121,7 @@ extension RootMediator {
           next.remote.editing = nil
         }
       case .rejected:
+        next.remote.outgoingCommandDeadlineOperation = nil
         next.remote.outgoingCommand?.phase = .rejected
       }
       return .handled(.init(next))
@@ -120,7 +131,7 @@ extension RootMediator {
         state.remote.outgoingCommandDeadlineOperation == completed,
         let outgoing = state.remote.outgoingCommand,
         outgoing.requestID == requestID,
-        [.sending, .waiting].contains(outgoing.phase)
+        [.sending, .waiting, .accepted, .applying].contains(outgoing.phase)
       else { return .reject(state, .staleOperation) }
       if envelope.timestamp < outgoing.deadline {
         let retry = envelope.token(owner: .idleClock, epoch: state.epoch)
@@ -136,7 +147,37 @@ extension RootMediator {
       }
       next.remote.outgoingCommand?.phase = .unknown
       next.remote.outgoingCommandDeadlineOperation = nil
-      return .handled(.init(next))
+      guard !outgoing.automaticStatusRefresh,
+        let session = state.remote.sessionOperation,
+        let grant = state.remote.installation?.approvedTargets[outgoing.targetID],
+        grant.accountIdentifier == outgoing.accountIdentifier,
+        state.remote.selectedDeviceID == outgoing.targetID
+      else { return .handled(.init(next)) }
+      next.remote.lastUnknownCommand = next.remote.outgoingCommand
+      let refreshID = UUID()
+      next.remote.outgoingCommand = RemoteOutgoingCommand(
+        requestID: refreshID, targetID: outgoing.targetID,
+        accountIdentifier: outgoing.accountIdentifier,
+        deadline: envelope.timestamp + 120,
+        automaticStatusRefresh: true)
+      next.remote.outgoingCommandOperation = token
+      let refreshDeadline = envelope.token(owner: .idleClock, epoch: state.epoch)
+      next.remote.outgoingCommandDeadlineOperation = refreshDeadline
+      return .handled(
+        .init(
+          next,
+          effects: [
+            Effect(session, .refreshRemoteDirectory),
+            Effect(
+              token,
+              .sendRemoteCommand(
+                target: grant, command: .readStatus, requestID: refreshID,
+                accountIdentifier: outgoing.accountIdentifier)),
+            Effect(
+              refreshDeadline,
+              .scheduleRemoteCommandDeadline(
+                envelope.timestamp + 120, requestID: refreshID)),
+          ]))
 
     default: return .bubble
     }

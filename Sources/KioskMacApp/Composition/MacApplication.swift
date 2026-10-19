@@ -112,6 +112,7 @@ public final class MacApplication: NSObject, NSApplicationDelegate, NSWindowDele
     remoteBridge: RemoteCloudEventBridge,
     webServer: WebAdministrationServer
   ) -> NativeEffectPort {
+    let cloudEngineHost = CloudSyncEngineHost.shared
     let location =
       profileFileURL
       ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -152,7 +153,8 @@ public final class MacApplication: NSObject, NSApplicationDelegate, NSWindowDele
       catalogRepository: CatalogRepository(
         fileURL: location.deletingLastPathComponent().appendingPathComponent("catalog.json")),
       catalogCloudSync: CatalogCloudSync(
-        stateURL: location.deletingLastPathComponent().appendingPathComponent("catalog-cloud.json")
+        stateURL: location.deletingLastPathComponent().appendingPathComponent("catalog-cloud.json"),
+        engineHost: cloudEngineHost
       ) { [weak cloudBridge] event in cloudBridge?.send(event) },
       remoteDirectory: RemoteDirectoryCloudSync(
         stateURL: location.deletingLastPathComponent().appendingPathComponent(
@@ -161,7 +163,8 @@ public final class MacApplication: NSObject, NSApplicationDelegate, NSWindowDele
         platform: .mac,
         cloudAvailable: Bundle.main.object(forInfoDictionaryKey: "PlinthCloudKitEntitled")
           as? String == "YES",
-        keychain: credentialKeychain
+        keychain: credentialKeychain,
+        engineHost: cloudEngineHost
       ) { [weak remoteBridge] event in remoteBridge?.send(event) },
       webServer: webServer)
   }

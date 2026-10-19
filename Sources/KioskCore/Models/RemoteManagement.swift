@@ -173,6 +173,7 @@ public struct RemoteManagementState: Equatable, Sendable {
   public var preferenceFailed = false
   public var pairing = RemotePairingState()
   public var outgoingCommand: RemoteOutgoingCommand?
+  public var lastUnknownCommand: RemoteOutgoingCommand?
   public var outgoingCommandOperation: OperationToken?
   public var outgoingCommandDeadlineOperation: OperationToken?
   public var selectedSnapshot: RemoteStatusSnapshot?

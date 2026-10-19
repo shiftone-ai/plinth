@@ -156,6 +156,11 @@ struct RemoteDeviceListView: View {
                 }
               }
               if let status = commandStatusKey {
+                if props.unknownResultBeforeRefresh {
+                  Label(
+                    L10n.string("Result unknown", locale: locale),
+                    systemImage: "questionmark.circle")
+                }
                 Label(
                   L10n.string(status, locale: locale),
                   systemImage: props.statusPhase == .processed
@@ -288,7 +293,18 @@ struct RemoteDeviceListView: View {
     case .idle: nil
     case .sending: "Sending request"
     case .waiting: "Waiting for device"
-    case .processed: props.lastCommandWasSave ? "Saved on device" : "Processed on device"
+    case .accepted: "Accepted by device"
+    case .applying: "Changing exhibition"
+    case .processed:
+      props.statusIsAutomaticRefresh
+        ? "Status checked"
+        : (props.lastCommandWasSave
+          ? "Saved on device"
+          : props.lastExhibitionAction == .stop
+            ? "Exhibition stopped"
+            : props.lastExhibitionAction != nil
+              ? "Page loaded on device"
+              : "Processed on device")
     case .rejected: rejectionKey(props.statusRejection)
     case .failed: "Could not send request"
     case .unknown: "Result unknown"
@@ -297,7 +313,8 @@ struct RemoteDeviceListView: View {
 
   private func stateKey(_ mode: AppMode) -> String {
     switch mode {
-    case .exhibiting, .enteringKiosk: "Exhibiting"
+    case .exhibiting: "Exhibiting"
+    case .enteringKiosk: "Changing exhibition"
     case .paused: "Exhibition paused"
     case .administration: "Administration"
     case .bootstrapping, .unlocking, .leavingKiosk: "Changing exhibition"
@@ -317,6 +334,7 @@ struct RemoteDeviceListView: View {
     case .draftConflict: "Unsaved changes on device"
     case .invalidProfile: "Invalid settings"
     case .outputUnavailable: "Output unavailable on device"
+    case .webLoadFailed: "Page failed to load on device"
     case nil: "Request rejected"
     }
   }

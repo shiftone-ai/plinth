@@ -13,7 +13,8 @@ extension RootMediator {
         let id = state.remote.selectedDeviceID,
         state.remote.installation?.approvedTargets[id] != nil,
         state.remote.selectedSnapshot?.mode == .exhibiting,
-        ![.sending, .waiting].contains(state.remote.outgoingCommand?.phase ?? .idle)
+        ![.sending, .waiting, .accepted, .applying].contains(
+          state.remote.outgoingCommand?.phase ?? .idle)
       else { return .reject(state, .invalidState) }
       next.remote.exhibitionReviewAction = action
       return .handled(.init(next, reply: .accepted))
@@ -34,7 +35,8 @@ extension RootMediator {
         let accountIdentifier = state.remote.accountIdentifier,
         grant.accountIdentifier == accountIdentifier,
         state.remote.sessionOperation != nil,
-        ![.sending, .waiting].contains(state.remote.outgoingCommand?.phase ?? .idle),
+        ![.sending, .waiting, .accepted, .applying].contains(
+          state.remote.outgoingCommand?.phase ?? .idle),
         state.remote.selectedSnapshot.map({ snapshot in
           switch action {
           case .start: snapshot.mode == .administration
@@ -47,6 +49,7 @@ extension RootMediator {
       else { return .reject(state, .invalidState) }
       let command = RemoteCommandPayload.exhibition(action)
       next.remote.exhibitionReviewAction = nil
+      next.remote.lastUnknownCommand = nil
       next.remote.outgoingCommand = RemoteOutgoingCommand(
         requestID: requestID, targetID: id, accountIdentifier: accountIdentifier,
         deadline: envelope.timestamp + 120, command: command)
