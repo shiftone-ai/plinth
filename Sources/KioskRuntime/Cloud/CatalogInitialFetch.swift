@@ -9,7 +9,6 @@ nonisolated struct CatalogInitialFetch: Sendable {
 
   private var missing: Set<UUID>
   private var unobservedOpaque: Set<UUID>
-  private let pendingDeletionVersions: [UUID: UInt64]
 
   init(
     entries: [UUID: CatalogEntry], pendingDeletions: [CatalogPendingDeletion],
@@ -17,18 +16,12 @@ nonisolated struct CatalogInitialFetch: Sendable {
   ) {
     let pending = Set(pendingDeletions.map(\.id))
     unobservedOpaque = opaqueRecordIDs
-    pendingDeletionVersions = Dictionary(
-      uniqueKeysWithValues: pendingDeletions.compactMap { deletion in
-        deletion.baseVersion.map { (deletion.id, $0) }
-      })
     missing = Set(
       entries.compactMap { id, entry in
         entry.syncedVersion != nil && !pending.contains(id)
           ? id : nil
       })
   }
-
-  func pendingDeletionVersion(for id: UUID) -> UInt64? { pendingDeletionVersions[id] }
 
   mutating func observe(_ id: UUID) {
     missing.remove(id)

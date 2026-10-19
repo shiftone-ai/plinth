@@ -13,6 +13,18 @@ extension Presenters {
     let savedSnapshot = root.savedProfile.flatMap(CatalogSnapshot.init)
     let available = root.catalog.entries.filter(root.catalogEntryAvailable)
     let conflicts = root.catalog.conflicts.filter(root.catalogConflictAvailable)
+    let oversizedConflictLocalIDs = Set(
+      conflicts.compactMap { conflict -> UUID? in
+        guard let local = available.first(where: { $0.id == conflict.id }),
+          let nextVersion = ProfileRevision.next(
+            after: max(local.version, conflict.remote?.version ?? 0))
+        else { return nil }
+        var chosen = local
+        chosen.version = nextVersion
+        chosen.scope = .iCloud
+        chosen.accountIdentifier = root.catalog.accountIdentifier
+        return CatalogCloudPayload.encoded(chosen) == nil ? conflict.id : nil
+      })
     let shareTooLarge =
       selection.map {
         $0.scope == .device && cloudPayloadTooLarge($0)
@@ -44,6 +56,7 @@ extension Presenters {
       syncConsentPending: root.catalogSyncConsentPending,
       shareCandidate: root.catalog.entries.first { $0.id == root.catalogShareCandidateID },
       conflicts: conflicts,
+      oversizedConflictLocalIDs: oversizedConflictLocalIDs,
       pendingDeletionIDs: Set(
         root.catalog.pendingDeletions.filter {
           $0.accountIdentifier == root.catalog.accountIdentifier

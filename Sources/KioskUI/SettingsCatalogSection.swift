@@ -152,7 +152,15 @@ struct SettingsCatalogSection: View {
                 send(.resolveCatalogConflict(conflict.id, useRemote: false))
               }
               .buttonStyle(.borderless)
-              .disabled(!props.canManage)
+              .disabled(!props.canManage || props.oversizedConflictLocalIDs.contains(conflict.id))
+              .accessibilityIdentifier("catalog-conflict-local-\(conflict.id.uuidString)")
+              if props.oversizedConflictLocalIDs.contains(conflict.id) {
+                Label(
+                  L10n.string("Too much content for iCloud", locale: locale),
+                  systemImage: "exclamationmark.triangle"
+                )
+                .foregroundStyle(.secondary)
+              }
               Button(L10n.string("Use iCloud version", locale: locale)) {
                 send(.resolveCatalogConflict(conflict.id, useRemote: true))
               }
