@@ -325,7 +325,7 @@ extension RootMediator {
     }
   }
 
-  private static func clearCatalogCandidates(_ state: inout RootState) {
+  static func clearCatalogCandidates(_ state: inout RootState) {
     state.catalogRenameCandidate = nil
     state.catalogUpdateCandidateID = nil
     state.catalogRemovalCandidateID = nil

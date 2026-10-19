@@ -1,7 +1,28 @@
+import Foundation
 import KioskCore
 import Testing
 
 struct RootMediatorTests {
+  @Test func startingExhibitionDiscardsCatalogConfirmations() throws {
+    var state = RootState()
+    state.mode = .administration
+    state.savedProfile = try fixtureProfile()
+    state.credentialsConfigured = true
+    let id = UUID()
+    state.catalogRenameCandidate = .init(id: id, name: "Earlier edit")
+    state.catalogUpdateCandidateID = id
+    state.catalogRemovalCandidateID = id
+    state.catalogShareCandidateID = id
+
+    let started = try #require(
+      handled(RootMediator.reduce(state, envelope(.startExhibitionRequested, source: .settings))))
+    #expect(started.state.mode == .enteringKiosk)
+    #expect(started.state.catalogRenameCandidate == nil)
+    #expect(started.state.catalogUpdateCandidateID == nil)
+    #expect(started.state.catalogRemovalCandidateID == nil)
+    #expect(started.state.catalogShareCandidateID == nil)
+  }
+
   @Test func informationPagesOpenOnlyFromAdministration() throws {
     var state = RootState()
     state.mode = .administration
