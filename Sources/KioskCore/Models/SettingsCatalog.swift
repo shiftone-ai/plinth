@@ -66,15 +66,18 @@ public struct CatalogEntry: Equatable, Codable, Sendable, Identifiable {
   public var isVisible: Bool
   public var accountIdentifier: String?
   public var syncedVersion: UInt64?
+  public var resolvedConflictVersion: UInt64?
 
   public init?(
     id: UUID, name: String, snapshot: CatalogSnapshot, version: UInt64 = 1,
     scope: CatalogScope = .device, isVisible: Bool = true,
-    accountIdentifier: String? = nil, syncedVersion: UInt64? = nil
+    accountIdentifier: String? = nil, syncedVersion: UInt64? = nil,
+    resolvedConflictVersion: UInt64? = nil
   ) {
     let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
     guard Self.validName(name), version > 0, snapshot.isValid,
       syncedVersion.map({ $0 > 0 && $0 <= version }) ?? true,
+      resolvedConflictVersion.map({ $0 > 0 && $0 <= version }) ?? true,
       (scope == .device && accountIdentifier == nil)
         || (scope == .iCloud && !(accountIdentifier ?? "").isEmpty)
     else { return nil }
@@ -87,6 +90,7 @@ public struct CatalogEntry: Equatable, Codable, Sendable, Identifiable {
     self.isVisible = isVisible
     self.accountIdentifier = accountIdentifier
     self.syncedVersion = syncedVersion
+    self.resolvedConflictVersion = resolvedConflictVersion
   }
 
   public func sameCloudContents(as other: CatalogEntry) -> Bool {
@@ -105,6 +109,7 @@ public struct CatalogEntry: Equatable, Codable, Sendable, Identifiable {
   public var isValid: Bool {
     formatVersion == 1 && Self.validName(name) && version > 0 && snapshot.isValid
       && (syncedVersion.map { $0 > 0 && $0 <= version } ?? true)
+      && (resolvedConflictVersion.map { $0 > 0 && $0 <= version } ?? true)
       && ((scope == .device && accountIdentifier == nil)
         || (scope == .iCloud && !(accountIdentifier ?? "").isEmpty))
   }

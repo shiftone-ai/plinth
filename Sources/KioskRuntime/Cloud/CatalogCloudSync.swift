@@ -119,8 +119,6 @@ public actor CatalogCloudSync: CKSyncEngineDelegate {
           accountIdentifier: accountIdentifier, engineState: nil, entries: [:],
           serverEntries: [:], serverDeletions: [], recordSystemFields: [:], conflicts: [])
       guard var disk else { return }
-      let cachedConflicts = disk.conflicts
-      disk.conflicts = Set(conflicts)
       if !disk.opaqueRecordIDs.isEmpty { disk.engineState = nil }
       let local = Dictionary(
         uniqueKeysWithValues: entries.compactMap { entry in
@@ -137,8 +135,9 @@ public actor CatalogCloudSync: CKSyncEngineDelegate {
       let prior = disk.entries
       let replay = Self.cachedReplay(
         disk: disk, local: local, pendingDeletions: pendingDeletions,
-        resolvedSinceCache: cachedConflicts.subtracting(disk.conflicts))
+        unresolvedConflicts: Set(conflicts))
       let replayIDs = Set(replay.map(\.id))
+      disk.conflicts = Set(conflicts)
       disk.entries = local
       self.disk = disk
       try persistDisk()
@@ -377,14 +376,13 @@ extension CatalogCloudSync {
           @unknown default: return false
           }
         }
-        let completedDeletions = pending.compactMap { change -> UUID? in
+        let engineDeletions = pending.compactMap { change -> UUID? in
           if case .deleteRecord(let id) = change { return Self.catalogID(from: id) }
           return nil
         }
-        disk.serverEntries = [:]
-        disk.serverDeletions = []
-        disk.recordSystemFields = [:]
-        disk.opaqueRecordIDs = []
+        let completedDeletions = Self.reconcileDeletedZone(
+          pendingEngineDeletions: engineDeletions,
+          bufferedDeletions: pendingDeletionByID, disk: &disk)
         self.disk = disk
         syncEngine.state.remove(pendingRecordZoneChanges: pending)
         syncEngine.state.add(pendingDatabaseChanges: [
@@ -398,6 +396,7 @@ extension CatalogCloudSync {
           await sendEvent(.catalogCloudStatus(session, .failed))
           return
         }
+        for id in completedDeletions { pendingDeletionByID.removeValue(forKey: id) }
         await sendEvent(.catalogCloudStatus(session, sendFailed ? .failed : .pending))
         await processPublications()
         if !completedDeletions.isEmpty {
@@ -817,15 +816,15 @@ extension CatalogCloudSync {
 
   static func cachedReplay(
     disk: DiskState, local: [UUID: CatalogEntry],
-    pendingDeletions: [CatalogPendingDeletion], resolvedSinceCache: Set<UUID> = []
+    pendingDeletions: [CatalogPendingDeletion], unresolvedConflicts: Set<UUID> = []
   ) -> [CatalogCloudChange] {
     disk.serverEntries.values.compactMap { remote -> CatalogCloudChange? in
       if disk.opaqueRecordIDs.contains(remote.id) { return nil }
       if let chosenLocal = local[remote.id], chosenLocal.version > remote.version,
         chosenLocal.syncedVersion != chosenLocal.version,
-        resolvedSinceCache.contains(remote.id)
-          || (!disk.conflicts.contains(remote.id)
-            && disk.entries[remote.id]?.sameCloudContents(as: chosenLocal) == true)
+        !unresolvedConflicts.contains(remote.id),
+        let resolvedVersion = chosenLocal.resolvedConflictVersion,
+        resolvedVersion > remote.version
       {
         return nil
       }
@@ -847,6 +846,22 @@ extension CatalogCloudSync {
         }
         return wasSynced || pendingDeletion ? .delete(id) : nil
       }
+  }
+
+  static func reconcileDeletedZone(
+    pendingEngineDeletions: [UUID],
+    bufferedDeletions: [UUID: CatalogPendingDeletion], disk: inout DiskState
+  ) -> [UUID] {
+    let acknowledged = Set(pendingEngineDeletions).union(
+      bufferedDeletions.values.compactMap { deletion in
+        deletion.accountIdentifier == disk.accountIdentifier ? deletion.id : nil
+      })
+    disk.serverEntries = [:]
+    disk.serverDeletions = []
+    disk.recordSystemFields = [:]
+    disk.opaqueRecordIDs = []
+    disk.conflicts.subtract(acknowledged)
+    return acknowledged.sorted { $0.uuidString < $1.uuidString }
   }
 
   enum OpaqueDeletionRecovery: Equatable {
@@ -929,6 +944,7 @@ extension CatalogCloudSync {
 
   static func isTransient(_ error: CKError) -> Bool {
     isOffline(error) || error.code == .notAuthenticated || error.code == .operationCancelled
+      || error.code == .requestRateLimited || error.code == .accountTemporarilyUnavailable
   }
 
   private func reportAccountUnavailable(

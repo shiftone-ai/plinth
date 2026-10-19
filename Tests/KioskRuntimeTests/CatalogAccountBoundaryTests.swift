@@ -98,6 +98,10 @@ struct CatalogAccountBoundaryTests {
     #expect(chosen.name == "Local")
     #expect(chosen.scope == .iCloud)
     #expect(chosen.accountIdentifier == "account-a")
+    #expect(chosen.resolvedConflictVersion == chosen.version)
+    let restored = try JSONDecoder().decode(
+      CatalogEntry.self, from: JSONEncoder().encode(chosen))
+    #expect(restored.resolvedConflictVersion == chosen.version)
   }
 
   @Test func oldAccountDetailCannotMutateAnUnavailableEntry() throws {

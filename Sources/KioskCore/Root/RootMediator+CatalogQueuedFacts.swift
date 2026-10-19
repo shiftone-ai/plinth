@@ -18,6 +18,7 @@ extension RootMediator {
         entry.version == version
       {
         followup.entries[index].syncedVersion = version
+        followup.entries[index].resolvedConflictVersion = nil
       }
     }
     followup.pendingDeletions.removeAll {

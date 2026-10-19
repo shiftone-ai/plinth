@@ -123,11 +123,18 @@ struct CatalogCloudReplayTests {
     #expect(
       CatalogCloudSync.cachedReplay(
         disk: disk, local: [remote.id: chosenLocal], pendingDeletions: [],
-        resolvedSinceCache: [remote.id]
+        unresolvedConflicts: []
+      ) == [.upsert(remote)])
+    chosenLocal.resolvedConflictVersion = 3
+    #expect(
+      CatalogCloudSync.cachedReplay(
+        disk: disk, local: [remote.id: chosenLocal], pendingDeletions: [],
+        unresolvedConflicts: []
       ).isEmpty)
     #expect(
       CatalogCloudSync.cachedReplay(
-        disk: disk, local: [remote.id: chosenLocal], pendingDeletions: []) == [.upsert(remote)])
+        disk: disk, local: [remote.id: chosenLocal], pendingDeletions: [],
+        unresolvedConflicts: [remote.id]) == [.upsert(remote)])
 
     var queuedOnDisk = disk
     queuedOnDisk.conflicts.remove(remote.id)
@@ -136,6 +143,12 @@ struct CatalogCloudReplayTests {
       CatalogCloudSync.cachedReplay(
         disk: queuedOnDisk, local: [remote.id: chosenLocal], pendingDeletions: []
       ).isEmpty)
+    queuedOnDisk.entries[remote.id]?.resolvedConflictVersion = nil
+    chosenLocal.resolvedConflictVersion = nil
+    #expect(
+      CatalogCloudSync.cachedReplay(
+        disk: queuedOnDisk, local: [remote.id: chosenLocal], pendingDeletions: [])
+        == [.upsert(remote)])
   }
 
 }
