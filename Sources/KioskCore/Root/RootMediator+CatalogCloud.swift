@@ -332,6 +332,12 @@ extension RootMediator {
     state.catalogShareCandidateID = nil
   }
 
+  static func clearCatalogAdministrationConfirmations(_ state: inout RootState) {
+    clearCatalogCandidates(&state)
+    state.catalogSyncConsentPending = false
+    state.catalogRecoveryPending = false
+  }
+
   private static func clearQueuedCatalogCloudFacts(_ state: inout RootState) {
     state.queuedCatalogCloudChanges = []
     state.queuedCatalogAcknowledgements = [:]
