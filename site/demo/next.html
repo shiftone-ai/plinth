@@ -3,15 +3,30 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Next exhibit · Plinth</title>
+    <meta name="theme-color" content="#071525">
+    <title>Drift · Plinth exhibition sample</title>
     <link rel="stylesheet" href="demo.css">
+    <script src="flow.js" defer></script>
   </head>
-  <body>
-    <main class="second-page">
-      <p class="overline">Plinth exhibition sample</p>
-      <div class="feature" aria-hidden="true"></div>
-      <h1>Another view</h1>
-      <a href="index.html">Return to the first exhibit</a>
+  <body data-scene="drift">
+    <main class="exhibit">
+      <canvas id="flow" aria-hidden="true"></canvas>
+      <header class="masthead">
+        <p class="eyebrow">Plinth exhibition sample</p>
+        <div class="masthead-actions">
+          <span class="index">02 / 02</span>
+          <button id="motion-toggle" type="button" aria-label="Pause animation">Pause</button>
+        </div>
+      </header>
+      <div class="caption">
+        <span class="caption-rule" aria-hidden="true"></span>
+        <h1>Drift</h1>
+        <p>Move to bend the current</p>
+      </div>
+      <footer class="navigation">
+        <span class="edition">A generative study</span>
+        <a href="index.html">First exhibit <span aria-hidden="true" class="arrow">↗</span></a>
+      </footer>
     </main>
   </body>
 </html>

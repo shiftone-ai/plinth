@@ -3,29 +3,30 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Exhibition sample · Plinth</title>
+    <meta name="theme-color" content="#071525">
+    <title>Flux · Plinth exhibition sample</title>
     <link rel="stylesheet" href="demo.css">
+    <script src="flow.js" defer></script>
   </head>
-  <body>
-    <main>
-      <header>
-        <p class="overline">Plinth exhibition sample</p>
-        <h1>Shapes and light</h1>
-        <p>Three studies in light, color and space.</p>
+  <body data-scene="flux">
+    <main class="exhibit">
+      <canvas id="flow" aria-hidden="true"></canvas>
+      <header class="masthead">
+        <p class="eyebrow">Plinth exhibition sample</p>
+        <div class="masthead-actions">
+          <span class="index">01 / 02</span>
+          <button id="motion-toggle" type="button" aria-label="Pause animation">Pause</button>
+        </div>
       </header>
-      <section class="piece one" aria-labelledby="one-title">
-        <div class="art" aria-hidden="true"></div>
-        <div><p class="number">01 / 03</p><h2 id="one-title">Orbit</h2></div>
-      </section>
-      <section class="piece two" aria-labelledby="two-title">
-        <div class="art" aria-hidden="true"></div>
-        <div><p class="number">02 / 03</p><h2 id="two-title">Passage</h2></div>
-      </section>
-      <section class="piece three" aria-labelledby="three-title">
-        <div class="art" aria-hidden="true"></div>
-        <div><p class="number">03 / 03</p><h2 id="three-title">Dawn</h2></div>
-      </section>
-      <footer><a href="next.html">Next exhibit</a></footer>
+      <div class="caption">
+        <span class="caption-rule" aria-hidden="true"></span>
+        <h1>Flux</h1>
+        <p>Move to disturb the field</p>
+      </div>
+      <footer class="navigation">
+        <span class="edition">A generative study</span>
+        <a href="next.html">Next exhibit <span aria-hidden="true" class="arrow">↗</span></a>
+      </footer>
     </main>
   </body>
 </html>
