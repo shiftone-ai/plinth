@@ -22,6 +22,7 @@ public final class MacApplication: NSObject, NSApplicationDelegate, NSWindowDele
   private let legacyCredentialService: String?
   private let storageNamespace: String
   private let language: LanguagePreference
+  private let biometricDisplay = MacBiometricDisplay()
 
   public init(
     preview: Bool = false, profileFileURL: URL? = nil, exhibitionInset: Double = 0,
@@ -97,20 +98,37 @@ public final class MacApplication: NSObject, NSApplicationDelegate, NSWindowDele
       ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
       .appendingPathComponent(storageNamespace, isDirectory: true).appendingPathComponent(
         "profile.json")
-    return NativeEffectPort(
-      web: web, presentation: presentation,
-      repository: ProfileRepository(fileURL: location),
-      credentials: CredentialStore(
-        service: credentialService, keychain: credentialKeychain,
-        legacyService: legacyCredentialService),
-      biometrics: BiometricCredentialAdapter(
+    let biometrics: any BiometricCredentialPort
+    #if DEBUG
+      biometrics =
+        MacBiometricTestPort.make(service: credentialService)
+        ?? BiometricCredentialAdapter(
+          service: credentialService,
+          enableReason: { [language] in
+            L10n.string("Enable administrator unlock with biometrics", locale: language.locale)
+          },
+          unlockReason: { [language] in
+            L10n.string("Unlock administrator settings", locale: language.locale)
+          },
+          presentation: biometricDisplay)
+    #else
+      biometrics = BiometricCredentialAdapter(
         service: credentialService,
         enableReason: { [language] in
           L10n.string("Enable administrator unlock with biometrics", locale: language.locale)
         },
         unlockReason: { [language] in
           L10n.string("Unlock administrator settings", locale: language.locale)
-        }),
+        },
+        presentation: biometricDisplay)
+    #endif
+    return NativeEffectPort(
+      web: web, presentation: presentation,
+      repository: ProfileRepository(fileURL: location),
+      credentials: CredentialStore(
+        service: credentialService, keychain: credentialKeychain,
+        legacyService: legacyCredentialService),
+      biometrics: biometrics,
       clock: clock, displays: displays, webServer: webServer)
   }
 
@@ -131,6 +149,7 @@ public final class MacApplication: NSObject, NSApplicationDelegate, NSWindowDele
       rootView: KioskRootView(
         root: runtime.rootProps, settings: runtime.settingsProps, unlock: runtime.unlockProps,
         web: runtime.webProps, host: PassiveWebHost(host: web.host),
+        biometricHost: AnyView(MacBiometricHost(display: biometricDisplay)),
         language: language,
         selectLanguage: { [weak self] selected in
           self?.language.select(selected)

@@ -1,16 +1,19 @@
 let webAdministrationScript =
   webAdministrationRenderingScript + #"""
-    async function refresh() {
+    async function refresh(renderResult = true) {
+      const requestedToken = sessionToken;
       const response = await fetchWithTimeout('/api/state', {
-        headers: { authorization: `Bearer ${sessionToken}` }, cache: 'no-store'
+        headers: { authorization: `Bearer ${requestedToken}` }, cache: 'no-store'
       });
+      if (sessionToken !== requestedToken) throw new Error('unauthorized');
       if (response.status === 401) {
         clearSession();
         throw new Error('unauthorized');
       }
       if (!response.ok) throw new Error('state');
       const state = await response.json();
-      render(state);
+      if (sessionToken !== requestedToken) throw new Error('unauthorized');
+      if (renderResult) render(state);
       if (connectionLost) {
         connectionLost = false;
         if (saveOutcomeUnknown && state.saving) {
@@ -182,16 +185,18 @@ let webAdministrationScript =
       exhibitionAction('/api/exhibition/stop', 'paused'));
     document.querySelector('#resume-exhibition').addEventListener('click', () =>
       exhibitionAction('/api/exhibition/resume', 'exhibiting'));
-    setInterval(async () => {
-      if (!sessionToken || editor.contains(document.activeElement)) return;
-      try { await refresh(); }
+    async function poll() {
+      const polledToken = sessionToken;
+      if (!polledToken) return;
+      try { await refresh(!editor.contains(document.activeElement)); }
       catch (error) {
-        if (error?.message === 'unauthorized') return;
+        if (sessionToken !== polledToken || error?.message === 'unauthorized') return;
         connectionLost = true;
         message.textContent = saveOutcomeUnknown
           ? document.body.dataset.saveUnknown : document.body.dataset.connection;
       }
-    }, 5000);
+    }
+    setInterval(poll, 5000);
     form.addEventListener('submit', async event => {
       event.preventDefault();
       message.textContent = document.body.dataset.wait;

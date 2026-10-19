@@ -13,23 +13,32 @@ public protocol BiometricCredentialPort: AnyObject {
   func cancelAll()
 }
 
+@MainActor
+public protocol BiometricUnlockPresentationPort: AnyObject {
+  func prepare(_ context: LAContext, token: OperationToken) async -> Bool
+  func dismiss(_ token: OperationToken)
+}
+
 /// The protected Keychain item is the enabled flag. No biometric value enters profile JSON.
 @MainActor
 public final class BiometricCredentialAdapter: BiometricCredentialPort {
   private let service: String
   private let enableReason: @MainActor () -> String
   private let unlockReason: @MainActor () -> String
+  private let presentation: (any BiometricUnlockPresentationPort)?
   private let account = "administrator-biometric-unlock"
   private var contexts: [OperationToken: LAContext] = [:]
   private var committedEnable: OperationToken?
 
   public init(
     service: String, enableReason: @escaping @MainActor () -> String,
-    unlockReason: @escaping @MainActor () -> String
+    unlockReason: @escaping @MainActor () -> String,
+    presentation: (any BiometricUnlockPresentationPort)? = nil
   ) {
     self.service = service
     self.enableReason = enableReason
     self.unlockReason = unlockReason
+    self.presentation = presentation
   }
 
   public func status() -> BiometricStatus {
@@ -49,6 +58,10 @@ public final class BiometricCredentialAdapter: BiometricCredentialPort {
       case LAError.biometryNotEnrolled.rawValue: availability = .unavailable(.notEnrolled)
       case LAError.biometryLockout.rawValue: availability = .unavailable(.lockedOut)
       case LAError.passcodeNotSet.rawValue: availability = .unavailable(.passcodeNotSet)
+      #if os(macOS)
+        case LAError.biometryDisconnected.rawValue: availability = .unavailable(.disconnected)
+        case LAError.biometryNotPaired.rawValue: availability = .unavailable(.notPaired)
+      #endif
       default: availability = .unavailable(.notAvailable)
       }
     }
@@ -144,7 +157,15 @@ public final class BiometricCredentialAdapter: BiometricCredentialPort {
     guard context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error)
     else { return (status(), .failed) }
     contexts[token] = context
-    defer { contexts.removeValue(forKey: token) }
+    defer {
+      contexts.removeValue(forKey: token)
+      presentation?.dismiss(token)
+    }
+    if let presentation {
+      guard await presentation.prepare(context, token: token),
+        !Task.isCancelled, contexts[token] === context
+      else { return (status(), .cancelled) }
+    }
     do {
       try await context.evaluatePolicy(
         .deviceOwnerAuthenticationWithBiometrics, localizedReason: unlockReason())
@@ -177,6 +198,7 @@ public final class BiometricCredentialAdapter: BiometricCredentialPort {
   public func cancel(_ token: OperationToken) {
     contexts[token]?.invalidate()
     contexts.removeValue(forKey: token)
+    presentation?.dismiss(token)
     if committedEnable == token {
       _ = SecItemDelete(itemQuery() as CFDictionary)
       committedEnable = nil

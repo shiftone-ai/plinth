@@ -92,3 +92,7 @@ macOS 27.0.1の専用Mac（1920×1080の1画面）で署名付きSandboxアプ�
 内蔵画面と外部画面を持つMacでは，通常モードの `testBuiltInDisplayShowsAdministratorShortcut` が1件成功した．外部画面への試験用Webページ表示と，内蔵画面に保存した解除案内の画像を確認した．ショートカットからの解除後，遮蔽は消えた．
 
 カーソル境界は専用Macの画面内に150ptの余白を置いた実表示領域で確認した．複数画面間のカーソル制限，TestFlightからの更新，macOS 14とIntel Macの実行は未確認．
+
+macOS 26.6.2のMac実機（Touch ID）では，隔離したbundle IDと資格情報serviceを使うApple Development署名版のpreviewで，Touch IDを有効にし，展示中の解除画面から実際の指紋で管理者設定へ戻れた．この試行では管理者パスワードを入力していない．埋め込み表示の配置を直した版でも，認証中の取消と，Plinthを前面にして20秒待った後のTouch ID解除が成功した．通常モード，Developer ID配布版，誤った指紋・登録変更の実機試験は未実施．
+
+iPadOS 26.6.2のiPad実機（Touch ID）では，Apple Development署名の隔離したDebugビルドで，本体展示と外部ディスプレイ展示の両方からTouch IDで管理者設定へ戻れた．外部ディスプレイ展示中の解除画面は本体だけに表示され，外部画面は黒画面だった．認証失敗・取消・遅延完了は実機では未確認．

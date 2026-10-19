@@ -3,6 +3,24 @@ import KioskPresentation
 import Testing
 
 struct PresentersTests {
+  @Test func biometricUnlockButtonMatchesAvailableEnabledSensor() {
+    var root = RootState()
+    root.mode = .unlocking
+    let administration = AdministrationState()
+    #expect(Presenters.unlock(root, administration, now: 0).biometricLabelKey == nil)
+    root.biometricStatus = .init(availability: .available(.faceID), enabled: true)
+    #expect(
+      Presenters.unlock(root, administration, now: 0).biometricLabelKey
+        == "Unlock with Face ID")
+    root.biometricStatus = .init(availability: .unavailable(.lockedOut), enabled: true)
+    #expect(Presenters.unlock(root, administration, now: 0).biometricLabelKey == nil)
+    root.biometricStatus = .init(availability: .available(.touchID), enabled: true)
+    root.biometricUnlockOperation = .init(owner: .credentials, operationID: 1)
+    let verifying = Presenters.unlock(root, administration, now: 0)
+    #expect(verifying.biometricLabelKey == "Unlock with Touch ID")
+    #expect(verifying.biometricVerifying)
+  }
+
   @Test func automaticAllowlistAddressTracksTheDraftWithoutAddingEditableRules() {
     var administration = AdministrationState()
     administration.draft = ProfileDraft(

@@ -10,14 +10,8 @@
       service: String, fixtureService: String?, language: LanguagePreference
     ) -> any BiometricCredentialPort {
       #if DEBUG
-        if fixtureService != nil,
-          let result = ProcessInfo.processInfo.environment["PLINTH_TEST_BIOMETRIC_RESULT"]
-            .flatMap(MobileBiometricTestPort.UnlockResult.init(rawValue:))
-        {
-          let kind: BiometricKind =
-            ProcessInfo.processInfo.environment["PLINTH_TEST_BIOMETRIC_KIND"] == "faceID"
-            ? .faceID : .touchID
-          return MobileBiometricTestPort(result: result, kind: kind)
+        if fixtureService != nil, let port = MobileBiometricTestPort.make(service: service) {
+          return port
         }
       #endif
       return BiometricCredentialAdapter(

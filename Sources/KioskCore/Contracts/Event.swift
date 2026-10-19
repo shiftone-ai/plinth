@@ -93,6 +93,7 @@ public enum Event: Equatable, Sendable {
   case biometricUnlockRequested
   case biometricUnlockCancelled
   case biometricUnlockCompleted(OperationToken, BiometricStatus, BiometricUnlockOutcome)
+  case biometricAuthenticationVerified
   case passcodeEdited(String)
   case clearPasscode
   case invalidateWebAuthentication
