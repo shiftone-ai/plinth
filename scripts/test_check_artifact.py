@@ -170,6 +170,27 @@ class CheckArtifactTests(unittest.TestCase):
         self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
         self.assertIn("署名が検証できない", result.stdout)
 
+    def test_signed_resource_bundle_is_checked(self) -> None:
+        app = self.work / "Exported/App.app"
+        self.signed_mac_bundle(app / "Contents/Resources/Strings.bundle", None)
+        self.signed_mac_bundle(app, None)
+        result = self.run_check(app)
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn(
+            "Appleの証明書による署名でない（ad hoc・自己署名など）: "
+            "App.app/Contents/Resources/Strings.bundle",
+            result.stdout,
+        )
+
+    def test_unsigned_resource_bundle_is_ignored(self) -> None:
+        app = self.work / "Exported/App.app"
+        resource = app / "Contents/Resources/Strings.bundle"
+        resource.mkdir(parents=True)
+        (resource / "Localizable.strings").write_text('"hello" = "Hello";')
+        self.signed_mac_bundle(app, None)
+        result = self.run_check(app)
+        self.assertNotIn("Strings.bundle", result.stdout)
+
     def test_nested_code_must_not_allow_debugging(self) -> None:
         app = self.work / "Exported/App.app"
         self.signed_mac_bundle(app / "Contents/PlugIns/Helper.appex", {"get-task-allow": True})

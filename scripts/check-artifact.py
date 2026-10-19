@@ -104,11 +104,22 @@ def bundle_files(app: Path) -> list[Path]:
 
 
 def code_bundles(app: Path) -> list[Path]:
-    """The app and the apps, extensions, XPC services and frameworks nested in it."""
+    """The app and nested code, including resource bundles that carry a signature."""
     nested = (
         path
         for path in app.rglob("*")
-        if path.suffix in CODE_BUNDLE_SUFFIXES and path.is_dir() and not path.is_symlink()
+        if path.is_dir()
+        and not path.is_symlink()
+        and (
+            path.suffix in CODE_BUNDLE_SUFFIXES
+            or (
+                path.suffix == ".bundle"
+                and any(
+                    (path / location).is_dir()
+                    for location in ("_CodeSignature", "Contents/_CodeSignature")
+                )
+            )
+        )
     )
     return [app, *sorted(nested)]
 
