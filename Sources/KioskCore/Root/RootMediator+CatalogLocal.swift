@@ -323,6 +323,7 @@ extension RootMediator {
         }
       }
       next.pendingCatalogPublishes = true
+      clearUnavailableCatalogCandidates(&next)
       var controls: [ChildControl] =
         registrationID.map {
           [.init(.administration, .catalogRegistrationSucceeded($0))]

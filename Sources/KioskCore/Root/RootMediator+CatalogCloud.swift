@@ -244,6 +244,9 @@ extension RootMediator {
     case .catalogSharePromptRequested(let id):
       guard canEditCatalog(state, envelope), state.catalogCanShare,
         state.catalog.entries.contains(where: { $0.id == id && $0.scope == .device }),
+        !state.catalog.conflicts.contains(where: {
+          $0.id == id && state.catalogConflictAvailable($0)
+        }),
         !state.catalog.pendingDeletions.contains(where: {
           $0.id == id && $0.accountIdentifier == state.catalog.accountIdentifier
         })
@@ -262,6 +265,9 @@ extension RootMediator {
       guard canEditCatalog(state, envelope), state.catalogCanShare,
         state.catalogShareCandidateID == id, let accountID = state.catalog.accountIdentifier,
         let index = state.catalog.entries.firstIndex(where: { $0.id == id && $0.scope == .device }),
+        !state.catalog.conflicts.contains(where: {
+          $0.id == id && state.catalogConflictAvailable($0)
+        }),
         !state.catalog.pendingDeletions.contains(where: {
           $0.id == id && $0.accountIdentifier == accountID
         })
@@ -330,6 +336,27 @@ extension RootMediator {
     state.catalogUpdateCandidateID = nil
     state.catalogRemovalCandidateID = nil
     state.catalogShareCandidateID = nil
+  }
+
+  static func clearUnavailableCatalogCandidates(_ state: inout RootState) {
+    func unavailableOrConflicted(_ id: UUID) -> Bool {
+      !state.catalog.entries.contains(where: { $0.id == id && state.catalogEntryAvailable($0) })
+        || state.catalog.conflicts.contains(where: {
+          $0.id == id && state.catalogConflictAvailable($0)
+        })
+    }
+    if let id = state.catalogShareCandidateID, unavailableOrConflicted(id) {
+      state.catalogShareCandidateID = nil
+    }
+    if let id = state.catalogRenameCandidate?.id, unavailableOrConflicted(id) {
+      state.catalogRenameCandidate = nil
+    }
+    if let id = state.catalogUpdateCandidateID, unavailableOrConflicted(id) {
+      state.catalogUpdateCandidateID = nil
+    }
+    if let id = state.catalogRemovalCandidateID, unavailableOrConflicted(id) {
+      state.catalogRemovalCandidateID = nil
+    }
   }
 
   static func clearCatalogAdministrationConfirmations(_ state: inout RootState) {
