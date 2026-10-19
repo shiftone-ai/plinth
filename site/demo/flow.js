@@ -6,7 +6,9 @@
 
   const drift = document.body.dataset.scene === 'drift';
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
-  const pointer = { x: 0, y: 0, targetX: 0, targetY: 0, active: false, strength: 0 };
+  const pointer = { x: 0, y: 0, targetX: 0, targetY: 0, active: false, energy: 0 };
+  const ripples = [];
+  let lastRipple = 0;
   let width = 0;
   let height = 0;
   let time = 0;
@@ -16,6 +18,7 @@
   let animationFrame = 0;
   let grain = null;
   let glow = null;
+  let rippleBand = 0;
 
   function makeGlow() {
     const layer = document.createElement('canvas');
@@ -54,6 +57,7 @@
   function resize() {
     width = window.innerWidth;
     height = window.innerHeight;
+    rippleBand = Math.min(width, height) * .105;
     const ratio = Math.min(window.devicePixelRatio || 1, 2);
     canvas.width = Math.round(width * ratio);
     canvas.height = Math.round(height * ratio);
@@ -64,14 +68,37 @@
   }
 
   function repel(x, y) {
-    if (pointer.strength < .01) return [x, y];
+    if (pointer.energy < .01 && !ripples.length) return [x, y];
     const dx = x - pointer.x;
     const dy = y - pointer.y;
     const distance = Math.hypot(dx, dy);
-    const reach = Math.min(width, height) * .34;
-    if (distance >= reach || distance < 1) return [x, y];
-    const force = 56 * pointer.strength * (1 - distance / reach) ** 2;
-    return [x + dx / distance * force, y + dy / distance * force];
+    let offsetX = 0;
+    let offsetY = 0;
+    if (pointer.energy > .01 && distance > 1) {
+      const reach = Math.min(width, height) * .22;
+      const falloff = Math.max(0, 1 - distance / reach);
+      const force = 22 * pointer.energy * falloff * falloff;
+      offsetX += dx / distance * force;
+      offsetY += dy / distance * force;
+    }
+    for (const ripple of ripples) {
+      const rippleX = x - ripple.x;
+      const rippleY = y - ripple.y;
+      const rippleDistance = Math.hypot(rippleX, rippleY);
+      const position = (rippleDistance - ripple.age * .28) / rippleBand;
+      if (Math.abs(position) >= 1 || rippleDistance < 1) continue;
+      const envelope = 1 - position * position;
+      const force = -ripple.strength * position * envelope * envelope;
+      offsetX += rippleX / rippleDistance * force;
+      offsetY += rippleY / rippleDistance * force;
+    }
+    return [x + offsetX, y + offsetY];
+  }
+
+  function addRipple(x, y, amplitude) {
+    ripples.push({ x, y, age: 0, amplitude, strength: amplitude });
+    if (ripples.length > 3) ripples.shift();
+    lastRipple = performance.now();
   }
 
   function drawFlux() {
@@ -147,11 +174,18 @@
   function tick(timestamp) {
     animationFrame = 0;
     if (!running || document.hidden) return;
-    if (previousFrame) time += Math.min(40, timestamp - previousFrame);
+    const elapsed = previousFrame ? Math.min(40, timestamp - previousFrame) : 16.7;
+    time += elapsed;
     previousFrame = timestamp;
-    pointer.x += (pointer.targetX - pointer.x) * .075;
-    pointer.y += (pointer.targetY - pointer.y) * .075;
-    pointer.strength += ((pointer.active ? 1 : 0) - pointer.strength) * .08;
+    const follow = 1 - Math.exp(-elapsed / 105);
+    pointer.x += (pointer.targetX - pointer.x) * follow;
+    pointer.y += (pointer.targetY - pointer.y) * follow;
+    pointer.energy *= Math.exp(-elapsed / 430);
+    for (let index = ripples.length - 1; index >= 0; index--) {
+      ripples[index].age += elapsed;
+      ripples[index].strength = ripples[index].amplitude * Math.exp(-ripples[index].age / 850);
+      if (ripples[index].age > 1500) ripples.splice(index, 1);
+    }
     draw();
     scheduleFrame();
   }
@@ -174,11 +208,16 @@
     setRunning(manualChoice);
   });
   window.addEventListener('pointermove', event => {
+    const distance = Math.hypot(event.clientX - pointer.targetX, event.clientY - pointer.targetY);
     pointer.targetX = event.clientX;
     pointer.targetY = event.clientY;
     if (!pointer.active) {
       pointer.x = pointer.targetX;
       pointer.y = pointer.targetY;
+    }
+    if (distance > 8) pointer.energy = Math.min(1, pointer.energy + distance / 190);
+    if (distance > 24 && performance.now() - lastRipple > 110) {
+      addRipple(event.clientX, event.clientY, Math.min(55, 27 + distance * .12));
     }
     pointer.active = true;
   });
@@ -189,6 +228,8 @@
       pointer.x = pointer.targetX;
       pointer.y = pointer.targetY;
     }
+    pointer.energy = 1;
+    addRipple(event.clientX, event.clientY, 55);
     pointer.active = true;
   });
   window.addEventListener('pointerleave', () => { pointer.active = false; });
