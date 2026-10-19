@@ -2,6 +2,11 @@ import Foundation
 import KioskCore
 
 nonisolated struct CatalogInitialFetch: Sendable {
+  struct Reconciliation {
+    var changes: [CatalogCloudChange] = []
+    var resumingSaves: [UUID] = []
+  }
+
   private var missing: Set<UUID>
   private var unobservedOpaque: Set<UUID>
   private let pendingDeletionVersions: [UUID: UInt64]
@@ -30,14 +35,23 @@ nonisolated struct CatalogInitialFetch: Sendable {
     unobservedOpaque.remove(id)
   }
 
-  func reconcile(_ disk: inout CatalogCloudSync.DiskState) -> [CatalogCloudChange] {
+  func reconcile(_ disk: inout CatalogCloudSync.DiskState) -> Reconciliation {
+    var result = Reconciliation()
     disk.opaqueRecordIDs.subtract(unobservedOpaque)
-    return missing.union(unobservedOpaque).sorted { $0.uuidString < $1.uuidString }.map { id in
+    for id in missing.union(unobservedOpaque).sorted(by: { $0.uuidString < $1.uuidString }) {
       if missing.contains(id) { disk.entries.removeValue(forKey: id) }
       disk.serverEntries.removeValue(forKey: id)
-      disk.serverDeletions.insert(id)
       disk.recordSystemFields.removeValue(forKey: id)
-      return .delete(id)
+      if unobservedOpaque.contains(id), let local = disk.entries[id],
+        local.syncedVersion == nil
+      {
+        disk.serverDeletions.remove(id)
+        result.resumingSaves.append(id)
+      } else {
+        disk.serverDeletions.insert(id)
+        result.changes.append(.delete(id))
+      }
     }
+    return result
   }
 }

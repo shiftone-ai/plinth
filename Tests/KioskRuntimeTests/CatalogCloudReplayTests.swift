@@ -103,4 +103,39 @@ struct CatalogCloudReplayTests {
     #expect(CatalogCloudSync.sendableChanges([changes[2]], disk: disk) == [changes[2]])
   }
 
+  @Test func committedLocalResolutionReplacesCachedConflictOnRestart() throws {
+    let snapshot = try #require(
+      CatalogSnapshot(
+        KioskProfile(startURL: "https://example.com", navigation: NavigationPolicy(rules: []))))
+    let remote = try #require(
+      CatalogEntry(
+        id: UUID(), name: "Remote", snapshot: snapshot, version: 2, scope: .iCloud,
+        accountIdentifier: "account-a", syncedVersion: 2))
+    var chosenLocal = remote
+    chosenLocal.name = "Local"
+    chosenLocal.version = 3
+    chosenLocal.syncedVersion = 1
+    let disk = CatalogCloudSync.DiskState(
+      accountIdentifier: "account-a", engineState: nil, entries: [remote.id: remote],
+      serverEntries: [remote.id: remote], serverDeletions: [],
+      recordSystemFields: [:], conflicts: [remote.id])
+
+    #expect(
+      CatalogCloudSync.cachedReplay(
+        disk: disk, local: [remote.id: chosenLocal], pendingDeletions: [],
+        resolvedSinceCache: [remote.id]
+      ).isEmpty)
+    #expect(
+      CatalogCloudSync.cachedReplay(
+        disk: disk, local: [remote.id: chosenLocal], pendingDeletions: []) == [.upsert(remote)])
+
+    var queuedOnDisk = disk
+    queuedOnDisk.conflicts.remove(remote.id)
+    queuedOnDisk.entries[remote.id] = chosenLocal
+    #expect(
+      CatalogCloudSync.cachedReplay(
+        disk: queuedOnDisk, local: [remote.id: chosenLocal], pendingDeletions: []
+      ).isEmpty)
+  }
+
 }

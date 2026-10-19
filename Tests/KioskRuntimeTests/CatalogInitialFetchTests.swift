@@ -28,7 +28,7 @@ struct CatalogInitialFetchTests {
       entries: disk.entries, pendingDeletions: [], opaqueRecordIDs: disk.opaqueRecordIDs)
     fetch.observe(retained)
 
-    let changes = fetch.reconcile(&disk)
+    let changes = fetch.reconcile(&disk).changes
     #expect(changes.count == 2)
     #expect(changes.contains(.delete(stale.id)))
     #expect(changes.contains(.delete(cacheOnly.id)))
@@ -61,7 +61,7 @@ struct CatalogInitialFetchTests {
     var fetch = CatalogInitialFetch(
       entries: disk.entries, pendingDeletions: [], opaqueRecordIDs: [])
     fetch.observe(retained.id)
-    let changes = fetch.reconcile(&disk)
+    let changes = fetch.reconcile(&disk).changes
     #expect(changes == [.delete(stale.id)])
     #expect(disk.serverDeletions == [stale.id])
     #expect(disk.entries[stale.id] == nil)
@@ -89,5 +89,30 @@ struct CatalogInitialFetchTests {
     #expect(!fixture.runtime.snapshot.root.catalog.entries.contains { $0.id == stale.id })
     #expect(fixture.runtime.snapshot.root.catalog.entries.contains { $0.id == retained.id })
     #expect(fixture.runtime.snapshot.root.catalog.entries.contains { $0.id == newLocal.id })
+  }
+
+  @Test func vanishedOpaqueRecordResumesNeverSyncedLocalCreate() throws {
+    let snapshot = try #require(
+      CatalogSnapshot(
+        KioskProfile(startURL: "https://example.com", navigation: NavigationPolicy(rules: []))))
+    let local = try #require(
+      CatalogEntry(
+        id: UUID(), name: "Local create", snapshot: snapshot, scope: .iCloud,
+        accountIdentifier: "account-a"))
+    var disk = CatalogCloudSync.DiskState(
+      accountIdentifier: "account-a", engineState: nil, entries: [local.id: local],
+      serverEntries: [local.id: local], serverDeletions: [],
+      recordSystemFields: [local.id: Data("old fields".utf8)], conflicts: [],
+      opaqueRecordIDs: [local.id])
+    let fetch = CatalogInitialFetch(
+      entries: disk.entries, pendingDeletions: [], opaqueRecordIDs: disk.opaqueRecordIDs)
+
+    let result = fetch.reconcile(&disk)
+    #expect(result.changes.isEmpty)
+    #expect(result.resumingSaves == [local.id])
+    #expect(disk.entries[local.id] == local)
+    #expect(disk.serverEntries[local.id] == nil)
+    #expect(disk.recordSystemFields[local.id] == nil)
+    #expect(disk.opaqueRecordIDs.isEmpty)
   }
 }

@@ -114,6 +114,7 @@ public actor CatalogCloudSync: CKSyncEngineDelegate {
           accountIdentifier: accountIdentifier, engineState: nil, entries: [:],
           serverEntries: [:], serverDeletions: [], recordSystemFields: [:], conflicts: [])
       guard var disk else { return }
+      let cachedConflicts = disk.conflicts
       disk.conflicts = Set(conflicts)
       if !disk.opaqueRecordIDs.isEmpty { disk.engineState = nil }
       let local = Dictionary(
@@ -130,7 +131,8 @@ public actor CatalogCloudSync: CKSyncEngineDelegate {
       }
       let prior = disk.entries
       let replay = Self.cachedReplay(
-        disk: disk, local: local, pendingDeletions: pendingDeletions)
+        disk: disk, local: local, pendingDeletions: pendingDeletions,
+        resolvedSinceCache: cachedConflicts.subtracting(disk.conflicts))
       let replayIDs = Set(replay.map(\.id))
       disk.entries = local
       self.disk = disk
@@ -465,7 +467,7 @@ extension CatalogCloudSync {
 
   private func finishInitialFetch(syncEngine: CKSyncEngine, session: OperationToken) async {
     guard let initialFetch, var disk else { return }
-    let changes = initialFetch.reconcile(&disk)
+    let reconciliation = initialFetch.reconcile(&disk)
     disk.engineState = deferredEngineState
     self.disk = disk
     do { try persistDisk() } catch {
@@ -475,13 +477,19 @@ extension CatalogCloudSync {
     self.initialFetch = nil
     deferredEngineState = nil
     initializingGeneration = nil
-    let staleSaves = changes.compactMap { change -> CKSyncEngine.PendingRecordZoneChange? in
+    let staleSaves = reconciliation.changes.compactMap {
+      change -> CKSyncEngine.PendingRecordZoneChange? in
       if case .delete(let id) = change { return .saveRecord(Self.recordID(id)) }
       return nil
     }
     syncEngine.state.remove(pendingRecordZoneChanges: staleSaves)
-    if !changes.isEmpty {
-      await sendEvent(.catalogCloudChanges(session, disk.accountIdentifier, changes))
+    syncEngine.state.add(
+      pendingRecordZoneChanges: reconciliation.resumingSaves.map {
+        .saveRecord(Self.recordID($0))
+      })
+    if !reconciliation.changes.isEmpty {
+      await sendEvent(
+        .catalogCloudChanges(session, disk.accountIdentifier, reconciliation.changes))
     }
     await processPublications()
     let pending = syncEngine.state.pendingRecordZoneChanges
@@ -776,10 +784,18 @@ extension CatalogCloudSync {
 
   static func cachedReplay(
     disk: DiskState, local: [UUID: CatalogEntry],
-    pendingDeletions: [CatalogPendingDeletion]
+    pendingDeletions: [CatalogPendingDeletion], resolvedSinceCache: Set<UUID> = []
   ) -> [CatalogCloudChange] {
     disk.serverEntries.values.compactMap { remote -> CatalogCloudChange? in
       if disk.opaqueRecordIDs.contains(remote.id) { return nil }
+      if let chosenLocal = local[remote.id], chosenLocal.version > remote.version,
+        chosenLocal.syncedVersion != chosenLocal.version,
+        resolvedSinceCache.contains(remote.id)
+          || (!disk.conflicts.contains(remote.id)
+            && disk.entries[remote.id]?.sameCloudContents(as: chosenLocal) == true)
+      {
+        return nil
+      }
       if let localEntry = local[remote.id], localEntry.syncedVersion == remote.version {
         return nil
       }
