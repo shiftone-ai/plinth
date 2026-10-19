@@ -1,3 +1,5 @@
+import Foundation
+
 public enum AppMode: String, Codable, Equatable, Sendable {
   case bootstrapping, administration, enteringKiosk, exhibiting, unlocking, leavingKiosk, safeHold,
     paused, terminating
@@ -22,11 +24,13 @@ public struct RootState: Equatable, Sendable {
   public var biometricUnlockFailed = false
   public var biometricEnrollmentChanged = false
   public var bootstrapOperation: OperationToken?
+  public var bootstrapReadFailed = false
   public var unlockTimeoutOperation: OperationToken?
   public var unlockDeadline: Double?
   public var epoch: UInt64 = 1
   public var mode: AppMode = .bootstrapping
   public var savedProfile: KioskProfile?
+  public var profileCorrupt = false
   public var webSession: WebAdministrationSession?
   public var webServerOperation: OperationToken?
   public var pendingWebServerEndpoint: WebServerEndpoint?
@@ -38,6 +42,42 @@ public struct RootState: Equatable, Sendable {
   public var webRestartInProgress = false
   public var webRestartFailed = false
   public var activeProfile: KioskProfile?
+  public var catalog = SettingsCatalog()
+  public var catalogLoaded = false
+  public var catalogLoadFailed = false
+  public var catalogCorrupt = false
+  public var catalogRecoveryPending = false
+  public var catalogLoadOperation: OperationToken?
+  public var catalogSaveOperation: OperationToken?
+  public var pendingCatalog: SettingsCatalog?
+  public var pendingCatalogRegistrationID: UUID?
+  public var catalogRemovalCandidateID: UUID?
+  public var catalogRenameCandidate: CatalogRenameCandidate?
+  public var catalogUpdateCandidateID: UUID?
+  public var catalogSaveFailed = false
+  public var catalogExportCandidateIDs: [UUID]?
+  public var catalogExportOperation: OperationToken?
+  public var catalogExportData: Data?
+  public var catalogExportFailed = false
+  public var catalogImportOperation: OperationToken?
+  public var catalogImportSelectedURL: URL?
+  public var catalogImportPreview: [CatalogEntry]?
+  public var catalogImportFailed = false
+  public var pendingCatalogImport = false
+  public var catalogSyncStatus: CatalogSyncStatus = .disabled
+  public var catalogCloudAvailable = true
+  public var catalogAccountCheckOperation: OperationToken?
+  public var catalogCloudSessionOperation: OperationToken?
+  public var catalogSyncConsentPending = false
+  public var catalogShareCandidateID: UUID?
+  public var pendingCatalogPublishes = true
+  public var catalogCheckAfterSave = false
+  public var catalogStartAfterSave = false
+  public var queuedCatalogCloudChanges: [CatalogCloudChange] = []
+  public var queuedCatalogAcknowledgements: [UUID: UInt64] = [:]
+  public var queuedCatalogDeletionAcknowledgements: Set<UUID> = []
+  public var catalogQueuedReconcileAttempted = false
+  public var catalogCloudReadyAfterSave = false
   public var credentialsConfigured = false
   public var displayCount = 1
   public var mobileDisplays: MobileDisplayAvailability?
@@ -69,6 +109,33 @@ public struct RootState: Equatable, Sendable {
       return true
     }
     return displayCount > 0 && profile.exhibitionDestination != .externalDisplay
+  }
+  public func catalogEntryAvailable(_ entry: CatalogEntry) -> Bool {
+    entry.scope == .device
+      || (catalogCloudAvailable && catalog.syncEnabled
+        && entry.accountIdentifier == catalog.accountIdentifier
+        && catalogSyncStatus != .checking
+        && catalogSyncStatus != .accountChanged
+        && catalogSyncStatus != .signInRequired)
+  }
+
+  public func catalogConflictAvailable(_ conflict: CatalogConflict) -> Bool {
+    guard catalogCloudAvailable, catalog.syncEnabled,
+      let accountID = catalog.accountIdentifier,
+      catalogSyncStatus != .checking, catalogSyncStatus != .accountChanged,
+      catalogSyncStatus != .signInRequired
+    else { return false }
+    return catalog.conflictBelongsToAccount(conflict, accountIdentifier: accountID)
+  }
+
+  public var catalogCanShare: Bool {
+    guard catalog.syncEnabled, catalog.accountIdentifier != nil,
+      catalogCloudSessionOperation != nil
+    else { return false }
+    switch catalogSyncStatus {
+    case .ready, .pending, .offline: return true
+    case .disabled, .checking, .signInRequired, .accountChanged, .failed: return false
+    }
   }
   public var administratorSession = false
   public var presentationAcquired = false

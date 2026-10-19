@@ -13,6 +13,8 @@ final class ScopedStateStore {
   var context: ReadonlyContext {
     ReadonlyContext(
       webAvailable: exhibition.inputAvailable, webGeneration: exhibition.generation,
-      hasUnsavedDraft: administration.hasUnsavedDraft)
+      hasUnsavedDraft: administration.hasUnsavedDraft,
+      catalogSelectionID: administration.catalogSelection?.id,
+      catalogRequiresAvailableOutput: administration.catalogRequiresAvailableOutput)
   }
 }

@@ -1,3 +1,4 @@
+import Foundation
 import KioskCore
 import Testing
 
