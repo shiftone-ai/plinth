@@ -37,17 +37,20 @@ extension RemoteDirectoryCloudSync {
   }
 
   public func claimCommand(_ request: RemoteCommandRequest) async throws -> RemoteInstallation {
-    guard let current = installation, let accountIdentifier,
+    guard let accountIdentifier,
+      case .available(let checkedAccount) = await accountAvailability(),
+      checkedAccount == accountIdentifier,
+      let current = installation,
       current.enabledAccountIdentifier == accountIdentifier,
       current.approvedControllers[request.header.senderID]?.accountIdentifier
         == accountIdentifier,
+      current.approvedControllers[request.header.senderID]?.signingPublicKey
+        == request.authenticatedSigningPublicKey,
       request.header.kind == .command,
       request.header.accountIdentifier == accountIdentifier,
       request.header.recipientID == current.id,
       request.header.expiresAt > Int64(Date().timeIntervalSince1970),
-      current.processedRequestExpirations[request.header.requestID] == nil,
-      case .available(let checkedAccount) = await accountAvailability(),
-      checkedAccount == accountIdentifier
+      current.processedRequestExpirations[request.header.requestID] == nil
     else { throw Failure.invalidMessage }
     var updated = current
     let cutoff = Int64(Date().timeIntervalSince1970) - 86_400
@@ -63,11 +66,14 @@ extension RemoteDirectoryCloudSync {
   public func sendResult(
     for request: RemoteCommandRequest, outcome: RemoteCommandOutcome
   ) async throws {
-    guard let current = installation, let identity, let engine, let session,
-      let accountIdentifier,
+    guard let accountIdentifier,
+      case .available(let checkedAccount) = await accountAvailability(),
+      checkedAccount == accountIdentifier,
+      let current = installation, let identity, let engine, let session,
       current.enabledAccountIdentifier == accountIdentifier,
       let controller = current.approvedControllers[request.header.senderID],
       controller.accountIdentifier == accountIdentifier,
+      controller.signingPublicKey == request.authenticatedSigningPublicKey,
       request.header.accountIdentifier == accountIdentifier,
       request.header.recipientID == current.id,
       self.session == session, self.engine === engine
@@ -83,6 +89,11 @@ extension RemoteDirectoryCloudSync {
       datedOutcome = .succeeded(
         snapshot.reported(
           at: Int64(Date().timeIntervalSince1970)))
+    case .stateChanged(let snapshot):
+      datedOutcome = .stateChanged(
+        snapshot.reported(at: Int64(Date().timeIntervalSince1970)))
+    case .accepted:
+      datedOutcome = .accepted
     case .rejected:
       datedOutcome = outcome
     }
@@ -131,8 +142,10 @@ extension RemoteDirectoryCloudSync {
   public func respondToPairing(
     _ proposal: RemotePairingProposal, approved: Bool
   ) async throws -> RemoteInstallation {
-    guard let current = installation, let identity, let engine, let session,
-      let accountIdentifier,
+    guard let accountIdentifier,
+      case .available(let checkedAccount) = await accountAvailability(),
+      checkedAccount == accountIdentifier,
+      let current = installation, let identity, let engine, let session,
       current.enabledAccountIdentifier == accountIdentifier,
       proposal.header.kind == .pairingRequest,
       proposal.header.accountIdentifier == accountIdentifier,
@@ -140,8 +153,6 @@ extension RemoteDirectoryCloudSync {
       proposal.header.expiresAt > Int64(Date().timeIntervalSince1970),
       proposal.signingPublicKey.count == 32,
       proposal.agreementPublicKey.count == 32,
-      case .available(let checkedAccount) = await accountAvailability(),
-      checkedAccount == accountIdentifier,
       self.session == session, self.engine === engine
     else { throw Failure.accountChanged }
     let header = RemoteMessageHeader(
@@ -171,13 +182,14 @@ extension RemoteDirectoryCloudSync {
   public func saveTargetGrant(
     _ grant: RemotePeerGrant, requestID: UUID
   ) async throws -> RemoteInstallation {
-    guard let current = installation, let accountIdentifier,
+    guard let accountIdentifier,
+      case .available(let checkedAccount) = await accountAvailability(),
+      checkedAccount == accountIdentifier,
+      let current = installation,
       let target = pairingTargets[requestID], target.id == grant.id,
       target.signingPublicKey == grant.signingPublicKey,
       target.agreementPublicKey == grant.agreementPublicKey,
-      grant.accountIdentifier == accountIdentifier,
-      case .available(let checkedAccount) = await accountAvailability(),
-      checkedAccount == accountIdentifier
+      grant.accountIdentifier == accountIdentifier
     else { throw Failure.accountChanged }
     var updated = current
     updated.approvedTargets[grant.id] = grant
@@ -190,11 +202,11 @@ extension RemoteDirectoryCloudSync {
   public func revokeController(
     _ id: UUID, accountIdentifier requestedAccount: String
   ) async throws -> RemoteInstallation {
-    guard let current = installation, accountIdentifier == requestedAccount,
+    guard case .available(let checkedAccount) = await accountAvailability(),
+      checkedAccount == requestedAccount,
+      let current = installation, accountIdentifier == requestedAccount,
       current.enabledAccountIdentifier == requestedAccount,
-      current.approvedControllers[id]?.accountIdentifier == requestedAccount,
-      case .available(let checkedAccount) = await accountAvailability(),
-      checkedAccount == requestedAccount
+      current.approvedControllers[id]?.accountIdentifier == requestedAccount
     else { throw Failure.accountChanged }
     var updated = current
     updated.approvedControllers.removeValue(forKey: id)
@@ -244,15 +256,18 @@ extension RemoteDirectoryCloudSync {
   func handleFetchedMessage(
     _ record: CKRecord, session: OperationToken, accountIdentifier: String
   ) async {
-    if let expiresAt = record["expiresAt"] as? NSNumber,
-      expiresAt.int64Value <= Int64(Date().timeIntervalSince1970)
-    {
-      engine?.state.add(pendingRecordZoneChanges: [.deleteRecord(record.recordID)])
-      return
-    }
     guard record.recordType == Self.messageRecordType,
-      record.recordID.zoneID == Self.zoneID,
-      !seenMessageIDs.contains(record.recordID),
+      record.recordID.zoneID == Self.zoneID
+    else { return }
+    if let expiry = (record["expiresAt"] as? NSNumber)?.int64Value {
+      if expiry <= Int64(Date().timeIntervalSince1970) {
+        engine?.state.add(pendingRecordZoneChanges: [.deleteRecord(record.recordID)])
+        return
+      }
+      messageExpirations[record.recordID] = expiry
+      scheduleMessageExpiry(session: session)
+    }
+    guard !seenMessageIDs.contains(record.recordID),
       let data = record.encryptedValues["payload"] as? Data,
       data.count <= 64_000,
       let message = try? JSONDecoder().decode(RemoteSealedMessage.self, from: data),
@@ -315,7 +330,10 @@ extension RemoteDirectoryCloudSync {
       else { return }
       await sendEvent(
         .remoteCommandReceived(
-          session, RemoteCommandRequest(header: message.header, command: command),
+          session,
+          RemoteCommandRequest(
+            header: message.header, command: command,
+            authenticatedSigningPublicKey: controller.signingPublicKey),
           receivedAt: now))
 
     case .result:
@@ -331,5 +349,36 @@ extension RemoteDirectoryCloudSync {
           session, RemoteCommandResult(header: message.header, outcome: outcome),
           receivedAt: now))
     }
+  }
+
+  func scheduleMessageExpiry(session: OperationToken) {
+    messageExpiryTask?.cancel()
+    guard let earliest = messageExpirations.values.min() else {
+      messageExpiryTask = nil
+      return
+    }
+    let delay = max(0, earliest - Int64(Date().timeIntervalSince1970))
+    messageExpiryTask = Task {
+      try? await Task.sleep(for: .seconds(Double(delay)))
+      guard !Task.isCancelled else { return }
+      await expireMessages(session: session)
+    }
+  }
+
+  private func expireMessages(session: OperationToken) async {
+    guard self.session == session, let engine else { return }
+    let now = Int64(Date().timeIntervalSince1970)
+    let expired = messageExpirations.compactMap { id, deadline in
+      deadline <= now ? id : nil
+    }
+    for id in expired {
+      messageExpirations.removeValue(forKey: id)
+      seenMessageIDs.remove(id)
+    }
+    if !expired.isEmpty {
+      engine.state.add(pendingRecordZoneChanges: expired.map { .deleteRecord($0) })
+      await sendQueuedChanges(in: engine, session: session)
+    }
+    scheduleMessageExpiry(session: session)
   }
 }

@@ -127,7 +127,8 @@ struct RemotePairingMediatorTests {
       header: RemoteMessageHeader(
         kind: .command, accountIdentifier: account, senderID: controllerID,
         recipientID: exhibitID, requestID: UUID(), expiresAt: 1_200),
-      command: .readStatus)
+      command: .readStatus,
+      authenticatedSigningPublicKey: grant.signingPublicKey)
 
     let revoking = try transition(
       state, .remoteControllerRevokeRequested(controllerID), source: .settings, id: 1)
@@ -151,12 +152,155 @@ struct RemotePairingMediatorTests {
     #expect(revoked.state.saveOperation == nil)
   }
 
+  @Test func revokingDuringClaimCannotRestoreTheGrantOrExecuteTheCommand() throws {
+    let controllerID = UUID()
+    let targetID = UUID()
+    let key = Data(repeating: 8, count: 32)
+    let grant = RemotePeerGrant(
+      id: controllerID, name: "Controller", accountIdentifier: "account-a",
+      signingPublicKey: key, agreementPublicKey: Data(repeating: 9, count: 32),
+      approvedAt: .now)
+    var state = RootState()
+    state.mode = .administration
+    state.credentialsConfigured = true
+    state.administratorSession = true
+    state.remote.installation = RemoteInstallation(
+      id: targetID, enabledAccountIdentifier: "account-a",
+      approvedControllers: [controllerID: grant])
+    state.remote.accountIdentifier = "account-a"
+    let session = OperationToken(owner: .cloudRemote, operationID: 50)
+    state.remote.sessionOperation = session
+    let request = RemoteCommandRequest(
+      header: RemoteMessageHeader(
+        kind: .command, accountIdentifier: "account-a", senderID: controllerID,
+        recipientID: targetID, requestID: UUID(), expiresAt: 1_200),
+      command: .readStatus, authenticatedSigningPublicKey: key)
+
+    let received = try transition(
+      state, .remoteCommandReceived(session, request, receivedAt: 1_100),
+      source: .cloudRemote, id: 1)
+    let claim = try #require(received.state.remote.commandClaimOperation)
+    let revoking = try transition(
+      received.state, .remoteControllerRevokeRequested(controllerID),
+      source: .settings, id: 2)
+    var oldInstallation = try #require(state.remote.installation)
+    oldInstallation.processedRequestExpirations[request.header.requestID] = 1_200
+    let late = try transition(
+      revoking.state,
+      .remoteCommandClaimed(claim, oldInstallation, processedAt: 1_101),
+      source: .cloudRemote, id: 3)
+    #expect(late.state.remote.incomingCommand == nil)
+    #expect(late.state.remote.commandClaimOperation == nil)
+    #expect(late.effects.isEmpty)
+
+    let busyRequest = RemoteCommandRequest(
+      header: RemoteMessageHeader(
+        kind: .command, accountIdentifier: "account-a", senderID: controllerID,
+        recipientID: targetID, requestID: UUID(), expiresAt: 1_200),
+      command: .readStatus, authenticatedSigningPublicKey: key)
+    let busy = try transition(
+      received.state, .remoteCommandReceived(session, busyRequest, receivedAt: 1_100),
+      source: .cloudRemote, id: 4)
+    #expect(
+      busy.effects.contains {
+        if case .rejectRemoteCommand(let rejectedRequest, .busy) = $0.kind {
+          return rejectedRequest == busyRequest
+        }
+        return false
+      })
+  }
+
+  @Test func accountChangeDuringRemoteSaveReleasesTheSaveSlot() throws {
+    var state = RootState()
+    let profile = KioskProfile(
+      startURL: "https://example.com", navigation: .init(rules: []))
+    let save = OperationToken(owner: .cloudRemote, operationID: 10)
+    state.saveOperation = save
+    state.pendingProfile = profile
+    state.remote.remoteSaveOperation = save
+    let completed = try transition(
+      state, .profileSaved(save, profile), source: .profileRepository, id: 11)
+    #expect(completed.state.remote.remoteSaveOperation == nil)
+    #expect(completed.state.savedProfile == profile)
+    #expect(completed.effects.isEmpty)
+    #expect(completed.childControls.contains(.init(.administration, .remoteProfileSaved(profile))))
+  }
+
+  @Test func unknownResultTriggersOneStatusReadAndKeepsTheUncertaintyVisible() throws {
+    let targetID = UUID()
+    let account = "account-a"
+    let grant = RemotePeerGrant(
+      id: targetID, name: "Target", accountIdentifier: account,
+      signingPublicKey: Data(repeating: 3, count: 32),
+      agreementPublicKey: Data(repeating: 4, count: 32), approvedAt: .now)
+    var state = RootState()
+    state.remote.installation = RemoteInstallation(
+      id: UUID(), approvedTargets: [targetID: grant])
+    state.remote.accountIdentifier = account
+    state.remote.selectedDeviceID = targetID
+    state.remote.sessionOperation = OperationToken(owner: .cloudRemote, operationID: 50)
+    let expiredID = UUID()
+    state.remote.outgoingCommand = RemoteOutgoingCommand(
+      requestID: expiredID, targetID: targetID,
+      accountIdentifier: account, deadline: 100,
+      command: .exhibition(.stop), phase: .waiting)
+    let deadline = OperationToken(owner: .idleClock, operationID: 51)
+    state.remote.outgoingCommandDeadlineOperation = deadline
+
+    let refresh = try transition(
+      state, .remoteCommandDeadlineReached(deadline, expiredID),
+      source: .idleClock, id: 52, time: 101)
+    #expect(refresh.state.remote.lastUnknownCommand?.phase == .unknown)
+    #expect(refresh.state.remote.outgoingCommand?.automaticStatusRefresh == true)
+    #expect(
+      refresh.effects.contains {
+        if case .sendRemoteCommand(_, .readStatus, _, let requestedAccount) = $0.kind {
+          return requestedAccount == account
+        }
+        return false
+      })
+    let retryID = try #require(refresh.state.remote.outgoingCommand?.requestID)
+    let retryDeadline = try #require(refresh.state.remote.outgoingCommandDeadlineOperation)
+    let timedOut = try transition(
+      refresh.state, .remoteCommandDeadlineReached(retryDeadline, retryID),
+      source: .idleClock, id: 53, time: 222)
+    #expect(timedOut.state.remote.outgoingCommand?.phase == .unknown)
+    #expect(timedOut.state.remote.lastUnknownCommand?.requestID == expiredID)
+    #expect(timedOut.effects.isEmpty)
+  }
+
+  @Test func failedPageLoadReportsTheWebFailure() throws {
+    let request = RemoteCommandRequest(
+      header: RemoteMessageHeader(
+        kind: .command, accountIdentifier: "account-a", senderID: UUID(),
+        recipientID: UUID(), requestID: UUID(), expiresAt: 1_200),
+      command: .exhibition(.start),
+      authenticatedSigningPublicKey: Data(repeating: 3, count: 32))
+    var state = RootState()
+    state.mode = .enteringKiosk
+    state.remote.incomingCommand = request
+    state.remote.pendingExhibitionAction = .start
+    let failed = try transition(
+      state, .exhibitionUnavailable, source: .exhibition, id: 1)
+    #expect(failed.state.mode == .safeHold)
+    #expect(
+      failed.effects.contains { effect in
+        if case .sendRemoteCommandResult(let failedRequest, .rejected(.webLoadFailed)) =
+          effect.kind
+        {
+          return failedRequest == request
+        }
+        return false
+      })
+  }
+
   private func transition(
-    _ state: RootState, _ event: Event, source: NodeID, id: UInt64
+    _ state: RootState, _ event: Event, source: NodeID, id: UInt64,
+    time: Double? = nil
   ) throws -> Transition<RootState> {
     let result = RootMediator.reduce(
       state,
-      EventEnvelope(eventID: id, source: source, timestamp: Double(id), event: event))
+      EventEnvelope(eventID: id, source: source, timestamp: time ?? Double(id), event: event))
     guard case .handled(let value) = result else { throw TestError.notHandled }
     return value
   }

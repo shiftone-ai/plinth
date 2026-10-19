@@ -68,7 +68,9 @@ struct RemoteExhibitionRuntimeTests {
     target.port.deliver(
       .remoteCommandReceived(
         session,
-        RemoteCommandRequest(header: header, command: .exhibition(.start)),
+        RemoteCommandRequest(
+          header: header, command: .exhibition(.start),
+          authenticatedSigningPublicKey: identity.signingPublicKey),
         receivedAt: 1_700_000_001), source: .cloudRemote)
     let claim = try #require(target.runtime.snapshot.root.remote.commandClaimOperation)
     var claimed = installation
@@ -79,6 +81,18 @@ struct RemoteExhibitionRuntimeTests {
         processedAt: 1_700_000_002), source: .cloudRemote)
     #expect(target.runtime.snapshot.root.mode == .enteringKiosk)
     #expect(target.runtime.snapshot.root.remote.commandResultOperation == nil)
+    #expect(
+      target.port.effects.contains { effect in
+        if case .reportRemoteCommandProgress(_, .accepted) = effect.kind { return true }
+        return false
+      })
+    #expect(
+      target.port.effects.contains { effect in
+        if case .reportRemoteCommandProgress(_, .stateChanged(let snapshot)) = effect.kind {
+          return snapshot.mode == .enteringKiosk
+        }
+        return false
+      })
     let apply = try #require(target.runtime.snapshot.root.presentationOperation)
     target.port.deliver(.presentationApplied(apply), source: .platform)
     target.port.deliver(.exhibitionReady, source: .exhibition)
@@ -140,7 +154,9 @@ struct RemoteExhibitionRuntimeTests {
       target.port.deliver(
         .remoteCommandReceived(
           session,
-          RemoteCommandRequest(header: header, command: .exhibition(action)),
+          RemoteCommandRequest(
+            header: header, command: .exhibition(action),
+            authenticatedSigningPublicKey: identity.signingPublicKey),
           receivedAt: 1_700_000_001), source: .cloudRemote)
       let claim = try #require(target.runtime.snapshot.root.remote.commandClaimOperation)
       var claimed = try #require(target.runtime.snapshot.root.remote.installation)
@@ -184,7 +200,9 @@ struct RemoteExhibitionRuntimeTests {
     target.port.deliver(
       .remoteCommandReceived(
         session,
-        RemoteCommandRequest(header: replayHeader, command: .exhibition(.stop)),
+        RemoteCommandRequest(
+          header: replayHeader, command: .exhibition(.stop),
+          authenticatedSigningPublicKey: identity.signingPublicKey),
         receivedAt: 1_700_000_003), source: .cloudRemote)
     #expect(target.port.effects.count == effectsBeforeReplay)
 

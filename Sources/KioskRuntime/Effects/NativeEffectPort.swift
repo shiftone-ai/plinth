@@ -226,6 +226,12 @@ public final class NativeEffectPort: EffectPort {
         try await remoteDirectory.sendResult(for: request, outcome: outcome)
         return .remoteCommandResultQueued(effect.token)
       } catch { return .remoteCommandResultFailed(effect.token) }
+    case .rejectRemoteCommand(let request, let reason):
+      try? await remoteDirectory?.sendResult(for: request, outcome: .rejected(reason))
+      return nil
+    case .reportRemoteCommandProgress(let request, let outcome):
+      try? await remoteDirectory?.sendResult(for: request, outcome: outcome)
+      return nil
     case .loadCatalog, .recoverCatalog, .saveCatalog, .checkCatalogAccount,
       .checkCatalogAccountAfterStopping,
       .startCatalogCloudSync, .stopCatalogCloudSync, .publishCatalogChanges,

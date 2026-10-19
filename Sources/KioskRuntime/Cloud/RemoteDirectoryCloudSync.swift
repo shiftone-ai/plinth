@@ -49,6 +49,7 @@ public actor RemoteDirectoryCloudSync: RemoteDirectoryPort, CKSyncEngineDelegate
 
   private let stateURL: URL
   private let containerIdentifier: String
+  private let engineHost: CloudSyncEngineHost
   private let cloudAvailable: Bool
   let displayName: String
   let platform: RemoteDevicePlatform
@@ -63,6 +64,8 @@ public actor RemoteDirectoryCloudSync: RemoteDirectoryPort, CKSyncEngineDelegate
   var outgoingMessages: [CKRecord.ID: RemoteOutgoingCloudMessage] = [:]
   var pairingTargets: [UUID: RemoteDevice] = [:]
   var seenMessageIDs: Set<CKRecord.ID> = []
+  var messageExpirations: [CKRecord.ID: Int64] = [:]
+  var messageExpiryTask: Task<Void, Never>?
   var ownRecordSystemFields: Data?
   var awaitingInitialFetch = false
   var fetchFailed = false
@@ -75,6 +78,7 @@ public actor RemoteDirectoryCloudSync: RemoteDirectoryPort, CKSyncEngineDelegate
     cloudAvailable: Bool = true,
     keychain: CredentialStore.Keychain = .platformDefault,
     containerIdentifier: String = RemoteDirectoryCloudSync.containerIdentifier,
+    engineHost: CloudSyncEngineHost? = nil,
     sendEvent: @escaping @MainActor @Sendable (Event) -> Void
   ) {
     self.stateURL = stateURL
@@ -84,6 +88,7 @@ public actor RemoteDirectoryCloudSync: RemoteDirectoryPort, CKSyncEngineDelegate
     self.platform = platform
     identityStore = RemoteIdentityKeyStore(keychain: keychain)
     self.containerIdentifier = containerIdentifier
+    self.engineHost = engineHost ?? CloudSyncEngineHost(containerIdentifier: containerIdentifier)
     self.sendEvent = sendEvent
   }
 
@@ -162,13 +167,17 @@ public actor RemoteDirectoryCloudSync: RemoteDirectoryPort, CKSyncEngineDelegate
     awaitingInitialFetch = true
     fetchFailed = false
     sendFailed = false
-    var configuration = CKSyncEngine.Configuration(
-      database: CKContainer(identifier: containerIdentifier).privateCloudDatabase,
-      stateSerialization: nil, delegate: self)
-    configuration.automaticallySync = true
-    let created = CKSyncEngine(configuration)
+    guard
+      let created = await engineHost.attachRemote(
+        self, accountIdentifier: accountIdentifier, session: session)
+    else { return }
+    guard generation == started, self.session == session else {
+      await engineHost.finishRemoteRegistration(session: session)
+      return
+    }
     engine = created
     created.state.add(pendingDatabaseChanges: [.saveZone(CKRecordZone(zoneID: Self.zoneID))])
+    await engineHost.finishRemoteRegistration(session: session)
     await sendEvent(.remoteDirectoryStatusChanged(session, .checking))
     do {
       try await created.sendChanges()
@@ -192,7 +201,7 @@ public actor RemoteDirectoryCloudSync: RemoteDirectoryPort, CKSyncEngineDelegate
 
   private func clearSession() async {
     generation &+= 1
-    let previous = engine
+    let previousSession = session
     engine = nil
     accountIdentifier = nil
     session = nil
@@ -201,11 +210,45 @@ public actor RemoteDirectoryCloudSync: RemoteDirectoryPort, CKSyncEngineDelegate
     outgoingMessages = [:]
     pairingTargets = [:]
     seenMessageIDs = []
+    messageExpirations = [:]
+    messageExpiryTask?.cancel()
+    messageExpiryTask = nil
     ownRecordSystemFields = nil
     awaitingInitialFetch = false
     fetchFailed = false
     sendFailed = false
-    await previous?.cancelOperations()
+    if let previousSession { await engineHost.detachRemote(self, session: previousSession) }
+  }
+
+  func adoptSharedEngine(_ shared: CKSyncEngine?, fullFetch: Bool) async {
+    engine = shared
+    if fullFetch {
+      devices = [:]
+      ownRecordSystemFields = nil
+      awaitingInitialFetch = true
+      fetchFailed = false
+      sendFailed = false
+      if let session, let accountIdentifier {
+        await sendEvent(.remoteDirectoryStatusChanged(session, .checking))
+        await publishDevices(session: session, accountIdentifier: accountIdentifier)
+      }
+    }
+  }
+
+  func sharedEngineInvalidated() async {
+    generation &+= 1
+    engine = nil
+    session = nil
+    accountIdentifier = nil
+    devices = [:]
+    outgoingMessages = [:]
+    pairingTargets = [:]
+    seenMessageIDs = []
+    messageExpirations = [:]
+    messageExpiryTask?.cancel()
+    messageExpiryTask = nil
+    ownRecordSystemFields = nil
+    await sendEvent(.remoteAccountAvailabilityChanged)
   }
 
   public func refresh(session requestedSession: OperationToken) async {

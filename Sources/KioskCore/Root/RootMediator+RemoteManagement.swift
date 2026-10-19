@@ -49,6 +49,7 @@ extension RootMediator {
       next.remote.selectedDeviceID = nil
       next.remote.pairing = RemotePairingState()
       next.remote.outgoingCommand = nil
+      next.remote.lastUnknownCommand = nil
       next.remote.outgoingCommandOperation = nil
       next.remote.outgoingCommandDeadlineOperation = nil
       next.remote.selectedSnapshot = nil
@@ -98,6 +99,7 @@ extension RootMediator {
       next.remote.selectedDeviceID = nil
       next.remote.pairing = RemotePairingState()
       next.remote.outgoingCommand = nil
+      next.remote.lastUnknownCommand = nil
       next.remote.outgoingCommandOperation = nil
       next.remote.outgoingCommandDeadlineOperation = nil
       next.remote.selectedSnapshot = nil
@@ -120,6 +122,7 @@ extension RootMediator {
       next.remote.selectedDeviceID = nil
       next.remote.pairing = RemotePairingState()
       next.remote.outgoingCommand = nil
+      next.remote.lastUnknownCommand = nil
       next.remote.outgoingCommandOperation = nil
       next.remote.outgoingCommandDeadlineOperation = nil
       next.remote.selectedSnapshot = nil
@@ -154,6 +157,7 @@ extension RootMediator {
         next.remote.pairing.requestOperation = nil
         next.remote.pairing.outgoingDeadlineOperation = nil
         next.remote.outgoingCommand = nil
+        next.remote.lastUnknownCommand = nil
         next.remote.outgoingCommandOperation = nil
         next.remote.outgoingCommandDeadlineOperation = nil
         next.remote.selectedSnapshot = nil
@@ -261,6 +265,7 @@ extension RootMediator {
         next.remote.pairing.requestOperation = nil
         next.remote.pairing.outgoingDeadlineOperation = nil
         next.remote.outgoingCommand = nil
+        next.remote.lastUnknownCommand = nil
         next.remote.outgoingCommandOperation = nil
         next.remote.outgoingCommandDeadlineOperation = nil
         next.remote.selectedSnapshot = nil
@@ -287,6 +292,7 @@ extension RootMediator {
         next.remote.pairing.requestOperation = nil
         next.remote.pairing.outgoingDeadlineOperation = nil
         next.remote.outgoingCommand = nil
+        next.remote.lastUnknownCommand = nil
         next.remote.outgoingCommandOperation = nil
         next.remote.outgoingCommandDeadlineOperation = nil
         next.remote.selectedSnapshot = nil

@@ -125,6 +125,15 @@
         accountIdentifier: accountIdentifier, senderID: targetID,
         recipientID: installation.id, requestID: requestID,
         expiresAt: now + 120)
+      if case .saveProfile = command,
+        case .succeeded = outcome
+      {
+        await sendEvent(
+          .remoteCommandResultReceived(
+            session,
+            RemoteCommandResult(header: header, outcome: .accepted), receivedAt: now))
+        try? await Task.sleep(for: .seconds(6))
+      }
       await sendEvent(
         .remoteCommandResultReceived(
           session,

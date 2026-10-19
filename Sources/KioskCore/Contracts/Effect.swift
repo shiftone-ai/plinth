@@ -43,6 +43,8 @@ public struct Effect: Equatable, Sendable {
       requestID: UUID, accountIdentifier: String)
     case claimRemoteCommand(RemoteCommandRequest)
     case sendRemoteCommandResult(RemoteCommandRequest, RemoteCommandOutcome)
+    case rejectRemoteCommand(RemoteCommandRequest, RemoteCommandRejection)
+    case reportRemoteCommandProgress(RemoteCommandRequest, RemoteCommandOutcome)
     case scheduleRemoteCommandDeadline(Double, requestID: UUID)
     case loadCatalog
     case recoverCatalog

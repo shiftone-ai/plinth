@@ -45,7 +45,10 @@ extension RemoteDirectoryCloudSync {
       }
 
     case .sentDatabaseChanges(let update):
-      if !update.failedZoneSaves.isEmpty {
+      if update.savedZones.contains(where: { $0.zoneID == Self.zoneID }) {
+        sendFailed = false
+      }
+      if update.failedZoneSaves.contains(where: { $0.zone.zoneID == Self.zoneID }) {
         sendFailed = true
         await sendEvent(.remoteDirectoryStatusChanged(session, .failed))
       }
@@ -79,6 +82,7 @@ extension RemoteDirectoryCloudSync {
     }
     for deletion in update.deletions {
       seenMessageIDs.remove(deletion.recordID)
+      messageExpirations.removeValue(forKey: deletion.recordID)
       guard let id = Self.deviceID(from: deletion.recordID) else { continue }
       devices.removeValue(forKey: id)
       if id == installation?.id { ownRecordSystemFields = nil }
@@ -91,15 +95,27 @@ extension RemoteDirectoryCloudSync {
     syncEngine: CKSyncEngine, session: OperationToken
   ) async {
     await handleSentMessages(update, session: session)
+    for (id, error) in update.failedRecordDeletes
+    where id.zoneID == Self.zoneID && error.code == .unknownItem {
+      syncEngine.state.remove(pendingRecordZoneChanges: [.deleteRecord(id)])
+      seenMessageIDs.remove(id)
+      messageExpirations.removeValue(forKey: id)
+      if Self.deviceID(from: id) == installation?.id {
+        ownRecordSystemFields = nil
+        sendFailed = false
+      }
+    }
     if let saved = update.savedRecords.first(where: {
       Self.deviceID(from: $0.recordID) == installation?.id
     }) {
       ownRecordSystemFields = Self.systemFields(saved)
+      sendFailed = false
     }
     if update.deletedRecordIDs.contains(where: {
       Self.deviceID(from: $0) == installation?.id
     }) {
       ownRecordSystemFields = nil
+      sendFailed = false
     }
     if let conflict = update.failedRecordSaves.first(where: {
       Self.deviceID(from: $0.record.recordID) == installation?.id
@@ -111,7 +127,7 @@ extension RemoteDirectoryCloudSync {
       Self.deviceID(from: $0.record.recordID) == installation?.id
     })
       || update.failedRecordDeletes.contains(where: {
-        Self.deviceID(from: $0.key) == installation?.id
+        Self.deviceID(from: $0.key) == installation?.id && $0.value.code != .unknownItem
       })
     {
       sendFailed = true
@@ -124,9 +140,10 @@ extension RemoteDirectoryCloudSync {
     session: OperationToken
   ) async {
     for saved in update.savedRecords {
-      if let outgoing = outgoingMessages.removeValue(forKey: saved.recordID),
-        let command = outgoing.command
-      {
+      if let outgoing = outgoingMessages.removeValue(forKey: saved.recordID) {
+        messageExpirations[saved.recordID] = outgoing.message.header.expiresAt
+        scheduleMessageExpiry(session: session)
+        guard let command = outgoing.command else { continue }
         switch outgoing.message.header.kind {
         case .pairingRequest:
           await sendEvent(
@@ -169,8 +186,12 @@ extension RemoteDirectoryCloudSync {
     guard engine === syncEngine, !awaitingInitialFetch,
       let installation, let accountIdentifier, let identity
     else { return nil }
-    let pending = syncEngine.state.pendingRecordZoneChanges.filter {
-      context.options.scope.contains($0)
+    let pending = syncEngine.state.pendingRecordZoneChanges.filter { change in
+      guard context.options.scope.contains(change) else { return false }
+      switch change {
+      case .saveRecord(let id), .deleteRecord(let id): return id.zoneID == Self.zoneID
+      @unknown default: return false
+      }
     }
     let recordID = Self.recordID(installation.id)
     let enabled = installation.enabledAccountIdentifier == accountIdentifier
@@ -210,7 +231,7 @@ extension RemoteDirectoryCloudSync {
     engine.state.add(pendingRecordZoneChanges: [change])
   }
 
-  private func publishDevices(session: OperationToken, accountIdentifier: String) async {
+  func publishDevices(session: OperationToken, accountIdentifier: String) async {
     await sendEvent(
       .remoteDirectoryChanged(
         session, accountIdentifier, Array(devices.values)))
@@ -218,8 +239,19 @@ extension RemoteDirectoryCloudSync {
 
   private func reportReady(_ engine: CKSyncEngine, session: OperationToken) async {
     guard !awaitingInitialFetch, !fetchFailed, !sendFailed,
-      engine.state.pendingRecordZoneChanges.isEmpty,
-      engine.state.pendingDatabaseChanges.isEmpty
+      !engine.state.pendingRecordZoneChanges.contains(where: { change in
+        switch change {
+        case .saveRecord(let id), .deleteRecord(let id): id.zoneID == Self.zoneID
+        @unknown default: false
+        }
+      }),
+      !engine.state.pendingDatabaseChanges.contains(where: { change in
+        switch change {
+        case .saveZone(let zone): zone.zoneID == Self.zoneID
+        case .deleteZone(let id): id == Self.zoneID
+        @unknown default: false
+        }
+      })
     else { return }
     await sendEvent(.remoteDirectoryStatusChanged(session, .ready))
   }

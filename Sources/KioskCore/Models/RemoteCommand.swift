@@ -154,10 +154,15 @@ public struct RemoteEditingState: Equatable, Sendable {
 public struct RemoteCommandRequest: Equatable, Sendable {
   public let header: RemoteMessageHeader
   public let command: RemoteCommandPayload
+  public let authenticatedSigningPublicKey: Data
 
-  public init(header: RemoteMessageHeader, command: RemoteCommandPayload) {
+  public init(
+    header: RemoteMessageHeader, command: RemoteCommandPayload,
+    authenticatedSigningPublicKey: Data
+  ) {
     self.header = header
     self.command = command
+    self.authenticatedSigningPublicKey = authenticatedSigningPublicKey
   }
 }
 
@@ -193,9 +198,12 @@ public struct RemoteStatusSnapshot: Codable, Equatable, Sendable {
 public enum RemoteCommandRejection: String, Codable, Equatable, Sendable {
   case notAuthorized, expired, duplicate, busy, invalidState, storageFailed
   case revisionConflict, draftConflict, invalidProfile, outputUnavailable
+  case webLoadFailed
 }
 
 public enum RemoteCommandOutcome: Codable, Equatable, Sendable {
+  case accepted
+  case stateChanged(RemoteStatusSnapshot)
   case succeeded(RemoteStatusSnapshot)
   case rejected(RemoteCommandRejection)
 }
@@ -211,7 +219,7 @@ public struct RemoteCommandResult: Equatable, Sendable {
 }
 
 public enum RemoteCommandPhase: Equatable, Sendable {
-  case idle, sending, waiting, processed, rejected, failed, unknown
+  case idle, sending, waiting, accepted, applying, processed, rejected, failed, unknown
 }
 
 public struct RemoteOutgoingCommand: Equatable, Sendable {
@@ -220,12 +228,14 @@ public struct RemoteOutgoingCommand: Equatable, Sendable {
   public let accountIdentifier: String
   public let command: RemoteCommandPayload
   public let deadline: Double
+  public let automaticStatusRefresh: Bool
   public var phase: RemoteCommandPhase
   public var outcome: RemoteCommandOutcome?
 
   public init(
     requestID: UUID, targetID: UUID, accountIdentifier: String, deadline: Double,
     command: RemoteCommandPayload = .readStatus,
+    automaticStatusRefresh: Bool = false,
     phase: RemoteCommandPhase = .sending, outcome: RemoteCommandOutcome? = nil
   ) {
     self.requestID = requestID
@@ -233,6 +243,7 @@ public struct RemoteOutgoingCommand: Equatable, Sendable {
     self.accountIdentifier = accountIdentifier
     self.command = command
     self.deadline = deadline
+    self.automaticStatusRefresh = automaticStatusRefresh
     self.phase = phase
     self.outcome = outcome
   }

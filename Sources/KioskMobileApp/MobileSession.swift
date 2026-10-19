@@ -40,6 +40,7 @@
 
     init() {
       let clock = MonotonicClock()
+      let cloudEngineHost = CloudSyncEngineHost.shared
       let credentials = Self.credentialConfiguration()
       language = LanguagePreference(storageNamespace: credentials.storageNamespace)
       #if DEBUG
@@ -75,7 +76,8 @@
             platform: UIDevice.current.userInterfaceIdiom == .pad ? .ipad : .iphone,
             cloudAvailable: Bundle.main.object(forInfoDictionaryKey: "PlinthCloudKitEntitled")
               as? String == "YES",
-            keychain: credentials.keychain
+            keychain: credentials.keychain,
+            engineHost: cloudEngineHost
           ) { [weak remoteBridge] event in remoteBridge?.send(event) }
         }
       #else
@@ -86,7 +88,8 @@
           platform: UIDevice.current.userInterfaceIdiom == .pad ? .ipad : .iphone,
           cloudAvailable: Bundle.main.object(forInfoDictionaryKey: "PlinthCloudKitEntitled")
             as? String == "YES",
-          keychain: credentials.keychain
+          keychain: credentials.keychain,
+          engineHost: cloudEngineHost
         ) { [weak remoteBridge] event in remoteBridge?.send(event) }
       #endif
       let port = NativeEffectPort(
@@ -99,7 +102,8 @@
           fileURL: location.deletingLastPathComponent().appendingPathComponent("catalog.json")),
         catalogCloudSync: CatalogCloudSync(
           stateURL: location.deletingLastPathComponent().appendingPathComponent(
-            "catalog-cloud.json")
+            "catalog-cloud.json"),
+          engineHost: cloudEngineHost
         ) { [weak cloudBridge] event in cloudBridge?.send(event) },
         remoteDirectory: remoteDirectory,
         webServer: webServer)

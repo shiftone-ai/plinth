@@ -11,19 +11,37 @@ extension RootMediator {
       guard envelope.source == .cloudRemote,
         state.remote.sessionOperation == session,
         state.remote.enabled,
-        state.remote.preferenceOperation == nil,
         request.header.kind == .command,
         request.header.accountIdentifier == state.remote.accountIdentifier,
         request.header.recipientID == state.remote.installation?.id,
         receivedAt < request.header.expiresAt,
         state.remote.installation?.approvedControllers[request.header.senderID]
-          .map({ $0.accountIdentifier == state.remote.accountIdentifier }) == true,
+          .map({
+            $0.accountIdentifier == state.remote.accountIdentifier
+              && $0.signingPublicKey == request.authenticatedSigningPublicKey
+          }) == true,
         state.remote.pairing.revokingControllerID != request.header.senderID,
         state.remote.installation?.processedRequestExpirations[
-          request.header.requestID] == nil,
-        state.remote.incomingCommand == nil,
-        state.mobileDisplays == nil || state.mobileForeground
+          request.header.requestID] == nil
       else { return .reject(state, .invalidState) }
+      if state.remote.incomingCommand != nil || state.remote.preferenceOperation != nil
+        || state.remote.remoteSaveOperation != nil
+      {
+        return .handled(
+          .init(
+            state,
+            effects: [
+              Effect(token, .rejectRemoteCommand(request, .busy))
+            ]))
+      }
+      if state.mobileDisplays != nil && !state.mobileForeground {
+        return .handled(
+          .init(
+            state,
+            effects: [
+              Effect(token, .rejectRemoteCommand(request, .invalidState))
+            ]))
+      }
       next.remote.incomingCommand = request
       next.remote.commandClaimOperation = token
       return .handled(.init(next, effects: [Effect(token, .claimRemoteCommand(request))]))
@@ -36,7 +54,20 @@ extension RootMediator {
         installation.processedRequestExpirations[request.header.requestID]
           == request.header.expiresAt
       else { return .reject(state, .staleOperation) }
-      next.remote.installation = installation
+      guard state.remote.enabled,
+        state.remote.preferenceOperation == nil,
+        state.remote.pairing.revokingControllerID != request.header.senderID,
+        state.remote.installation?.approvedControllers[request.header.senderID]
+          == installation.approvedControllers[request.header.senderID],
+        installation.approvedControllers[request.header.senderID]?.signingPublicKey
+          == request.authenticatedSigningPublicKey
+      else {
+        next.remote.incomingCommand = nil
+        next.remote.commandClaimOperation = nil
+        return .handled(.init(next))
+      }
+      next.remote.installation?.processedRequestExpirations =
+        installation.processedRequestExpirations
       next.remote.commandClaimOperation = nil
       switch request.command {
       case .readStatus:
@@ -77,7 +108,13 @@ extension RootMediator {
             next.pendingProfile = profile
             next.saveOperation = token
             next.remote.remoteSaveOperation = token
-            return .handled(.init(next, effects: [Effect(token, .saveProfile(profile))]))
+            return .handled(
+              .init(
+                next,
+                effects: [
+                  Effect(token, .reportRemoteCommandProgress(request, .accepted)),
+                  Effect(token, .saveProfile(profile)),
+                ]))
           }
         } else {
           rejection = .invalidProfile
@@ -102,6 +139,19 @@ extension RootMediator {
           transition.reply == .accepted
         {
           transition.state.remote.pendingExhibitionAction = action
+          let snapshot = RemoteStatusSnapshot(
+            reportedAt: Int64(envelope.timestamp), mode: transition.state.mode,
+            savedProfile: transition.state.savedProfile,
+            activeRevision: transition.state.activeProfile?.revision,
+            macDisplays: transition.state.macDisplays,
+            mobileDisplays: transition.state.mobileDisplays)
+          transition.effects.insert(
+            Effect(token, .reportRemoteCommandProgress(request, .accepted)), at: 0)
+          transition.effects.insert(
+            Effect(
+              token,
+              .reportRemoteCommandProgress(
+                request, .stateChanged(snapshot))), at: 1)
           return .handled(transition)
         }
         let outcome: RemoteCommandOutcome
@@ -185,7 +235,11 @@ extension RootMediator {
           macDisplays: transition.state.macDisplays,
           mobileDisplays: transition.state.mobileDisplays))
     } else {
-      outcome = .rejected(.outputUnavailable)
+      if case .exhibitionUnavailable = envelope.event {
+        outcome = .rejected(.webLoadFailed)
+      } else {
+        outcome = .rejected(.outputUnavailable)
+      }
     }
     let reply = envelope.token(owner: .cloudRemote, epoch: transition.state.epoch)
     transition.state.remote.pendingExhibitionAction = nil

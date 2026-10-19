@@ -66,13 +66,18 @@ public enum Presenters {
         ? root.remote.selectedSnapshot : nil,
       statusPhase: root.remote.outgoingCommand?.targetID == selected?.id
         ? root.remote.outgoingCommand?.phase ?? .idle : .idle,
+      unknownResultBeforeRefresh:
+        root.remote.lastUnknownCommand?.targetID == selected?.id,
+      statusIsAutomaticRefresh:
+        root.remote.outgoingCommand?.targetID == selected?.id
+        && root.remote.outgoingCommand?.automaticStatusRefresh == true,
       statusRejection: root.remote.outgoingCommand?.targetID == selected?.id
         ? root.remote.outgoingCommand?.outcome.flatMap {
           if case .rejected(let reason) = $0 { return reason }
           return nil
         } : nil,
       canRefreshStatus: paired && root.remote.sessionOperation != nil
-        && ![.sending, .waiting].contains(
+        && ![.sending, .waiting, .accepted, .applying].contains(
           root.remote.outgoingCommand?.phase ?? .idle),
       canEditStartURL: paired && root.remote.selectedSnapshot?.savedProfile != nil
         && root.remote.outgoingCommand?.phase == .processed,
@@ -82,7 +87,7 @@ public enum Presenters {
         && root.remote.outgoingCommand?.phase == .processed,
       savingStartURL: root.remote.outgoingCommand.map {
         if case .saveProfile = $0.command {
-          return [.sending, .waiting].contains($0.phase)
+          return [.sending, .waiting, .accepted, .applying].contains($0.phase)
         }
         return false
       } ?? false,
@@ -90,6 +95,10 @@ public enum Presenters {
         if case .saveProfile = $0.command { return true }
         return false
       } ?? false,
+      lastExhibitionAction: root.remote.outgoingCommand.flatMap {
+        if case .exhibition(let action) = $0.command { return action }
+        return nil
+      },
       reviewDifferences: root.remote.editing.flatMap { editing -> [CatalogDifference]? in
         guard let base = editing.baseProfile,
           let validated = editing.draft.validatedProfile,
@@ -100,7 +109,7 @@ public enum Presenters {
       availableExhibitionActions: {
         guard paired, root.remote.status == .ready,
           root.remote.sessionOperation != nil,
-          ![.sending, .waiting].contains(
+          ![.sending, .waiting, .accepted, .applying].contains(
             root.remote.outgoingCommand?.phase ?? .idle),
           let mode = root.remote.selectedSnapshot?.mode
         else { return [] }
