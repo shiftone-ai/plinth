@@ -32,7 +32,7 @@ extension RootMediator {
       .catalogCloudChanges, .catalogCloudAcknowledged,
       .catalogCloudDeletionsAcknowledged, .catalogSharePromptRequested,
       .catalogSharePromptCancelled, .catalogShareConfirmed, .catalogConflictResolved:
-      return reduceCatalogCloud(state, envelope)
+      return reduceCatalogCloud(state, envelope, context: context)
     default: return .bubble
     }
   }

@@ -5,6 +5,31 @@ import Testing
 
 @MainActor
 struct CatalogPromptRaceTests {
+  @Test func accountRecheckClosesSharedDetailBeforeItBecomesAvailableAgain() throws {
+    let fixture = RuntimeFixture()
+    defer { fixture.runtime.stop() }
+    let shared = try #require(
+      CatalogEntry(
+        id: UUID(), name: "Shared", snapshot: CatalogSnapshot(fixture.profile())!,
+        scope: .iCloud, accountIdentifier: "account-a"))
+    try load(
+      fixture,
+      SettingsCatalog(
+        syncEnabled: true, accountIdentifier: "account-a", entries: [shared]),
+      account: "account-a")
+    #expect(
+      fixture.runtime.send(
+        .catalogSelectRequested(shared.id), from: .settings
+      ).reply == .accepted)
+    #expect(fixture.runtime.snapshot.administration.catalogSelection?.id == shared.id)
+    let session = try #require(fixture.runtime.snapshot.root.catalogCloudSessionOperation)
+    fixture.runtime.send(.catalogCloudAccountChanged(session), from: .cloudCatalog)
+    #expect(fixture.runtime.snapshot.administration.catalogSelection == nil)
+    let check = try #require(fixture.runtime.snapshot.root.catalogAccountCheckOperation)
+    fixture.port.deliver(.catalogAccountChecked(check, "account-a"), source: .cloudCatalog)
+    #expect(fixture.runtime.snapshot.administration.catalogSelection == nil)
+  }
+
   @Test func savedSettingsChangeInvalidatesSharedUpdateConfirmation() throws {
     let fixture = RuntimeFixture()
     defer { fixture.runtime.stop() }

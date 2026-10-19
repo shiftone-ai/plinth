@@ -6,6 +6,42 @@ import Testing
 @testable import KioskRuntime
 
 struct CatalogCloudCacheTests {
+  @Test @MainActor func matchingServerRecordAfterFailedSaveAcknowledgesWithoutConflict() throws {
+    let fixture = RuntimeFixture()
+    defer { fixture.runtime.stop() }
+    let snapshot = try #require(CatalogSnapshot(fixture.profile()))
+    let id = UUID()
+    let local = try #require(
+      CatalogEntry(
+        id: id, name: "Shared", snapshot: snapshot, version: 2, scope: .iCloud,
+        accountIdentifier: "account-a", syncedVersion: 1))
+    var remote = local
+    remote.syncedVersion = 2
+    let stale = try #require(
+      CatalogEntry(
+        id: id, name: "Old", snapshot: snapshot, scope: .iCloud,
+        accountIdentifier: "account-a"))
+    var disk = CatalogCloudSync.DiskState(
+      accountIdentifier: "account-a", engineState: nil, entries: [id: local],
+      serverEntries: [id: stale], serverDeletions: [id], recordSystemFields: [:],
+      conflicts: [id], opaqueRecordIDs: [id])
+    #expect(
+      CatalogCloudSync.reconcileServerRecordChangedSave(remote, disk: &disk)
+        == .acknowledged(2))
+    #expect(disk.serverEntries[id] == remote)
+    #expect(!disk.serverDeletions.contains(id))
+    #expect(!disk.opaqueRecordIDs.contains(id))
+    #expect(!disk.conflicts.contains(id))
+
+    var edited = remote
+    edited.name = "Edited elsewhere"
+    #expect(
+      CatalogCloudSync.reconcileServerRecordChangedSave(edited, disk: &disk)
+        == .conflict(.upsert(edited)))
+    #expect(disk.conflicts.contains(id))
+    #expect(disk.serverEntries[id] == edited)
+  }
+
   @Test @MainActor func publicationsQueuedDuringStartAreAppliedInOrder() throws {
     let fixture = RuntimeFixture()
     defer { fixture.runtime.stop() }

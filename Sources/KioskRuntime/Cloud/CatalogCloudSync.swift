@@ -604,18 +604,19 @@ extension CatalogCloudSync {
         {
           disk.recordSystemFields[id] = Self.systemFields(server)
           if let remote = Self.entry(from: server, accountIdentifier: disk.accountIdentifier) {
-            disk.serverEntries[id] = remote
-            disk.serverDeletions.remove(id)
-            disk.opaqueRecordIDs.remove(id)
-            conflicts.append(.upsert(remote))
+            switch Self.reconcileServerRecordChangedSave(remote, disk: &disk) {
+            case .acknowledged(let version): acknowledged[id] = version
+            case .conflict(let change): conflicts.append(change)
+            }
           } else {
             disk.opaqueRecordIDs.insert(id)
             failureStatus = .failed
+            disk.conflicts.insert(id)
           }
         } else {
           failureStatus = .failed
+          disk.conflicts.insert(id)
         }
-        disk.conflicts.insert(id)
         syncEngine.state.remove(pendingRecordZoneChanges: [.saveRecord(Self.recordID(id))])
       case .unknownItem:
         disk.conflicts.insert(id)

@@ -2,6 +2,25 @@ import Foundation
 import KioskCore
 
 extension CatalogCloudSync {
+  enum SaveReconciliation: Equatable {
+    case acknowledged(UInt64)
+    case conflict(CatalogCloudChange)
+  }
+
+  static func reconcileServerRecordChangedSave(
+    _ remote: CatalogEntry, disk: inout DiskState
+  ) -> SaveReconciliation {
+    disk.serverEntries[remote.id] = remote
+    disk.serverDeletions.remove(remote.id)
+    disk.opaqueRecordIDs.remove(remote.id)
+    if disk.entries[remote.id]?.sameCloudContents(as: remote) == true {
+      disk.conflicts.remove(remote.id)
+      return .acknowledged(remote.version)
+    }
+    disk.conflicts.insert(remote.id)
+    return .conflict(.upsert(remote))
+  }
+
   static func fetchedConflicts(
     saves: [CatalogEntry], disk: DiskState, resolvedConflicts: Set<UUID>
   ) -> [CatalogCloudChange] {
