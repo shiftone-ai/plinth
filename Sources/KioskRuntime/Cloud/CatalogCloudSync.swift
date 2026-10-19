@@ -113,38 +113,9 @@ public actor CatalogCloudSync: CKSyncEngineDelegate {
           }, opaqueRecordIDs: disk.opaqueRecordIDs)
       }
       let prior = disk.entries
-      let replay =
-        disk.serverEntries.values.compactMap { remote -> CatalogCloudChange? in
-          if disk.opaqueRecordIDs.contains(remote.id) { return nil }
-          if let localEntry = local[remote.id], localEntry.syncedVersion == remote.version {
-            return nil
-          }
-          if let deletion = pendingDeletions.first(where: {
-            $0.id == remote.id && $0.accountIdentifier == accountIdentifier
-          }),
-            deletion.baseVersion == remote.version
-          {
-            return nil
-          }
-          return .upsert(remote)
-        }
-        + disk.serverDeletions.compactMap { id -> CatalogCloudChange? in
-          if disk.opaqueRecordIDs.contains(id) { return nil }
-          guard
-            local[id] != nil
-              || pendingDeletions.contains(where: {
-                $0.id == id && $0.accountIdentifier == accountIdentifier
-              })
-          else { return nil }
-          return .delete(id)
-        }
-      let replayIDs = Set(
-        replay.map { change in
-          switch change {
-          case .upsert(let entry): entry.id
-          case .delete(let id): id
-          }
-        })
+      let replay = Self.cachedReplay(
+        disk: disk, local: local, pendingDeletions: pendingDeletions)
+      let replayIDs = Set(replay.map(\.id))
       disk.entries = local
       self.disk = disk
       try persistDisk()
@@ -156,6 +127,9 @@ public actor CatalogCloudSync: CKSyncEngineDelegate {
       engine = created
       active = true
       fetchFailed = false
+      created.state.remove(
+        pendingRecordZoneChanges: Self.conflictingChanges(
+          created.state.pendingRecordZoneChanges, disk: disk))
       if disk.engineState == nil {
         created.state.add(pendingDatabaseChanges: [
           .saveZone(CKRecordZone(zoneName: Self.zoneName))
@@ -696,14 +670,11 @@ extension CatalogCloudSync {
       await reportAccountUnavailable(availability, session: session)
       return nil
     }
-    let pending = syncEngine.state.pendingRecordZoneChanges.filter { change in
+    let inScope = syncEngine.state.pendingRecordZoneChanges.filter { change in
       guard context.options.scope.contains(change) else { return false }
-      switch change {
-      case .saveRecord(let id), .deleteRecord(let id):
-        return Self.catalogID(from: id).map { !disk.opaqueRecordIDs.contains($0) } ?? false
-      @unknown default: return false
-      }
+      return true
     }
+    let pending = Self.sendableChanges(inScope, disk: disk)
     let entries = disk.entries
     let fields = disk.recordSystemFields
     return await CKSyncEngine.RecordZoneChangeBatch(pendingChanges: pending) { recordID in
@@ -759,6 +730,58 @@ extension CatalogCloudSync {
   private static func catalogID(from recordID: CKRecord.ID) -> UUID? {
     guard recordID.zoneID == catalogZoneID else { return nil }
     return UUID(uuidString: recordID.recordName)
+  }
+
+  static func cachedReplay(
+    disk: DiskState, local: [UUID: CatalogEntry],
+    pendingDeletions: [CatalogPendingDeletion]
+  ) -> [CatalogCloudChange] {
+    disk.serverEntries.values.compactMap { remote -> CatalogCloudChange? in
+      if disk.opaqueRecordIDs.contains(remote.id) { return nil }
+      if let localEntry = local[remote.id], localEntry.syncedVersion == remote.version {
+        return nil
+      }
+      if let deletion = pendingDeletions.first(where: {
+        $0.id == remote.id && $0.accountIdentifier == disk.accountIdentifier
+      }), deletion.baseVersion == remote.version {
+        return nil
+      }
+      return .upsert(remote)
+    }
+      + disk.serverDeletions.compactMap { id -> CatalogCloudChange? in
+        if disk.opaqueRecordIDs.contains(id) { return nil }
+        let wasSynced = local[id]?.syncedVersion != nil
+        let pendingDeletion = pendingDeletions.contains {
+          $0.id == id && $0.accountIdentifier == disk.accountIdentifier
+        }
+        return wasSynced || pendingDeletion ? .delete(id) : nil
+      }
+  }
+
+  static func sendableChanges(
+    _ changes: [CKSyncEngine.PendingRecordZoneChange], disk: DiskState
+  ) -> [CKSyncEngine.PendingRecordZoneChange] {
+    changes.filter { change in
+      switch change {
+      case .saveRecord(let id), .deleteRecord(let id):
+        return catalogID(from: id).map {
+          !disk.conflicts.contains($0) && !disk.opaqueRecordIDs.contains($0)
+        } ?? false
+      @unknown default: return false
+      }
+    }
+  }
+
+  static func conflictingChanges(
+    _ changes: [CKSyncEngine.PendingRecordZoneChange], disk: DiskState
+  ) -> [CKSyncEngine.PendingRecordZoneChange] {
+    changes.filter { change in
+      switch change {
+      case .saveRecord(let id), .deleteRecord(let id):
+        return catalogID(from: id).map { disk.conflicts.contains($0) } ?? false
+      @unknown default: return false
+      }
+    }
   }
 
   private static func isOffline(_ error: CKError) -> Bool {
