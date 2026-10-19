@@ -131,24 +131,14 @@ public final class NativeEffectPort: EffectPort {
   private func bootstrap(_ token: OperationToken) async -> Event {
     async let profile = repository.load()
     async let configured = credentials.isConfigured()
-    let hasCredentials: Bool
-    do { hasCredentials = try await configured } catch {
-      return .bootstrapFailed(
-        token, displayCount: displays.count, credentialsConfigured: false,
-        profileCorrupt: false)
+    let profileResult: Result<KioskProfile?, Error>
+    do { profileResult = .success(try await profile) } catch { profileResult = .failure(error) }
+    let credentialResult: Result<Bool, Error>
+    do { credentialResult = .success(try await configured) } catch {
+      credentialResult = .failure(error)
     }
-    do {
-      return try await .bootstrapped(
-        profile: profile, credentialsConfigured: hasCredentials, displayCount: displays.count)
-    } catch ProfileRepository.Failure.corruptProfile {
-      return .bootstrapFailed(
-        token, displayCount: displays.count, credentialsConfigured: hasCredentials,
-        profileCorrupt: true)
-    } catch {
-      return .bootstrapFailed(
-        token, displayCount: displays.count, credentialsConfigured: hasCredentials,
-        profileCorrupt: false)
-    }
+    return Self.bootstrapEvent(
+      token, profile: profileResult, credentials: credentialResult, displayCount: displays.count)
   }
 
   private func performCatalog(_ effect: Effect) async -> Event? {

@@ -86,6 +86,24 @@ struct CatalogReviewRoundTenTests {
     #expect(pending.pendingDeletions.map(\.id) == [item.id])
   }
 
+  @Test func pendingDeletionConflictIsMarkedForTheDestructiveAction() throws {
+    let fixture = RuntimeFixture()
+    defer { fixture.runtime.stop() }
+    let remote = try #require(
+      CatalogEntry(
+        id: UUID(), name: "Remote", snapshot: CatalogSnapshot(fixture.profile())!,
+        scope: .iCloud, accountIdentifier: "account-a"))
+    _ = try start(
+      fixture,
+      catalog: SettingsCatalog(
+        syncEnabled: true, accountIdentifier: "account-a",
+        conflicts: [.init(id: remote.id, remote: remote)],
+        pendingDeletions: [.init(id: remote.id, accountIdentifier: "account-a")]))
+    let props = fixture.runtime.settingsProps.props.catalog
+    #expect(props.conflicts.map(\.id) == [remote.id])
+    #expect(props.pendingDeletionIDs == [remote.id])
+  }
+
   @Test func deviceEntryCannotBeSharedWhileItsIdentifierAwaitsDeletion() throws {
     let fixture = RuntimeFixture()
     defer { fixture.runtime.stop() }

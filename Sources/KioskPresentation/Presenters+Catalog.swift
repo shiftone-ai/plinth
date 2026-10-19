@@ -44,6 +44,10 @@ extension Presenters {
       syncConsentPending: root.catalogSyncConsentPending,
       shareCandidate: root.catalog.entries.first { $0.id == root.catalogShareCandidateID },
       conflicts: conflicts,
+      pendingDeletionIDs: Set(
+        root.catalog.pendingDeletions.filter {
+          $0.accountIdentifier == root.catalog.accountIdentifier
+        }.map(\.id)),
       conflictDifferences: Dictionary(
         uniqueKeysWithValues: conflicts.compactMap { conflict in
           guard let remote = conflict.remote else { return nil }
