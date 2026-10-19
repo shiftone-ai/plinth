@@ -176,24 +176,8 @@ extension RootMediator {
           effects: [Effect(token, .checkCatalogAccountAfterStopping)],
           childControls: closeSharedCatalogSelection(state, context: context)))
 
-    case .catalogCloudStatus(let session, let status):
-      guard envelope.source == .cloudCatalog, state.catalog.syncEnabled,
-        state.catalog.accountIdentifier != nil, state.catalogCloudSessionOperation == session
-      else { return .reject(state, .invalidState) }
-      if state.catalogQueuedReconcileAttempted && state.catalogSaveOperation == nil
-        && hasQueuedCloudFacts(state)
-      {
-        return .handled(.init(state))
-      }
-      if status == .ready, let accountID = state.catalog.accountIdentifier,
-        !state.catalog.conflictIDs(for: accountID).isEmpty
-          || state.pendingCatalog?.conflictIDs(for: accountID).isEmpty == false
-      {
-        next.catalogSyncStatus = .pending
-        return .handled(.init(next))
-      }
-      next.catalogSyncStatus = status
-      return .handled(.init(next))
+    case .catalogCloudStatus:
+      return reduceCatalogCloudStatus(state, envelope)
 
     case .catalogCloudChanges(let session, let accountID, let changes):
       guard envelope.source == .cloudCatalog, state.catalog.syncEnabled,
@@ -202,11 +186,13 @@ extension RootMediator {
       else { return .reject(state, .invalidState) }
       if state.catalogSaveOperation != nil {
         next.queuedCatalogCloudChanges.append(contentsOf: changes)
+        markCatalogCloudFactQueued(&next)
         return .handled(.init(next))
       }
       guard let document = receiveCloudChanges(changes, into: state.catalog, accountID: accountID)
       else { return .handled(.init(state)) }
       next.queuedCatalogCloudChanges.append(contentsOf: changes)
+      markCatalogCloudFactQueued(&next)
       return commitCatalog(next, document, token: token, publish: false)
 
     case .catalogCloudAcknowledged(let session, let accountID, let versions):
@@ -216,6 +202,7 @@ extension RootMediator {
       else { return .reject(state, .invalidState) }
       if state.catalogSaveOperation != nil {
         next.queuedCatalogAcknowledgements.merge(versions) { _, newer in newer }
+        markCatalogCloudFactQueued(&next)
         return .handled(.init(next))
       }
       var document = state.catalog
@@ -232,6 +219,7 @@ extension RootMediator {
       }
       guard changed else { return .handled(.init(state)) }
       next.queuedCatalogAcknowledgements.merge(versions) { _, newer in newer }
+      markCatalogCloudFactQueued(&next)
       return commitCatalog(next, document, token: token, publish: false)
 
     case .catalogCloudDeletionsAcknowledged(let session, let accountID, let ids):
@@ -241,6 +229,7 @@ extension RootMediator {
       else { return .reject(state, .invalidState) }
       if state.catalogSaveOperation != nil {
         next.queuedCatalogDeletionAcknowledgements.formUnion(ids)
+        markCatalogCloudFactQueued(&next)
         return .handled(.init(next))
       }
       var document = state.catalog
@@ -249,6 +238,7 @@ extension RootMediator {
       }
       guard document != state.catalog else { return .handled(.init(state)) }
       next.queuedCatalogDeletionAcknowledgements.formUnion(ids)
+      markCatalogCloudFactQueued(&next)
       return commitCatalog(next, document, token: token, publish: false)
 
     case .catalogSharePromptRequested(let id):
@@ -392,5 +382,6 @@ extension RootMediator {
     state.queuedCatalogAcknowledgements = [:]
     state.queuedCatalogDeletionAcknowledgements = []
     state.catalogQueuedReconcileAttempted = false
+    state.catalogCloudReadyAfterSave = false
   }
 }

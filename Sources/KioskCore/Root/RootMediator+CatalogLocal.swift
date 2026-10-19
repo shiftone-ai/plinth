@@ -353,6 +353,7 @@ extension RootMediator {
       next.queuedCatalogCloudChanges = []
       next.queuedCatalogAcknowledgements = [:]
       next.queuedCatalogDeletionAcknowledgements = []
+      finishCatalogCloudStatusAfterSave(&next, previous: state, effects: effects)
       return .handled(.init(next, effects: effects, childControls: controls))
 
     case .catalogSaveFailed(let completed):
@@ -364,6 +365,7 @@ extension RootMediator {
       next.pendingCatalogRegistrationID = nil
       next.pendingCatalogImport = false
       next.catalogSaveFailed = true
+      next.catalogCloudReadyAfterSave = false
       next.catalogCheckAfterSave = false
       next.catalogStartAfterSave = false
       if hasQueuedCloudFacts(state), !state.catalogQueuedReconcileAttempted {
