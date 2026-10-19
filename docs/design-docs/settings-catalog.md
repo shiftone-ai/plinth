@@ -2,7 +2,7 @@
 
 [Issue #36](https://github.com/shiftone-ai/plinth/issues/36) の実装境界を示す．
 
-設定集は端末の `savedProfile`，編集中の `draftProfile`，展示中の `activeProfile` とは別に保存する．登録と項目の更新には保存済みの設定を使い，編集中の設定は使わない．項目を開くと内容と現在の設定との差を表示し，「エディタに読み込む」で draft に入れる．端末の保存操作が成功するまで savedProfile は変わらず，展示中の activeProfile はそのまま保つ．資格情報，Web管理の有効状態，Webセッション，表示言語は項目に含めない．
+設定集は端末の `savedProfile`，編集中の `draftProfile`，展示中の `activeProfile` とは別に保存する．登録と項目の更新には保存済みの設定を使い，編集中の設定は使わない．設定の編集内容が未保存の間は項目を開くボタンを無効にする．項目を開くと内容と現在の設定との差を表示し，「エディタに読み込む」で draft に入れる．端末の保存操作が成功するまで savedProfile は変わらず，展示中の activeProfile はそのまま保つ．資格情報，Web管理の有効状態，Webセッション，表示言語は項目に含めない．
 
 Root Mediator は項目の登録，表示，削除，共有，競合と非同期結果を裁定する．Administration Mediator は登録元の保存済み設定，選択した項目の draft への読み込み，合言葉の一時保持を扱う．Presenter が状態を表示へ投影し，View は意図を送る．`CatalogRepository` は端末内の設定集を原子的に保存し，`CatalogCloudSync` と `EncryptedCatalogFile` は Root が選んだ Effect だけを実行する．
 
