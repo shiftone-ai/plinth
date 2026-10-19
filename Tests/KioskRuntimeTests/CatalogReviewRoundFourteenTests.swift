@@ -5,6 +5,38 @@ import Testing
 
 @MainActor
 struct CatalogReviewRoundFourteenTests {
+  @Test func queuedCloudChangeKeepsSyncPendingUntilItsSaveCompletes() throws {
+    let fixture = RuntimeFixture()
+    defer { fixture.runtime.stop() }
+    let snapshot = try #require(CatalogSnapshot(fixture.profile()))
+    let local = try #require(CatalogEntry(id: UUID(), name: "Local", snapshot: snapshot))
+    let remote = try #require(
+      CatalogEntry(
+        id: UUID(), name: "Remote", snapshot: snapshot, scope: .iCloud,
+        accountIdentifier: "account-a"))
+    try start(
+      fixture,
+      catalog: SettingsCatalog(
+        syncEnabled: true, accountIdentifier: "account-a", entries: [local]))
+    let session = try #require(fixture.runtime.snapshot.root.catalogCloudSessionOperation)
+    fixture.runtime.send(.catalogCloudStatus(session, .ready), from: .cloudCatalog)
+    #expect(fixture.runtime.snapshot.root.catalogSyncStatus == .ready)
+
+    fixture.runtime.send(.catalogVisibilityRequested(id: local.id, visible: false), from: .settings)
+    fixture.runtime.send(
+      .catalogCloudChanges(session, "account-a", [.upsert(remote)]), from: .cloudCatalog)
+    fixture.runtime.send(.catalogCloudStatus(session, .ready), from: .cloudCatalog)
+    #expect(fixture.runtime.snapshot.root.catalogSyncStatus == .pending)
+    try finishSave(fixture)
+    #expect(fixture.runtime.snapshot.root.catalogSaveOperation != nil)
+    #expect(!fixture.runtime.snapshot.root.catalog.entries.contains { $0.id == remote.id })
+    fixture.runtime.send(.catalogCloudStatus(session, .ready), from: .cloudCatalog)
+    #expect(fixture.runtime.snapshot.root.catalogSyncStatus == .pending)
+    try finishSave(fixture)
+    #expect(fixture.runtime.snapshot.root.catalog.entries.contains { $0.id == remote.id })
+    #expect(fixture.runtime.snapshot.root.catalogSyncStatus == .ready)
+  }
+
   @Test func queuedCloudChangeSurvivesASecondSaveFailure() throws {
     let fixture = RuntimeFixture()
     defer { fixture.runtime.stop() }
@@ -156,5 +188,11 @@ struct CatalogReviewRoundFourteenTests {
     fixture.port.deliver(.catalogLoaded(load, catalog), source: .catalogRepository)
     let check = try #require(fixture.runtime.snapshot.root.catalogAccountCheckOperation)
     fixture.port.deliver(.catalogAccountChecked(check, "account-a"), source: .cloudCatalog)
+  }
+
+  private func finishSave(_ fixture: RuntimeFixture) throws {
+    let token = try #require(fixture.runtime.snapshot.root.catalogSaveOperation)
+    let document = try #require(fixture.runtime.snapshot.root.pendingCatalog)
+    fixture.port.deliver(.catalogSaved(token, document), source: .catalogRepository)
   }
 }

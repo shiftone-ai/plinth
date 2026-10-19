@@ -74,6 +74,7 @@ public struct CatalogEntry: Equatable, Codable, Sendable, Identifiable {
   ) {
     let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
     guard Self.validName(name), version > 0, snapshot.isValid,
+      syncedVersion.map({ $0 > 0 && $0 <= version }) ?? true,
       (scope == .device && accountIdentifier == nil)
         || (scope == .iCloud && !(accountIdentifier ?? "").isEmpty)
     else { return nil }
@@ -102,6 +103,7 @@ public struct CatalogEntry: Equatable, Codable, Sendable, Identifiable {
 
   public var isValid: Bool {
     formatVersion == 1 && Self.validName(name) && version > 0 && snapshot.isValid
+      && (syncedVersion.map { $0 > 0 && $0 <= version } ?? true)
       && ((scope == .device && accountIdentifier == nil)
         || (scope == .iCloud && !(accountIdentifier ?? "").isEmpty))
   }

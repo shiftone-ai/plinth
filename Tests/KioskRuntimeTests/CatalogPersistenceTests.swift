@@ -5,6 +5,29 @@ import Testing
 
 @MainActor
 struct CatalogPersistenceTests {
+  @Test func impossibleSyncedVersionsAreRejectedDuringLoad() async throws {
+    let fixture = RuntimeFixture()
+    defer { fixture.runtime.stop() }
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
+      "plinth-invalid-synced-version-\(UUID())")
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let base = try #require(
+      CatalogEntry(
+        id: UUID(), name: "Shared", snapshot: CatalogSnapshot(fixture.profile())!,
+        version: 2, scope: .iCloud, accountIdentifier: "account-a", syncedVersion: 1))
+    for invalid in [UInt64(0), 3] {
+      var entry = base
+      entry.syncedVersion = invalid
+      let fileURL = directory.appendingPathComponent("catalog-\(invalid).json")
+      try JSONEncoder().encode(SettingsCatalog(entries: [entry])).write(to: fileURL)
+      let repository = CatalogRepository(fileURL: fileURL)
+      await #expect(throws: CatalogRepository.Failure.corruptCatalog) {
+        try await repository.load()
+      }
+    }
+  }
+
   @Test func damagedRemoteConflictIsRejectedDuringLoad() async throws {
     let fixture = RuntimeFixture()
     defer { fixture.runtime.stop() }
