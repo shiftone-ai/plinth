@@ -4,6 +4,54 @@ import XCTest
 import XCUIAutomation
 
 final class MobileWorkflowUITests: XCTestCase {
+  @MainActor func testResetExhibitionFromShortcuts() async throws {
+    guard ProcessInfo.processInfo.environment["PLINTH_SHORTCUTS_TEST"] == "1" else {
+      throw XCTSkip("Run explicitly on an isolated Simulator or test device")
+    }
+    continueAfterFailure = false
+    let shortcuts = XCUIApplication(bundleIdentifier: "com.apple.shortcuts")
+    let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+    shortcuts.activate()
+    if springboard.staticTexts["Exhibition reset started"].exists {
+      springboard.buttons["Done"].firstMatch.tap()
+    }
+    let app = XCUIApplication()
+    app.launchEnvironment["PLINTH_TEST_CREDENTIAL_SERVICE"] =
+      "ai.shiftone.plinth.tests.shortcuts.\(UUID().uuidString)"
+    app.launch()
+    try await exists(app.buttons["start-exhibition"])
+    try await configureStoreReviewDemo(app)
+    app.buttons["start-exhibition"].tap()
+    let next = app.webViews.links["Next exhibit"]
+    try await exists(next, timeout: 30)
+    next.tap()
+    try await exists(app.webViews.staticTexts["Another view"], timeout: 20)
+    attach(app, "shortcuts-before")
+    shortcuts.activate()
+    if !shortcuts.buttons["play"].exists {
+      if !shortcuts.searchFields["Search Actions"].exists {
+        shortcuts.buttons["Create Shortcut"].tap()
+      }
+      let search = shortcuts.searchFields["Search Actions"]
+      search.tap()
+      if shortcuts.buttons["Clear text"].exists {
+        shortcuts.buttons["Clear text"].tap()
+      }
+      search.typeText("Reset Exhibition")
+      let action = shortcuts.cells["Reset Exhibition"]
+      XCTAssertTrue(action.waitForExistence(timeout: 10))
+      action.tap()
+    }
+    shortcuts.buttons["play"].tap()
+    try await exists(springboard.staticTexts["Exhibition reset started"], timeout: 20)
+    attach(shortcuts, "shortcuts-result")
+    springboard.buttons["Done"].firstMatch.tap()
+    app.activate()
+    try await exists(app.webViews.links["Next exhibit"], timeout: 30)
+    XCTAssertFalse(app.webViews.staticTexts["Another view"].exists)
+    attach(app, "shortcuts-after")
+  }
+
   @MainActor func testStoreReviewDemoOnDevice() async throws {
     guard ProcessInfo.processInfo.environment["PLINTH_STORE_REVIEW_TEST"] == "1" else {
       throw XCTSkip("Run explicitly when preparing App Store screenshots")
