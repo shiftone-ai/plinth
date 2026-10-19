@@ -796,7 +796,7 @@ extension CatalogCloudSync {
   static func classifyFetchedRecord(
     _ record: CKRecord, accountIdentifier: String
   ) -> FetchedCatalogRecord {
-    guard record.recordType == recordType, let id = catalogID(from: record.recordID) else {
+    guard let id = catalogID(from: record.recordID) else {
       return .unrelated
     }
     guard let entry = entry(from: record, accountIdentifier: accountIdentifier) else {

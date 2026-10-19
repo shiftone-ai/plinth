@@ -97,7 +97,8 @@ public struct CatalogEntry: Equatable, Codable, Sendable, Identifiable {
   }
 
   public static func validName(_ value: String) -> Bool {
-    !value.isEmpty && value.utf8.count <= 120
+    !value.isEmpty && value == value.trimmingCharacters(in: .whitespacesAndNewlines)
+      && value.utf8.count <= 120
       && value.unicodeScalars.allSatisfy { !CharacterSet.controlCharacters.contains($0) }
   }
 
