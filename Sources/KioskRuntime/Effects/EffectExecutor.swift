@@ -5,6 +5,7 @@ public final class EffectExecutor: EffectExecuting {
   public var resultSink: (@MainActor (Event, NodeID) -> Void)?
   public let registry = EffectTaskRegistry()
   private var nextCatalogTaskID: UInt64 = 0
+  private var nextRemoteTaskID: UInt64 = 0
   private let port: any EffectPort
   public init(port: any EffectPort) { self.port = port }
 
@@ -34,7 +35,10 @@ public final class EffectExecutor: EffectExecuting {
       source = .platform
     case .releaseExternalPointer, .confineNativePointer: return
     case .createSurface, .releaseSurface, .load, .controlExternalWeb: source = .webSurface
-    case .scheduleIdle, .scheduleRetry, .scheduleUnlockTimeout: source = .idleClock
+    case .scheduleIdle, .scheduleRetry, .scheduleUnlockTimeout,
+      .scheduleRemotePairingDeadline, .scheduleRemotePairingCodeExpiry,
+      .scheduleRemoteCommandDeadline:
+      source = .idleClock
     case .verifyPasscode, .configurePasscode, .readBiometricStatus, .changeBiometricUnlock,
       .performBiometricUnlock:
       source = .credentials
@@ -46,6 +50,12 @@ public final class EffectExecutor: EffectExecuting {
       .startCatalogCloudSync, .stopCatalogCloudSync,
       .publishCatalogChanges:
       source = .cloudCatalog
+    case .loadRemoteConfiguration, .checkRemoteAccount, .startRemoteDirectory,
+      .stopRemoteDirectory, .refreshRemoteDirectory, .setRemoteEnabled,
+      .setRemoteVisibility, .generateRemotePairingCode, .sendRemotePairingRequest,
+      .respondToRemotePairing, .saveRemoteTargetGrant, .revokeRemoteController,
+      .sendRemoteCommand, .claimRemoteCommand, .sendRemoteCommandResult:
+      source = .cloudRemote
     case .startWebServer: source = .webAdministration
     case .stopWebServer: return
     case .cancelOperation: return
@@ -57,6 +67,12 @@ public final class EffectExecutor: EffectExecuting {
       registrationToken = OperationToken(
         owner: .cloudCatalog, ownerEpoch: effect.token.ownerEpoch,
         operationID: nextCatalogTaskID)
+    } else if source == .cloudRemote {
+      nextRemoteTaskID &+= 1
+      precondition(nextRemoteTaskID != 0)
+      registrationToken = OperationToken(
+        owner: .cloudRemote, ownerEpoch: effect.token.ownerEpoch,
+        operationID: nextRemoteTaskID)
     } else {
       registrationToken = effect.token
     }

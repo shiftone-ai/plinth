@@ -10,6 +10,7 @@ public final class RootRuntime {
   public let webProps: RenderPropsStore<WebSurfaceProps>
   public let unlockProps: RenderPropsStore<UnlockProps>
   public let webAdministrationProps: RenderPropsStore<WebAdministrationProps>
+  public let remoteProps: RenderPropsStore<RemoteManagementProps>
   public private(set) var reports: [DispatchReport] = []
   public var snapshot: TreeSnapshot { store.snapshot }
   private let store = ScopedStateStore()
@@ -48,6 +49,7 @@ public final class RootRuntime {
         store.root, store.administration, now: clock.now))
     webAdministrationProps = RenderPropsStore(
       Presenters.webAdministration(store.root, store.administration))
+    remoteProps = RenderPropsStore(Presenters.remoteManagement(store.root))
     executor.resultSink = { [weak self] event, source in self?.send(event, from: source) }
   }
 
@@ -90,6 +92,7 @@ public final class RootRuntime {
     webProps.apply(Presenters.web(store.root, store.exhibition))
     unlockProps.apply(Presenters.unlock(store.root, store.administration, now: clock.now))
     webAdministrationProps.apply(Presenters.webAdministration(store.root, store.administration))
+    remoteProps.apply(Presenters.remoteManagement(store.root))
   }
 
   public func stop() {
@@ -115,6 +118,37 @@ public final class RootRuntime {
         && [.enteringKiosk, .exhibiting, .unlocking].contains(store.root.mode)
     case .applyPresentation, .releasePresentation: store.root.presentationOperation == effect.token
     case .saveProfile, .recoverProfile: store.root.saveOperation == effect.token
+    case .loadRemoteConfiguration: store.root.remote.loadOperation == effect.token
+    case .checkRemoteAccount: store.root.remote.accountOperation == effect.token
+    case .startRemoteDirectory: store.root.remote.sessionOperation == effect.token
+    case .refreshRemoteDirectory: store.root.remote.sessionOperation == effect.token
+    case .setRemoteEnabled, .setRemoteVisibility:
+      store.root.remote.preferenceOperation == effect.token
+    case .generateRemotePairingCode:
+      store.root.remote.pairing.codeOperation == effect.token
+    case .sendRemotePairingRequest:
+      store.root.remote.pairing.requestOperation == effect.token
+    case .respondToRemotePairing:
+      store.root.remote.pairing.approvalOperation == effect.token
+    case .saveRemoteTargetGrant:
+      store.root.remote.pairing.targetGrantOperation == effect.token
+    case .revokeRemoteController:
+      store.root.remote.pairing.revocationOperation == effect.token
+    case .scheduleRemotePairingDeadline(_, let requestID):
+      store.root.remote.pairing.outgoing?.requestID == requestID
+        && store.root.remote.pairing.outgoingDeadlineOperation == effect.token
+    case .scheduleRemotePairingCodeExpiry:
+      store.root.remote.pairing.codeExpiryOperation == effect.token
+    case .sendRemoteCommand:
+      store.root.remote.outgoingCommandOperation == effect.token
+    case .claimRemoteCommand:
+      store.root.remote.commandClaimOperation == effect.token
+    case .sendRemoteCommandResult:
+      store.root.remote.commandResultOperation == effect.token
+    case .scheduleRemoteCommandDeadline(_, let requestID):
+      store.root.remote.outgoingCommand?.requestID == requestID
+        && store.root.remote.outgoingCommandDeadlineOperation == effect.token
+    case .stopRemoteDirectory: true
     case .loadCatalog, .recoverCatalog: store.root.catalogLoadOperation == effect.token
     case .saveCatalog: store.root.catalogSaveOperation == effect.token
     case .checkCatalogAccount, .checkCatalogAccountAfterStopping:

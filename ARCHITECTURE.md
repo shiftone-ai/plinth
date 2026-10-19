@@ -6,6 +6,8 @@ iPad版の本体・外部への展示，展示Viewと管理Viewの切替，マ�
 
 設定集の登録，端末への適用，iCloud同期，暗号化ファイルの責務は [設定集](docs/design-docs/settings-catalog.md) を参照する．
 
+別端末の発見，個別承認，設定保存と展示操作の責務は [別端末の管理](docs/adr/0004-remote-cloudkit-management.md) を参照する．
+
 | 判断すること | 設計書の節 |
 | --- | --- |
 | 目的・初版の範囲・所有ツリー・役割・イベント配送 | 0〜6節 |
