@@ -6,6 +6,36 @@ import Testing
 @testable import KioskRuntime
 
 struct CatalogCloudReplayTests {
+  @Test func zoneSaveFailureSurvivesRestartAndOlderCachesRemainReadable() throws {
+    let disk = CatalogCloudSync.DiskState(
+      accountIdentifier: "account-a", engineState: nil, entries: [:],
+      serverEntries: [:], serverDeletions: [], recordSystemFields: [:], conflicts: [],
+      zoneSaveFailed: true)
+    let encoded = try JSONEncoder().encode(disk)
+    #expect(try JSONDecoder().decode(CatalogCloudSync.DiskState.self, from: encoded).zoneSaveFailed)
+
+    var legacy = try #require(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+    legacy.removeValue(forKey: "zoneSaveFailed")
+    let legacyData = try JSONSerialization.data(withJSONObject: legacy)
+    #expect(
+      try !JSONDecoder().decode(CatalogCloudSync.DiskState.self, from: legacyData).zoneSaveFailed)
+  }
+
+  @Test func failedSendDoesNotBecomeReadyAfterEngineDropsItsPendingChange() {
+    let disk = CatalogCloudSync.DiskState(
+      accountIdentifier: "account-a", engineState: nil, entries: [:],
+      serverEntries: [:], serverDeletions: [], recordSystemFields: [:], conflicts: [])
+
+    #expect(
+      !CatalogCloudSync.canReportReady(
+        sendFailed: true, pendingRecordChanges: false, pendingDatabaseChanges: false,
+        disk: disk))
+    #expect(
+      CatalogCloudSync.canReportReady(
+        sendFailed: false, pendingRecordChanges: false, pendingDatabaseChanges: false,
+        disk: disk))
+  }
+
   @Test @MainActor func cachedDeletionDoesNotReplaceANeverSyncedCreate() throws {
     let fixture = RuntimeFixture()
     defer { fixture.runtime.stop() }

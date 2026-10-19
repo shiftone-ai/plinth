@@ -4,7 +4,7 @@ import KioskCore
 
 private enum CatalogCloudDiskCodingKeys: String, CodingKey {
   case accountIdentifier, engineState, entries, serverEntries, serverDeletions,
-    recordSystemFields, conflicts, opaqueRecordIDs
+    recordSystemFields, conflicts, opaqueRecordIDs, zoneSaveFailed
 }
 
 extension CatalogCloudSync {
@@ -17,12 +17,13 @@ extension CatalogCloudSync {
     var recordSystemFields: [UUID: Data]
     var conflicts: Set<UUID>
     var opaqueRecordIDs: Set<UUID>
+    var zoneSaveFailed: Bool
 
     init(
       accountIdentifier: String, engineState: CKSyncEngine.State.Serialization?,
       entries: [UUID: CatalogEntry], serverEntries: [UUID: CatalogEntry],
       serverDeletions: Set<UUID>, recordSystemFields: [UUID: Data],
-      conflicts: Set<UUID>, opaqueRecordIDs: Set<UUID> = []
+      conflicts: Set<UUID>, opaqueRecordIDs: Set<UUID> = [], zoneSaveFailed: Bool = false
     ) {
       self.accountIdentifier = accountIdentifier
       self.engineState = engineState
@@ -32,6 +33,7 @@ extension CatalogCloudSync {
       self.recordSystemFields = recordSystemFields
       self.conflicts = conflicts
       self.opaqueRecordIDs = opaqueRecordIDs
+      self.zoneSaveFailed = zoneSaveFailed
     }
 
     var isValid: Bool {
@@ -59,6 +61,7 @@ extension CatalogCloudSync {
       conflicts = try values.decode(Set<UUID>.self, forKey: .conflicts)
       opaqueRecordIDs =
         try values.decodeIfPresent(Set<UUID>.self, forKey: .opaqueRecordIDs) ?? []
+      zoneSaveFailed = try values.decodeIfPresent(Bool.self, forKey: .zoneSaveFailed) ?? false
     }
 
     func encode(to encoder: Encoder) throws {
@@ -71,6 +74,7 @@ extension CatalogCloudSync {
       try values.encode(recordSystemFields, forKey: .recordSystemFields)
       try values.encode(conflicts, forKey: .conflicts)
       try values.encode(opaqueRecordIDs, forKey: .opaqueRecordIDs)
+      try values.encode(zoneSaveFailed, forKey: .zoneSaveFailed)
     }
   }
 }

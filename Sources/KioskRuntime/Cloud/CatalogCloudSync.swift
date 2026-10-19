@@ -27,6 +27,7 @@ public actor CatalogCloudSync: CKSyncEngineDelegate {
   private var disk: DiskState?
   private var active = false
   private var fetchFailed = false
+  private var sendFailed = false
   private var persistenceFailed = false
   private var generation: UInt64 = 0
   private var session: OperationToken?
@@ -69,6 +70,7 @@ public actor CatalogCloudSync: CKSyncEngineDelegate {
     generation &+= 1
     let startedGeneration = generation
     persistenceFailed = false
+    sendFailed = false
     self.session = session
     active = false
     initializingGeneration = startedGeneration
@@ -130,7 +132,7 @@ public actor CatalogCloudSync: CKSyncEngineDelegate {
       created.state.remove(
         pendingRecordZoneChanges: Self.conflictingChanges(
           created.state.pendingRecordZoneChanges, disk: disk))
-      if disk.engineState == nil {
+      if disk.engineState == nil || disk.zoneSaveFailed {
         created.state.add(pendingDatabaseChanges: [
           .saveZone(CKRecordZone(zoneName: Self.zoneName))
         ])
@@ -292,7 +294,7 @@ public actor CatalogCloudSync: CKSyncEngineDelegate {
         await sendEvent(
           .catalogCloudStatus(
             session,
-            disk.opaqueRecordIDs.isEmpty && !persistenceFailed
+            disk.opaqueRecordIDs.isEmpty && !persistenceFailed && !sendFailed
               ? (pending ? .pending : .ready) : .failed))
       } catch {
         await sendEvent(.catalogCloudStatus(session, .failed))
@@ -368,7 +370,7 @@ extension CatalogCloudSync {
           await sendEvent(.catalogCloudStatus(session, .failed))
           return
         }
-        await sendEvent(.catalogCloudStatus(session, .pending))
+        await sendEvent(.catalogCloudStatus(session, sendFailed ? .failed : .pending))
         await processPublications()
         if !completedDeletions.isEmpty {
           await sendEvent(
@@ -381,15 +383,26 @@ extension CatalogCloudSync {
       await handleSentRecordZoneChanges(update, syncEngine: syncEngine, session: session)
 
     case .sentDatabaseChanges(let update):
-      if update.failedZoneSaves.contains(where: { $0.zone.zoneID == Self.catalogZoneID })
-        || update.failedZoneDeletes[Self.catalogZoneID] != nil
-      {
+      let savedZone = update.savedZones.contains { $0.zoneID == Self.catalogZoneID }
+      let failedZoneSave = update.failedZoneSaves.contains {
+        $0.zone.zoneID == Self.catalogZoneID
+      }
+      if savedZone || failedZoneSave {
+        disk.zoneSaveFailed = failedZoneSave
+        self.disk = disk
+        do { try persistDisk() } catch {
+          await sendEvent(.catalogCloudStatus(session, .failed))
+          return
+        }
+      }
+      if failedZoneSave || update.failedZoneDeletes[Self.catalogZoneID] != nil {
+        sendFailed = true
         await sendEvent(.catalogCloudStatus(session, .failed))
       }
 
     case .willFetchChanges:
       fetchFailed = false
-      if !persistenceFailed && disk.opaqueRecordIDs.isEmpty {
+      if !persistenceFailed && !sendFailed && disk.opaqueRecordIDs.isEmpty {
         await sendEvent(.catalogCloudStatus(session, .pending))
       }
 
@@ -398,9 +411,11 @@ extension CatalogCloudSync {
 
     case .didFetchChanges, .didSendChanges:
       if !fetchFailed && !persistenceFailed && initialFetch == nil
-        && syncEngine.state.pendingRecordZoneChanges.isEmpty
-        && syncEngine.state.pendingDatabaseChanges.isEmpty && disk.conflicts.isEmpty
-        && disk.opaqueRecordIDs.isEmpty
+        && Self.canReportReady(
+          sendFailed: sendFailed,
+          pendingRecordChanges: !syncEngine.state.pendingRecordZoneChanges.isEmpty,
+          pendingDatabaseChanges: !syncEngine.state.pendingDatabaseChanges.isEmpty,
+          disk: disk)
       {
         await sendEvent(.catalogCloudStatus(session, .ready))
       }
@@ -638,7 +653,8 @@ extension CatalogCloudSync {
       return
     }
     if let failureStatus {
-      await sendEvent(.catalogCloudStatus(session, failureStatus))
+      if failureStatus == .failed { sendFailed = true }
+      await sendEvent(.catalogCloudStatus(session, sendFailed ? .failed : failureStatus))
     }
     if !acknowledged.isEmpty {
       await sendEvent(.catalogCloudAcknowledged(session, disk.accountIdentifier, acknowledged))
@@ -782,6 +798,14 @@ extension CatalogCloudSync {
       @unknown default: return false
       }
     }
+  }
+
+  static func canReportReady(
+    sendFailed: Bool, pendingRecordChanges: Bool, pendingDatabaseChanges: Bool,
+    disk: DiskState
+  ) -> Bool {
+    !sendFailed && !pendingRecordChanges && !pendingDatabaseChanges
+      && disk.conflicts.isEmpty && disk.opaqueRecordIDs.isEmpty
   }
 
   private static func isOffline(_ error: CKError) -> Bool {
