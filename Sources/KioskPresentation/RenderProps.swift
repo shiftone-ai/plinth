@@ -95,6 +95,7 @@ public struct CatalogProps: Equatable, Sendable {
   public let differences: [CatalogDifference]
   public let contents: [CatalogDifference]
   public let canApply: Bool
+  public let canSelect: Bool
   public let canManage: Bool
   public let canShare: Bool
   public let shareTooLarge: Bool

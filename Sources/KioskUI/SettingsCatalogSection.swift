@@ -37,7 +37,7 @@ struct SettingsCatalogSection: View {
               .frame(maxWidth: .infinity, alignment: .leading)
               .contentShape(Rectangle())
             }
-            .disabled(!props.canManage)
+            .disabled(!props.canSelect)
             .accessibilityIdentifier("catalog-entry-\(entry.id.uuidString)")
           }
           if !props.hiddenEntries.isEmpty {
