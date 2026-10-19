@@ -4,6 +4,36 @@ public enum RootMediator {
     context: ReadonlyContext = .init()
   ) -> Mediation<RootState> {
     switch envelope.event {
+    case .remoteLoadRequested, .remoteLoaded, .remoteLoadFailed, .remoteAccountChecked,
+      .remoteAccountCheckFailed,
+      .remoteAccountAvailabilityChanged, .remoteDirectoryChanged,
+      .remoteDirectoryStatusChanged, .remoteRefreshRequested, .remoteEnabledRequested,
+      .remoteVisibilityRequested, .remoteConfigurationUpdated,
+      .remotePreferenceUpdateFailed, .remoteTabSelected, .remoteDeviceSelected:
+      return reduceRemoteManagement(state, envelope)
+    case .remotePairingCodeRequested, .remotePairingCodeGenerated,
+      .remotePairingCodeExpired,
+      .remotePairingCodeGenerationFailed, .remotePairingCodeEdited,
+      .remotePairingRequestRequested, .remotePairingCloudSaved,
+      .remotePairingCloudFailed, .remotePairingRequestReceived,
+      .remotePairingApprovalRequested, .remotePairingApprovalStored,
+      .remotePairingApprovalFailed, .remotePairingResultReceived,
+      .remoteTargetGrantStored, .remoteTargetGrantFailed,
+      .remoteControllerRevokeRequested, .remoteControllerRevoked,
+      .remoteControllerRevokeFailed, .remotePairingDeadlineReached:
+      return reduceRemoteManagement(state, envelope)
+    case .remoteStatusRequested, .remoteEditOpened, .remoteEditChanged,
+      .remoteEditDraftChanged, .remoteEditRuleAdded, .remoteEditRuleRemoved,
+      .remoteEditReviewRequested, .remoteEditCancelled, .remoteEditSaveRequested,
+      .remoteExhibitionReviewRequested, .remoteExhibitionReviewCancelled,
+      .remoteExhibitionRequested,
+      .remoteCommandCloudSaved,
+      .remoteCommandCloudFailed, .remoteCommandReceived,
+      .remoteCommandClaimed, .remoteCommandClaimFailed,
+      .remoteCommandResultQueued, .remoteCommandResultFailed,
+      .remoteCommandResultReceived,
+      .remoteCommandDeadlineReached:
+      return reduceRemoteCommands(state, envelope, context: context)
     case .webAuthenticationVerified, .webSessionRequested, .webServerStarted,
       .webServerFailed, .webServerStoppedUnexpectedly, .webServerAddressChanged:
       return reduceWebAdministration(state, envelope)
@@ -227,6 +257,9 @@ public enum RootMediator {
       next.credentialOperation = nil
       next.credentialConfigurationFailed = !succeeded
       if succeeded {
+        if !state.credentialsConfigured && state.mode == .administration {
+          next.administratorSession = true
+        }
         next.credentialsConfigured = true
         next.webSession = nil
         if state.mobileDisplays != nil
@@ -246,7 +279,10 @@ public enum RootMediator {
         : [.init(.administration, .clearPasscode)]
       return .handled(.init(next, childControls: controls))
     case .startExhibitionRequested:
-      guard [.settings, .administration, .webAdministration].contains(envelope.source) else {
+      guard
+        [.settings, .administration, .webAdministration, .cloudRemote]
+          .contains(envelope.source)
+      else {
         return .reject(state, .wrongSource)
       }
       guard state.mode == .administration else { return .reject(state, .invalidState) }
@@ -268,7 +304,8 @@ public enum RootMediator {
       return enter(next, profile: profile, token: token, reply: .accepted)
 
     case .presentationApplied, .presentationFailed, .exhibitionReady, .exhibitionUnavailable:
-      return reducePresentation(state, envelope, context: context)
+      return finishRemoteExhibition(
+        reducePresentation(state, envelope, context: context), envelope: envelope)
 
     case .unlockDeadlineReached(let completed):
       guard envelope.source == .idleClock, state.unlockTimeoutOperation == completed else {
@@ -295,7 +332,8 @@ public enum RootMediator {
       return completeAuthentication(state, token: token)
 
     case .exhibitionStopped, .presentationReleased:
-      return reducePresentation(state, envelope, context: context)
+      return finishRemoteExhibition(
+        reducePresentation(state, envelope, context: context), envelope: envelope)
 
     case .prepareExternalSceneRequested, .externalScenePrepared,
       .externalScenePreparationFailed, .mobileDisplaysChanged, .macDisplaysChanged,

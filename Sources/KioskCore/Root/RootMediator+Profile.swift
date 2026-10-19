@@ -50,6 +50,26 @@ extension RootMediator {
       if !profile.webAdministrationEnabled { next.webSession = nil }
       next.saveOperation = nil
       next.pendingProfile = nil
+      if state.remote.remoteSaveOperation == completed,
+        let request = state.remote.incomingCommand
+      {
+        next.remote.remoteSaveOperation = nil
+        let result = RemoteStatusSnapshot(
+          reportedAt: Int64(envelope.timestamp), mode: state.mode,
+          savedProfile: profile, activeRevision: state.activeProfile?.revision,
+          macDisplays: state.macDisplays, mobileDisplays: state.mobileDisplays)
+        let reply = envelope.token(owner: .cloudRemote, epoch: state.epoch)
+        next.remote.commandResultOperation = reply
+        return .handled(
+          .init(
+            next,
+            effects: [
+              Effect(
+                reply,
+                .sendRemoteCommandResult(request, .succeeded(result)))
+            ],
+            childControls: [.init(.administration, .remoteProfileSaved(profile))]))
+      }
       return .handled(
         .init(next, childControls: [.init(.administration, .draftSaveSucceeded(profile))]))
 
@@ -58,6 +78,21 @@ extension RootMediator {
       guard state.saveOperation == completed else { return .reject(state, .staleOperation) }
       next.saveOperation = nil
       next.pendingProfile = nil
+      if state.remote.remoteSaveOperation == completed,
+        let request = state.remote.incomingCommand
+      {
+        next.remote.remoteSaveOperation = nil
+        let reply = envelope.token(owner: .cloudRemote, epoch: state.epoch)
+        next.remote.commandResultOperation = reply
+        return .handled(
+          .init(
+            next,
+            effects: [
+              Effect(
+                reply,
+                .sendRemoteCommandResult(request, .rejected(.storageFailed)))
+            ]))
+      }
       return .handled(.init(next, childControls: [.init(.administration, .draftSaveFailed)]))
 
     default: return .bubble

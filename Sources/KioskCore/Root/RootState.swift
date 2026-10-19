@@ -30,6 +30,7 @@ public struct RootState: Equatable, Sendable {
   public var epoch: UInt64 = 1
   public var mode: AppMode = .bootstrapping
   public var savedProfile: KioskProfile?
+  public var remote = RemoteManagementState()
   public var profileCorrupt = false
   public var webSession: WebAdministrationSession?
   public var webServerOperation: OperationToken?
@@ -110,6 +111,27 @@ public struct RootState: Equatable, Sendable {
     }
     return displayCount > 0 && profile.exhibitionDestination != .externalDisplay
   }
+
+  public func remoteOutputAvailable(_ profile: KioskProfile) -> Bool {
+    if let macDisplays {
+      guard let selectedID = profile.macOutput?.displayID else { return canPresent(profile) }
+      return macDisplays.contains(where: { $0.id == selectedID }) && canPresent(profile)
+    }
+    if let mobileDisplays {
+      if profile.exhibitionDestination == .externalDisplay {
+        guard mobileDisplays.externalAvailable,
+          mobileDisplays.supportsExternalDisplay
+        else { return false }
+        if let mode = profile.externalDisplayMode,
+          !mobileDisplays.displayModes.contains(mode)
+        {
+          return false
+        }
+      }
+      return canPresent(profile)
+    }
+    return canPresent(profile)
+  }
   public func catalogEntryAvailable(_ entry: CatalogEntry) -> Bool {
     entry.scope == .device
       || (catalogCloudAvailable && catalog.syncEnabled
@@ -172,7 +194,7 @@ public struct WebAdministrationSession: Equatable, Sendable {
   }
 }
 
-public struct MobileDisplayAvailability: Equatable, Sendable {
+public struct MobileDisplayAvailability: Codable, Equatable, Sendable {
   public let deviceAvailable: Bool
   public let externalAvailable: Bool
   public let supportsExhibitionWindow: Bool

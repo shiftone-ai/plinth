@@ -1,0 +1,26 @@
+import Foundation
+import KioskCore
+import Testing
+
+struct RemoteAuthorizationTests {
+  @Test func changingAppleAccountRevokesOldPermissionEvenAfterReturning() {
+    let controllerID = UUID()
+    let grant = RemotePeerGrant(
+      id: controllerID, name: "Controller", accountIdentifier: "account-a",
+      signingPublicKey: Data(repeating: 1, count: 32),
+      agreementPublicKey: Data(repeating: 2, count: 32), approvedAt: .now)
+    var installation = RemoteInstallation(
+      id: UUID(), enabledAccountIdentifier: "account-a",
+      lastAccountIdentifier: "account-a", approvedControllers: [controllerID: grant])
+
+    installation.reconcileAccount(.transient)
+    #expect(installation.enabledAccountIdentifier == "account-a")
+    #expect(installation.approvedControllers[controllerID] == grant)
+
+    installation.reconcileAccount(.available("account-b"))
+    #expect(installation.enabledAccountIdentifier == nil)
+    #expect(installation.approvedControllers.isEmpty)
+    installation.reconcileAccount(.available("account-a"))
+    #expect(installation.approvedControllers.isEmpty)
+  }
+}

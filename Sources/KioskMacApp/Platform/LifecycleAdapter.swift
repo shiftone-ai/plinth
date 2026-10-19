@@ -21,6 +21,10 @@ public final class LifecycleAdapter {
     }
     observe(.default, NSApplication.didResignActiveNotification) { .applicationDeactivated }
     observe(.default, NSApplication.didBecomeActiveNotification) { .biometricStatusRequested }
+    observe(.default, NSApplication.didBecomeActiveNotification) { .remoteRefreshRequested }
+    observe(.default, NSApplication.didBecomeActiveNotification) {
+      .remoteStatusRequested(UUID())
+    }
     observe(NSWorkspace.shared.notificationCenter, NSWorkspace.willSleepNotification) {
       .systemWillSleep
     }

@@ -45,6 +45,63 @@ public enum Event: Equatable, Sendable {
   case profileCommitRequested(KioskProfile)
   case profileSaved(OperationToken, KioskProfile)
   case profileSaveFailed(OperationToken)
+  case remoteProfileSaved(KioskProfile)
+  case remoteLoadRequested
+  case remoteLoaded(OperationToken, RemoteInstallation)
+  case remoteLoadFailed(OperationToken)
+  case remoteAccountChecked(OperationToken, RemoteAccountCheck)
+  case remoteAccountCheckFailed(OperationToken)
+  case remoteAccountAvailabilityChanged
+  case remoteDirectoryChanged(OperationToken, String, [RemoteDevice])
+  case remoteDirectoryStatusChanged(OperationToken, RemoteDirectoryStatus)
+  case remoteRefreshRequested
+  case remoteEnabledRequested(Bool)
+  case remoteVisibilityRequested(id: UUID, visible: Bool)
+  case remoteConfigurationUpdated(OperationToken, RemoteInstallation)
+  case remotePreferenceUpdateFailed(OperationToken)
+  case remoteTabSelected(RemoteManagementTab)
+  case remoteDeviceSelected(UUID?)
+  case remotePairingCodeRequested
+  case remotePairingCodeGenerated(OperationToken, String)
+  case remotePairingCodeGenerationFailed(OperationToken)
+  case remotePairingCodeExpired(OperationToken)
+  case remotePairingCodeEdited(String)
+  case remotePairingRequestRequested(UUID)
+  case remotePairingCloudSaved(OperationToken, UUID)
+  case remotePairingCloudFailed(OperationToken, UUID)
+  case remotePairingRequestReceived(
+    OperationToken, RemotePairingProposal, code: String, receivedAt: Int64)
+  case remotePairingApprovalRequested(Bool)
+  case remotePairingApprovalStored(OperationToken, RemoteInstallation)
+  case remotePairingApprovalFailed(OperationToken)
+  case remotePairingResultReceived(OperationToken, RemotePairingResult, receivedAt: Int64)
+  case remoteTargetGrantStored(OperationToken, RemoteInstallation)
+  case remoteTargetGrantFailed(OperationToken)
+  case remoteControllerRevokeRequested(UUID)
+  case remoteControllerRevoked(OperationToken, RemoteInstallation)
+  case remoteControllerRevokeFailed(OperationToken)
+  case remotePairingDeadlineReached(OperationToken, UUID)
+  case remoteStatusRequested(UUID)
+  case remoteEditOpened
+  case remoteEditChanged(String)
+  case remoteEditDraftChanged(ProfileDraftEdit)
+  case remoteEditRuleAdded
+  case remoteEditRuleRemoved(UInt64)
+  case remoteEditReviewRequested
+  case remoteEditCancelled
+  case remoteEditSaveRequested(UUID)
+  case remoteExhibitionReviewRequested(RemoteExhibitionAction)
+  case remoteExhibitionReviewCancelled
+  case remoteExhibitionRequested(UUID, RemoteExhibitionAction)
+  case remoteCommandCloudSaved(OperationToken, UUID)
+  case remoteCommandCloudFailed(OperationToken, UUID)
+  case remoteCommandReceived(OperationToken, RemoteCommandRequest, receivedAt: Int64)
+  case remoteCommandClaimed(OperationToken, RemoteInstallation, processedAt: Int64)
+  case remoteCommandClaimFailed(OperationToken)
+  case remoteCommandResultQueued(OperationToken)
+  case remoteCommandResultFailed(OperationToken)
+  case remoteCommandResultReceived(OperationToken, RemoteCommandResult, receivedAt: Int64)
+  case remoteCommandDeadlineReached(OperationToken, UUID)
   case catalogLoadRequested
   case catalogLoadCorrupt(OperationToken)
   case catalogRecoveryRequested
@@ -206,6 +263,12 @@ public enum Event: Equatable, Sendable {
       .catalogExportDismissed, .catalogFileExportCompleted,
       .catalogImportFileSelected, .catalogImportFileRequested, .catalogImportOperationRequested,
       .catalogImportConfirmed, .catalogImportCancelled:
+      true
+    case .remoteLoadRequested, .remoteRefreshRequested, .remoteEnabledRequested,
+      .remoteVisibilityRequested, .remoteTabSelected, .remoteDeviceSelected,
+      .remotePairingCodeRequested, .remotePairingCodeEdited,
+      .remotePairingRequestRequested, .remotePairingApprovalRequested,
+      .remoteControllerRevokeRequested, .remoteStatusRequested:
       true
     case .catalogSyncEnableRequested, .catalogSyncEnableConfirmed,
       .catalogSyncEnableCancelled, .catalogSyncDisableRequested, .catalogSyncRetryRequested,

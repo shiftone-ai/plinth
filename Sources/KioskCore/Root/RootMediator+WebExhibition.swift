@@ -16,7 +16,9 @@ extension RootMediator {
   private static func restartWebExhibition(
     _ state: RootState, _ envelope: EventEnvelope, context: ReadonlyContext
   ) -> Mediation<RootState> {
-    guard envelope.source == .webAdministration else { return .reject(state, .wrongSource) }
+    guard [.webAdministration, .cloudRemote].contains(envelope.source) else {
+      return .reject(state, .wrongSource)
+    }
     guard state.mode == .exhibiting else { return .reject(state, .invalidState) }
     if let reason = webStartRejectionReason(state, context: context) {
       return .reject(state, reason)
@@ -39,7 +41,9 @@ extension RootMediator {
   private static func stopWebExhibition(
     _ state: RootState, _ envelope: EventEnvelope
   ) -> Mediation<RootState> {
-    guard envelope.source == .webAdministration else { return .reject(state, .wrongSource) }
+    guard [.webAdministration, .cloudRemote].contains(envelope.source) else {
+      return .reject(state, .wrongSource)
+    }
     guard state.mode == .exhibiting else { return .reject(state, .invalidState) }
     var next = state
     next.mode = .leavingKiosk
@@ -57,7 +61,9 @@ extension RootMediator {
   private static func resumeWebExhibition(
     _ state: RootState, _ envelope: EventEnvelope, context: ReadonlyContext
   ) -> Mediation<RootState> {
-    guard envelope.source == .webAdministration else { return .reject(state, .wrongSource) }
+    guard [.webAdministration, .cloudRemote].contains(envelope.source) else {
+      return .reject(state, .wrongSource)
+    }
     guard [.paused, .safeHold].contains(state.mode) else {
       return .reject(state, .invalidState)
     }

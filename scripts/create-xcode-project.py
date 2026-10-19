@@ -90,6 +90,8 @@ def configurations(name, settings):
     configs = []
     for configuration in ["Debug", "Release"]:
         values = dict(settings)
+        if name == "Mobile":
+            values["PLINTH_CLOUDKIT_ENTITLED"] = "NO" if configuration == "Debug" else "YES"
         values["SWIFT_OPTIMIZATION_LEVEL"] = "-Onone" if configuration == "Debug" else "-O"
         values["DEBUG_INFORMATION_FORMAT"] = (
             "dwarf" if configuration == "Debug" else "dwarf-with-dsym"
@@ -543,6 +545,7 @@ mobile_settings = {
     **mobile_base,
     "INFOPLIST_FILE": "Resources/Mobile-Info.plist",
     "CODE_SIGN_ENTITLEMENTS": "Resources/Mobile.entitlements",
+    "PLINTH_CLOUDKIT_ENTITLED": "NO",
     "PRODUCT_BUNDLE_IDENTIFIER": "ai.shiftone.plinth.mobile",
     "PRODUCT_NAME": "PlinthMobile",
     "MARKETING_VERSION": "1.0",
