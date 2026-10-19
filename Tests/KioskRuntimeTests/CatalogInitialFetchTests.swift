@@ -102,7 +102,7 @@ struct CatalogInitialFetchTests {
     var disk = CatalogCloudSync.DiskState(
       accountIdentifier: "account-a", engineState: nil, entries: [local.id: local],
       serverEntries: [local.id: local], serverDeletions: [],
-      recordSystemFields: [local.id: Data("old fields".utf8)], conflicts: [],
+      recordSystemFields: [local.id: Data("old fields".utf8)], conflicts: [local.id],
       opaqueRecordIDs: [local.id])
     let fetch = CatalogInitialFetch(
       entries: disk.entries, pendingDeletions: [], opaqueRecordIDs: disk.opaqueRecordIDs)
@@ -110,6 +110,7 @@ struct CatalogInitialFetchTests {
     let result = fetch.reconcile(&disk)
     #expect(result.changes.isEmpty)
     #expect(result.resumingSaves == [local.id])
+    #expect(!disk.conflicts.contains(local.id))
     #expect(disk.entries[local.id] == local)
     #expect(disk.serverEntries[local.id] == nil)
     #expect(disk.recordSystemFields[local.id] == nil)

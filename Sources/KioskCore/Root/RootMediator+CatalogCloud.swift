@@ -214,6 +214,7 @@ extension RootMediator {
           entry.syncedVersion != version
         {
           document.entries[index].syncedVersion = version
+          document.entries[index].resolvedConflictVersion = nil
           changed = true
         }
       }
@@ -314,6 +315,7 @@ extension RootMediator {
               document.entries[index].version, conflict.remote?.version ?? 0))
         else { return .reject(state, .invalidProfile) }
         document.entries[index].version = nextVersion
+        document.entries[index].resolvedConflictVersion = nextVersion
         document.entries[index].scope = .iCloud
         document.entries[index].accountIdentifier = accountID
       } else if let index = document.pendingDeletions.firstIndex(where: {

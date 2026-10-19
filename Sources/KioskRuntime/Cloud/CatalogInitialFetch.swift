@@ -39,6 +39,7 @@ nonisolated struct CatalogInitialFetch: Sendable {
         local.syncedVersion == nil
       {
         disk.serverDeletions.remove(id)
+        disk.conflicts.remove(id)
         result.resumingSaves.append(id)
       } else {
         disk.serverDeletions.insert(id)

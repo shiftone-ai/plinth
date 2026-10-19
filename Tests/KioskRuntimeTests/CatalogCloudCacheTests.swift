@@ -215,6 +215,8 @@ struct CatalogCloudCacheTests {
   @Test func temporaryDeleteFailuresKeepTheOfflineStatus() {
     #expect(CatalogCloudSync.isTransient(CKError(.networkUnavailable)))
     #expect(CatalogCloudSync.isTransient(CKError(.operationCancelled)))
+    #expect(CatalogCloudSync.isTransient(CKError(.requestRateLimited)))
+    #expect(CatalogCloudSync.isTransient(CKError(.accountTemporarilyUnavailable)))
     #expect(!CatalogCloudSync.isTransient(CKError(.permissionFailure)))
   }
 
