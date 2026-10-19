@@ -6,6 +6,20 @@ import Testing
 @testable import KioskRuntime
 
 struct CatalogCloudReplayTests {
+  @Test func mixedSendFailuresRequireRetryRegardlessOfErrorOrder() {
+    let orders: [[CatalogSyncStatus]] = [[.failed, .offline], [.offline, .failed]]
+    for statuses in orders {
+      var failures = CatalogCloudSync.SendFailures()
+      for status in statuses { failures.record(status) }
+      #expect(failures.hasNonretryable)
+      #expect(failures.status == .failed)
+    }
+    var transient = CatalogCloudSync.SendFailures()
+    transient.record(.offline)
+    #expect(!transient.hasNonretryable)
+    #expect(transient.status == .offline)
+  }
+
   @Test func zoneSaveFailureSurvivesRestartAndOlderCachesRemainReadable() throws {
     let disk = CatalogCloudSync.DiskState(
       accountIdentifier: "account-a", engineState: nil, entries: [:],
@@ -29,11 +43,15 @@ struct CatalogCloudReplayTests {
     #expect(
       !CatalogCloudSync.canReportReady(
         sendFailed: true, pendingRecordChanges: false, pendingDatabaseChanges: false,
-        disk: disk))
+        bufferedPublications: false, disk: disk))
     #expect(
       CatalogCloudSync.canReportReady(
         sendFailed: false, pendingRecordChanges: false, pendingDatabaseChanges: false,
-        disk: disk))
+        bufferedPublications: false, disk: disk))
+    #expect(
+      !CatalogCloudSync.canReportReady(
+        sendFailed: false, pendingRecordChanges: false, pendingDatabaseChanges: false,
+        bufferedPublications: true, disk: disk))
   }
 
   @Test @MainActor func cachedDeletionDoesNotReplaceANeverSyncedCreate() throws {

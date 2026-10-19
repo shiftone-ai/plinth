@@ -5,6 +5,20 @@ import KioskCore
 /// Owns CKSyncEngine state and server change tags for one Apple Account at a time.
 public actor CatalogCloudSync: CKSyncEngineDelegate {
   private enum Failure: Error { case invalidPayload }
+  struct SendFailures {
+    private(set) var hasNonretryable = false
+    private var hasTransient = false
+
+    mutating func record(_ status: CatalogSyncStatus) {
+      if status == .failed { hasNonretryable = true }
+      if status == .offline { hasTransient = true }
+    }
+
+    var status: CatalogSyncStatus? {
+      if hasNonretryable { return .failed }
+      return hasTransient ? .offline : nil
+    }
+  }
   public enum AccountAvailability: Equatable, Sendable {
     case available(String)
     case unavailable, transient
@@ -288,6 +302,7 @@ public actor CatalogCloudSync: CKSyncEngineDelegate {
         let pending =
           !engine.state.pendingRecordZoneChanges.isEmpty
           || !engine.state.pendingDatabaseChanges.isEmpty || !disk.conflicts.isEmpty
+          || publications.hasPending
         if !allConflicts.isEmpty {
           await sendEvent(.catalogCloudChanges(session, disk.accountIdentifier, allConflicts))
         }
@@ -395,9 +410,16 @@ extension CatalogCloudSync {
           return
         }
       }
-      if failedZoneSave || update.failedZoneDeletes[Self.catalogZoneID] != nil {
-        sendFailed = true
-        await sendEvent(.catalogCloudStatus(session, .failed))
+      var failures = SendFailures()
+      for error in update.failedZoneSaves where error.zone.zoneID == Self.catalogZoneID {
+        failures.record(Self.isTransient(error.error) ? .offline : .failed)
+      }
+      if let error = update.failedZoneDeletes[Self.catalogZoneID] {
+        failures.record(Self.isTransient(error) ? .offline : .failed)
+      }
+      if let status = failures.status {
+        if failures.hasNonretryable { sendFailed = true }
+        await sendEvent(.catalogCloudStatus(session, sendFailed ? .failed : status))
       }
 
     case .willFetchChanges:
@@ -410,12 +432,16 @@ extension CatalogCloudSync {
       await handleDidFetchRecordZoneChanges(update, syncEngine: syncEngine, session: session)
 
     case .didFetchChanges, .didSendChanges:
+      if publications.hasPending { await processPublications() }
+      guard active, engine === syncEngine, self.session == session,
+        let currentDisk = self.disk
+      else { return }
       if !fetchFailed && !persistenceFailed && initialFetch == nil
         && Self.canReportReady(
           sendFailed: sendFailed,
           pendingRecordChanges: !syncEngine.state.pendingRecordZoneChanges.isEmpty,
           pendingDatabaseChanges: !syncEngine.state.pendingDatabaseChanges.isEmpty,
-          disk: disk)
+          bufferedPublications: publications.hasPending, disk: currentDisk)
       {
         await sendEvent(.catalogCloudStatus(session, .ready))
       }
@@ -566,7 +592,7 @@ extension CatalogCloudSync {
     var acknowledged: [UUID: UInt64] = [:]
     var acknowledgedDeletions: [UUID] = []
     var conflicts: [CatalogCloudChange] = []
-    var failureStatus: CatalogSyncStatus?
+    var failures = SendFailures()
     for record in update.savedRecords {
       guard let id = Self.catalogID(from: record.recordID),
         let entry = Self.entry(from: record, accountIdentifier: disk.accountIdentifier)
@@ -599,11 +625,11 @@ extension CatalogCloudSync {
             }
           } else {
             disk.opaqueRecordIDs.insert(id)
-            failureStatus = .failed
+            failures.record(.failed)
             disk.conflicts.insert(id)
           }
         } else {
-          failureStatus = .failed
+          failures.record(.failed)
           disk.conflicts.insert(id)
         }
         syncEngine.state.remove(pendingRecordZoneChanges: [.saveRecord(Self.recordID(id))])
@@ -615,9 +641,9 @@ extension CatalogCloudSync {
         syncEngine.state.remove(pendingRecordZoneChanges: [.saveRecord(Self.recordID(id))])
       case .networkFailure, .networkUnavailable, .zoneBusy, .serviceUnavailable,
         .notAuthenticated, .operationCancelled:
-        failureStatus = .offline
+        failures.record(.offline)
       default:
-        failureStatus = .failed
+        failures.record(.failed)
       }
     }
     if !update.failedRecordDeletes.isEmpty {
@@ -634,7 +660,7 @@ extension CatalogCloudSync {
             conflicts.append(.upsert(remote))
           } else {
             disk.opaqueRecordIDs.insert(id)
-            failureStatus = .failed
+            failures.record(.failed)
           }
         } else if error.code == .unknownItem {
           disk.recordSystemFields.removeValue(forKey: id)
@@ -643,7 +669,7 @@ extension CatalogCloudSync {
           syncEngine.state.remove(pendingRecordZoneChanges: [.deleteRecord(recordID)])
           acknowledgedDeletions.append(id)
         } else {
-          failureStatus = Self.isTransient(error) ? .offline : .failed
+          failures.record(Self.isTransient(error) ? .offline : .failed)
         }
       }
     }
@@ -652,9 +678,9 @@ extension CatalogCloudSync {
       await sendEvent(.catalogCloudStatus(session, .failed))
       return
     }
-    if let failureStatus {
-      if failureStatus == .failed { sendFailed = true }
-      await sendEvent(.catalogCloudStatus(session, sendFailed ? .failed : failureStatus))
+    if let status = failures.status {
+      if failures.hasNonretryable { sendFailed = true }
+      await sendEvent(.catalogCloudStatus(session, sendFailed ? .failed : status))
     }
     if !acknowledged.isEmpty {
       await sendEvent(.catalogCloudAcknowledged(session, disk.accountIdentifier, acknowledged))
@@ -802,9 +828,9 @@ extension CatalogCloudSync {
 
   static func canReportReady(
     sendFailed: Bool, pendingRecordChanges: Bool, pendingDatabaseChanges: Bool,
-    disk: DiskState
+    bufferedPublications: Bool, disk: DiskState
   ) -> Bool {
-    !sendFailed && !pendingRecordChanges && !pendingDatabaseChanges
+    !sendFailed && !pendingRecordChanges && !pendingDatabaseChanges && !bufferedPublications
       && disk.conflicts.isEmpty && disk.opaqueRecordIDs.isEmpty
   }
 
