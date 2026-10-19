@@ -30,7 +30,7 @@ final class MobileWorkflowUITests: XCTestCase {
     try await prepared(app)
     attach(app, "store-exhibition")
     next.tap()
-    try await exists(app.webViews.staticTexts["Another view"], timeout: 20)
+    try await exists(app.webViews.staticTexts["Drift"], timeout: 20)
     app.buttons["request-unlock"].tap()
     let unlock = app.secureTextFields["unlock-passcode"]
     try await exists(unlock)
