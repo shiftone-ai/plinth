@@ -443,6 +443,7 @@ public enum RootMediator {
     next.presentationOperation = token
     next.presentationAcquisition = token
     next.administratorSession = false
+    clearCatalogCandidates(&next)
     let fileEffects = cancelCatalogFileOperations(&next, token: token)
     let settings = state.mobileDisplays == nil ? profile.macOutput ?? .init() : .init()
     let display = state.macDisplays.flatMap { DisplaySelection.select(settings, from: $0) }

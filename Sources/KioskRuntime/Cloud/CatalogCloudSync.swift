@@ -175,8 +175,13 @@ public actor CatalogCloudSync: CKSyncEngineDelegate {
       }.map(\.id)
         .map { CKSyncEngine.PendingRecordZoneChange.deleteRecord(Self.recordID($0)) }
       created.state.add(pendingRecordZoneChanges: saves + deletions)
+      let pending =
+        initialFetch != nil || !created.state.pendingDatabaseChanges.isEmpty
+        || !created.state.pendingRecordZoneChanges.isEmpty || !disk.conflicts.isEmpty
+        || !replay.isEmpty
       await sendEvent(
-        .catalogCloudStatus(session, disk.opaqueRecordIDs.isEmpty ? .pending : .failed))
+        .catalogCloudStatus(
+          session, disk.opaqueRecordIDs.isEmpty ? (pending ? .pending : .ready) : .failed))
       if !replay.isEmpty {
         await sendEvent(.catalogCloudChanges(session, accountIdentifier, replay))
       }
@@ -410,6 +415,9 @@ extension CatalogCloudSync {
 
     case .willFetchChanges:
       fetchFailed = false
+      if !persistenceFailed && disk.opaqueRecordIDs.isEmpty {
+        await sendEvent(.catalogCloudStatus(session, .pending))
+      }
 
     case .didFetchRecordZoneChanges(let update):
       await handleDidFetchRecordZoneChanges(update, syncEngine: syncEngine, session: session)

@@ -14,18 +14,28 @@ struct CatalogInitialFetchTests {
       CatalogEntry(
         id: UUID(), name: "Stale", snapshot: snapshot, scope: .iCloud,
         accountIdentifier: "account-a", syncedVersion: 1))
+    let cacheOnly = try #require(
+      CatalogEntry(
+        id: UUID(), name: "Cached but not saved", snapshot: snapshot, scope: .iCloud,
+        accountIdentifier: "account-a", syncedVersion: 1))
     let retained = UUID()
     var disk = CatalogCloudSync.DiskState(
       accountIdentifier: "account-a", engineState: nil, entries: [stale.id: stale],
-      serverEntries: [:], serverDeletions: [], recordSystemFields: [:], conflicts: [],
-      opaqueRecordIDs: [stale.id, retained])
+      serverEntries: [cacheOnly.id: cacheOnly], serverDeletions: [],
+      recordSystemFields: [cacheOnly.id: Data("old fields".utf8)], conflicts: [],
+      opaqueRecordIDs: [stale.id, cacheOnly.id, retained])
     var fetch = CatalogInitialFetch(
       entries: disk.entries, pendingDeletions: [], opaqueRecordIDs: disk.opaqueRecordIDs)
     fetch.observe(retained)
 
-    #expect(fetch.reconcile(&disk) == [.delete(stale.id)])
+    let changes = fetch.reconcile(&disk)
+    #expect(changes.count == 2)
+    #expect(changes.contains(.delete(stale.id)))
+    #expect(changes.contains(.delete(cacheOnly.id)))
     #expect(disk.opaqueRecordIDs == [retained])
     #expect(disk.entries[stale.id] == nil)
+    #expect(disk.serverEntries[cacheOnly.id] == nil)
+    #expect(disk.recordSystemFields[cacheOnly.id] == nil)
   }
 
   @Test func rebuildingTheCacheRemovesARecordDeletedWhileAnotherAccountWasActive() throws {

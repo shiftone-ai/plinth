@@ -32,8 +32,8 @@ nonisolated struct CatalogInitialFetch: Sendable {
 
   func reconcile(_ disk: inout CatalogCloudSync.DiskState) -> [CatalogCloudChange] {
     disk.opaqueRecordIDs.subtract(unobservedOpaque)
-    return missing.sorted { $0.uuidString < $1.uuidString }.map { id in
-      disk.entries.removeValue(forKey: id)
+    return missing.union(unobservedOpaque).sorted { $0.uuidString < $1.uuidString }.map { id in
+      if missing.contains(id) { disk.entries.removeValue(forKey: id) }
       disk.serverEntries.removeValue(forKey: id)
       disk.serverDeletions.insert(id)
       disk.recordSystemFields.removeValue(forKey: id)
