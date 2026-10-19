@@ -11,6 +11,7 @@ extension RootMediator {
     var next = state
     next.savedProfile = profile
     next.bootstrapOperation = nil
+    next.bootstrapReadFailed = false
     next.credentialsConfigured = credentials
     next.displayCount = displayCount
     let biometricToken = envelope.token(owner: .credentials, epoch: state.epoch)
