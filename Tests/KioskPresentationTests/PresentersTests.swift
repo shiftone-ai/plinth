@@ -86,6 +86,22 @@ struct PresentersTests {
     #expect(incomplete.canSave == false)
   }
 
+  @Test func catalogEntryCannotOpenWhileSettingsHaveUnsavedChanges() throws {
+    let profile = KioskProfile(
+      startURL: "https://example.com", navigation: .init(rules: []))
+    var root = RootState()
+    root.mode = .administration
+    root.catalogLoaded = true
+    root.savedProfile = profile
+    var administration = AdministrationState()
+    administration.savedProfile = profile
+    administration.draft = ProfileDraft(profile: profile)
+    #expect(Presenters.settings(root, administration).catalog.canSelect)
+
+    administration.draft?.idleTimeoutText = "180"
+    #expect(!Presenters.settings(root, administration).catalog.canSelect)
+  }
+
   @Test func unlockingStopsWebInputWithoutChangingSurfaceIdentity() {
     var root = RootState()
     root.mode = .unlocking
