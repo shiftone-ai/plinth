@@ -15,6 +15,7 @@
   let particles = [];
   let frame = 0;
   let running = !reducedMotion.matches;
+  let manualChoice = null;
   let animationFrame = 0;
   let randomState = drift ? 84931 : 21017;
 
@@ -99,9 +100,16 @@
   }
 
   function tick() {
-    if (!running) return;
+    animationFrame = 0;
+    if (!running || document.hidden) return;
     draw();
-    animationFrame = window.requestAnimationFrame(tick);
+    scheduleFrame();
+  }
+
+  function scheduleFrame() {
+    if (running && !document.hidden && !animationFrame) {
+      animationFrame = window.requestAnimationFrame(tick);
+    }
   }
 
   function setRunning(value) {
@@ -109,11 +117,17 @@
     running = value;
     button.textContent = value ? 'Pause' : 'Play';
     button.setAttribute('aria-label', value ? 'Pause animation' : 'Play animation');
-    if (value) tick();
-    else window.cancelAnimationFrame(animationFrame);
+    if (value) scheduleFrame();
+    else {
+      window.cancelAnimationFrame(animationFrame);
+      animationFrame = 0;
+    }
   }
 
-  button.addEventListener('click', () => setRunning(!running));
+  button.addEventListener('click', () => {
+    manualChoice = !running;
+    setRunning(manualChoice);
+  });
   window.addEventListener('pointermove', event => {
     pointer.x = event.clientX;
     pointer.y = event.clientY;
@@ -128,14 +142,18 @@
   window.addEventListener('pointerleave', () => { pointer.active = false; });
   window.addEventListener('resize', resize);
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden) window.cancelAnimationFrame(animationFrame);
-    else if (running) tick();
+    if (document.hidden) {
+      window.cancelAnimationFrame(animationFrame);
+      animationFrame = 0;
+    } else scheduleFrame();
   });
-  reducedMotion.addEventListener('change', event => setRunning(!event.matches));
+  reducedMotion.addEventListener('change', event => {
+    if (manualChoice === null) setRunning(!event.matches);
+  });
 
   resize();
   if (!running) {
     button.textContent = 'Play';
     button.setAttribute('aria-label', 'Play animation');
-  } else tick();
+  } else scheduleFrame();
 })();
