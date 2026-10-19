@@ -35,6 +35,15 @@ private final class ScriptedEffectPort: EffectPort {
 
 @MainActor
 struct EffectExecutorTests {
+  @Test func catalogCommandsFromOneTransitionHaveSeparateTaskHandles() {
+    let executor = EffectExecutor(port: ScriptedEffectPort())
+    let token = OperationToken(owner: .root, operationID: 1)
+    executor.execute(Effect(token, .stopCatalogCloudSync))
+    executor.execute(Effect(token, .checkCatalogAccount))
+    #expect(executor.registry.pendingCount == 2)
+    executor.stop()
+  }
+
   @Test func asyncEffectsRouteValueResultsThroughOwnedNodesAndStopPort() async throws {
     let origin = try #require(Origin(urlString: "https://example.com"))
     let profile = KioskProfile(

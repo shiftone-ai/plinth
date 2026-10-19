@@ -3,6 +3,12 @@ public struct AdministrationState: Equatable, Sendable {
   public var epoch: UInt64 = 1
   public var savedProfile: KioskProfile?
   public var draft: ProfileDraft?
+  public var catalogSelection: CatalogEntry?
+  public var catalogNameDraft = ""
+  public var catalogSelectionNameDraft = ""
+  public var catalogRequiresAvailableOutput = false
+  public var catalogPassphrase = ""
+  public var catalogConfirmPassphrase = ""
   public var saving = false
   public var saveFailed = false
   public var unlockID: UInt64?

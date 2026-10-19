@@ -1,11 +1,21 @@
 import Foundation
 import KioskCore
+import KioskLocalization
+
+#if os(macOS)
+  import AppKit
+#else
+  import UIKit
+#endif
 
 @MainActor
 public final class NativeEffectPort: EffectPort {
   public let web: any WebSurfacePort
   private let presentation: any PresentationPort
   private let repository: ProfileRepository
+  private let catalogRepository: CatalogRepository?
+  private let catalogCloudSync: CatalogCloudSync?
+  private var cloudStopTask: Task<Void, Never>?
   private let credentials: CredentialStore
   private let biometrics: any BiometricCredentialPort
   private let clock: any ClockPort
@@ -14,12 +24,15 @@ public final class NativeEffectPort: EffectPort {
   public init(
     web: any WebSurfacePort, presentation: any PresentationPort, repository: ProfileRepository,
     credentials: CredentialStore, biometrics: any BiometricCredentialPort, clock: any ClockPort,
-    displays: any DisplayReadingPort,
+    displays: any DisplayReadingPort, catalogRepository: CatalogRepository? = nil,
+    catalogCloudSync: CatalogCloudSync? = nil,
     webServer: (any WebAdministrationServerPort)? = nil
   ) {
     self.web = web
     self.presentation = presentation
     self.repository = repository
+    self.catalogRepository = catalogRepository
+    self.catalogCloudSync = catalogCloudSync
     self.credentials = credentials
     self.biometrics = biometrics
     self.clock = clock
@@ -30,13 +43,11 @@ public final class NativeEffectPort: EffectPort {
   public func perform(_ effect: Effect) async -> Event? {
     if Task.isCancelled { return nil }
     switch effect.kind {
+    case .openInformationPage(let page, let locale):
+      await openInformationPage(page, locale: locale)
+      return .informationPageOpenCompleted(effect.token)
     case .bootstrap:
-      do {
-        async let profile = repository.load()
-        async let configured = credentials.isConfigured()
-        return try await .bootstrapped(
-          profile: profile, credentialsConfigured: configured, displayCount: displays.count)
-      } catch { return .bootstrapFailed(effect.token, displayCount: displays.count) }
+      return await bootstrap(effect.token)
     case .prepareExternalScene:
       return await presentation.prepareExternalScene(effect.token)
         ? .externalScenePrepared(effect.token) : .externalScenePreparationFailed(effect.token)
@@ -94,6 +105,16 @@ public final class NativeEffectPort: EffectPort {
         try await repository.save(profile)
         return .profileSaved(effect.token, profile)
       } catch { return .profileSaveFailed(effect.token) }
+    case .recoverProfile(let profile):
+      do {
+        try await repository.recover(profile)
+        return .profileSaved(effect.token, profile)
+      } catch { return .profileSaveFailed(effect.token) }
+    case .loadCatalog, .recoverCatalog, .saveCatalog, .checkCatalogAccount,
+      .checkCatalogAccountAfterStopping,
+      .startCatalogCloudSync, .stopCatalogCloudSync, .publishCatalogChanges,
+      .prepareCatalogExport, .importCatalogFile:
+      return await performCatalog(effect)
     case .startWebServer:
       guard let webServer else { return .webServerFailed(effect.token, .unavailable) }
       switch await webServer.start() {
@@ -107,9 +128,100 @@ public final class NativeEffectPort: EffectPort {
     }
   }
 
+  private func bootstrap(_ token: OperationToken) async -> Event {
+    async let profile = repository.load()
+    async let configured = credentials.isConfigured()
+    let profileResult: Result<KioskProfile?, Error>
+    do { profileResult = .success(try await profile) } catch { profileResult = .failure(error) }
+    let credentialResult: Result<Bool, Error>
+    do { credentialResult = .success(try await configured) } catch {
+      credentialResult = .failure(error)
+    }
+    return Self.bootstrapEvent(
+      token, profile: profileResult, credentials: credentialResult, displayCount: displays.count)
+  }
+
+  private func performCatalog(_ effect: Effect) async -> Event? {
+    switch effect.kind {
+    case .loadCatalog:
+      guard let catalogRepository else { return .catalogLoadFailed(effect.token) }
+      do {
+        return try await .catalogLoaded(effect.token, catalogRepository.load())
+      } catch CatalogRepository.Failure.corruptCatalog {
+        return .catalogLoadCorrupt(effect.token)
+      } catch { return .catalogLoadFailed(effect.token) }
+    case .recoverCatalog:
+      guard let catalogRepository else { return .catalogLoadFailed(effect.token) }
+      do { return try await .catalogLoaded(effect.token, catalogRepository.recoverDamaged()) } catch
+      { return .catalogLoadFailed(effect.token) }
+    case .saveCatalog(let document):
+      guard let catalogRepository else { return .catalogSaveFailed(effect.token) }
+      do {
+        try await catalogRepository.save(document)
+        return .catalogSaved(effect.token, document)
+      } catch { return .catalogSaveFailed(effect.token) }
+    case .checkCatalogAccount:
+      return await catalogAccountCheckResult(effect.token)
+    case .checkCatalogAccountAfterStopping:
+      await catalogCloudSync?.stop(command: effect.token)
+      return await catalogAccountCheckResult(effect.token)
+    case .startCatalogCloudSync(let accountID, let entries, let conflicts, let pendingDeletions):
+      await catalogCloudSync?.start(
+        accountIdentifier: accountID, entries: entries, conflicts: conflicts,
+        pendingDeletions: pendingDeletions, session: effect.token)
+      return nil
+    case .stopCatalogCloudSync:
+      await catalogCloudSync?.stop(command: effect.token)
+      return nil
+    case .publishCatalogChanges(let session, let resolvedConflicts, let saves, let deletions):
+      await catalogCloudSync?.queue(
+        command: effect.token, session: session, resolvedConflicts: resolvedConflicts,
+        saves: saves, deletions: deletions)
+      return nil
+    case .prepareCatalogExport(let entries, let passphrase):
+      do {
+        return try await .catalogExportPrepared(
+          effect.token, EncryptedCatalogFile.encrypt(entries: entries, passphrase: passphrase))
+      } catch { return .catalogExportFailed(effect.token) }
+    case .importCatalogFile(let url, let passphrase):
+      do {
+        let data = try await CatalogFileAccess.read(url)
+        return try await .catalogImportPreviewReady(
+          effect.token, EncryptedCatalogFile.decrypt(data, passphrase: passphrase))
+      } catch { return .catalogImportFailed(effect.token) }
+    default: return nil
+    }
+  }
+
+  private func openInformationPage(_ page: InformationPage, locale: String) async {
+    let language = L10n.languageCode(for: Locale(identifier: locale))
+    let name = page == .privacy ? "privacy" : "support"
+    var address = "https://shiftone-ai.github.io/plinth/\(language)/\(name).html"
+    #if DEBUG
+      if let testAddress = ProcessInfo.processInfo.environment["PLINTH_TEST_INFORMATION_PAGE_URL"] {
+        address = testAddress
+      }
+    #endif
+    guard !Task.isCancelled, let url = URL(string: address) else { return }
+    #if os(macOS)
+      _ = NSWorkspace.shared.open(url)
+    #else
+      _ = await UIApplication.shared.open(url)
+    #endif
+  }
+
   public nonisolated static func timerInterval(until deadline: Double, now: Double) -> Double {
     // Bound native timer conversion, not the logical deadline. Mediators rearm early notifications.
     min(86_400, max(0, deadline - now))
+  }
+
+  private func catalogAccountCheckResult(_ token: OperationToken) async -> Event {
+    guard let catalogCloudSync else { return .catalogAccountCheckDeferred(token) }
+    switch await catalogCloudSync.accountAvailability() {
+    case .available(let id): return .catalogAccountChecked(token, id)
+    case .unavailable: return .catalogAccountChecked(token, nil)
+    case .transient: return .catalogAccountCheckDeferred(token)
+    }
   }
 
   private func applyPresentation(_ request: PresentationRequest, token: OperationToken) async
@@ -144,6 +256,9 @@ public final class NativeEffectPort: EffectPort {
   }
 
   public func stop() {
+    if let catalogCloudSync {
+      cloudStopTask = Task { await catalogCloudSync.stop() }
+    }
     biometrics.cancelAll()
     web.stop()
     presentation.release()

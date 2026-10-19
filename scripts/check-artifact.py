@@ -160,11 +160,9 @@ def signing(app: Path) -> list[str]:
         if any(entitlements.get(key) for key in DEBUGGABLE):
             findings.append(f"デバッガの接続を許す署名（get-task-allow）: {label(app, bundle)}")
         info_path = bundle / "Contents/Info.plist"
-        mac_biometric = (
-            info_path.is_file()
-            and plistlib.loads(info_path.read_bytes()).get("CFBundleIdentifier")
-            == "ai.shiftone.plinth"
-        )
+        mac_biometric = info_path.is_file() and plistlib.loads(info_path.read_bytes()).get(
+            "CFBundleIdentifier"
+        ) in {"ai.shiftone.plinth", "ai.shiftone.plinth.mobile"}
         groups = entitlements.get("keychain-access-groups", [])
         if mac_biometric and not groups:
             findings.append(f"生体認証用Keychainの権限がない: {label(app, bundle)}")
@@ -204,6 +202,19 @@ def privacy_manifest(app: Path) -> list[str]:
     except (OSError, ValueError, ExpatError, plistlib.InvalidFileException):
         pass
     return [f"PrivacyInfo.xcprivacy が無いか読めない: {app.name}"]
+
+
+def mac_store_copyright(app: Path) -> list[str]:
+    info_path = app / "Contents/Info.plist"
+    if not info_path.is_file():
+        return []
+    info = plistlib.loads(info_path.read_bytes())
+    if info.get("CFBundleIdentifier") != "ai.shiftone.plinth.mobile":
+        return []
+    value = info.get("NSHumanReadableCopyright", "")
+    if isinstance(value, str) and value.strip() and "$(" not in value:
+        return []
+    return [f"Mac App Store用の著作権表示が無い: {app.name}"]
 
 
 def unshippable(tree: Path) -> list[str]:
@@ -299,6 +310,7 @@ def main() -> int:
                 for app in apps
                 for finding in (signing(app) if exported else [])
                 + privacy_manifest(app)
+                + mac_store_copyright(app)
                 + local_paths(app, bundle_files(app))
             ]
         except (

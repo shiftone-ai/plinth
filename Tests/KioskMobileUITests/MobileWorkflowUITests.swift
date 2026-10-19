@@ -4,6 +4,97 @@ import XCTest
 import XCUIAutomation
 
 final class MobileWorkflowUITests: XCTestCase {
+  @MainActor func testStoreReviewDemoOnDevice() async throws {
+    guard ProcessInfo.processInfo.environment["PLINTH_STORE_REVIEW_TEST"] == "1" else {
+      throw XCTSkip("Run explicitly when preparing App Store screenshots")
+    }
+    continueAfterFailure = false
+    let app = XCUIApplication()
+    let language = ProcessInfo.processInfo.environment["PLINTH_STORE_REVIEW_LANGUAGE"] ?? "en"
+    app.launchArguments = ["-AppleLanguages", "(\(language))"]
+    app.launchEnvironment["PLINTH_TEST_CREDENTIAL_SERVICE"] =
+      "ai.shiftone.plinth.tests.\(UUID().uuidString)"
+    app.launch()
+    defer { app.terminate() }
+
+    try await configureStoreReviewDemo(app)
+    let start = app.buttons["start-exhibition"]
+    for _ in 0..<3 {
+      app.collectionViews.firstMatch.swipeDown()
+    }
+    attach(app, "store-settings")
+
+    start.tap()
+    let next = app.webViews.links["Next exhibit"]
+    try await exists(next, timeout: 30)
+    try await prepared(app)
+    attach(app, "store-exhibition")
+    next.tap()
+    try await exists(app.webViews.staticTexts["Another view"], timeout: 20)
+    app.buttons["request-unlock"].tap()
+    let unlock = app.secureTextFields["unlock-passcode"]
+    try await exists(unlock)
+    unlock.tap()
+    unlock.typeText("plinth-review-passcode")
+    app.buttons["verify-passcode"].tap()
+    try await exists(start)
+    attach(app, "store-administration-after-unlock")
+    app.terminate()
+    app.launch()
+    try await exists(app.webViews.links["Next exhibit"], timeout: 30)
+  }
+
+  @MainActor func testAdministratorCanOpenPrivacyAndSupportPages() async throws {
+    continueAfterFailure = false
+    let app = XCUIApplication()
+    let language = ProcessInfo.processInfo.environment["PLINTH_STORE_REVIEW_LANGUAGE"] ?? "en"
+    app.launchArguments = ["-AppleLanguages", "(\(language))"]
+    app.launchEnvironment["PLINTH_TEST_CREDENTIAL_SERVICE"] =
+      "ai.shiftone.plinth.tests.\(UUID().uuidString)"
+    app.launch()
+    defer { app.terminate() }
+
+    try await exists(app.buttons["start-exhibition"])
+    let browser = XCUIApplication(bundleIdentifier: "com.apple.mobilesafari")
+    let headings: (privacy: String, support: String) =
+      switch language {
+      case "ja": ("プライバシーポリシー", "お問い合わせ")
+      case "ko": ("개인정보 처리방침", "문의하기")
+      case "zh-Hans": ("隐私政策", "联系我们")
+      default: ("Privacy Policy", "Contact us")
+      }
+    for (link, heading) in [
+      ("privacy-policy", headings.privacy),
+      ("support", headings.support),
+    ] {
+      let pageLink = app.descendants(matching: .any)[link]
+      reach(pageLink, app: app)
+      pageLink.tap()
+      try await exists(browser.webViews.staticTexts[heading], timeout: 20)
+      browser.terminate()
+      app.activate()
+      try await exists(app.buttons["start-exhibition"])
+    }
+  }
+
+  @MainActor func testAdministratorCanReadLicensesAndReturnToSettings() async throws {
+    continueAfterFailure = false
+    let app = XCUIApplication()
+    app.launchArguments = ["-AppleLanguages", "(en)"]
+    app.launchEnvironment["PLINTH_TEST_CREDENTIAL_SERVICE"] =
+      "ai.shiftone.plinth.tests.\(UUID().uuidString)"
+    app.launch()
+    defer { app.terminate() }
+
+    try await exists(app.buttons["start-exhibition"])
+    let licenses = app.buttons["licenses"]
+    reach(licenses, app: app)
+    licenses.tap()
+    try await exists(app.descendants(matching: .any)["license-empty"])
+    app.buttons["license-close"].tap()
+    try await exists(app.buttons["start-exhibition"])
+  }
+
   @MainActor func testWebManagementAddressAndQRCodeOnIPad() async throws {
     continueAfterFailure = false
     let app = XCUIApplication()
@@ -763,7 +854,7 @@ final class MobileWorkflowUITests: XCTestCase {
   }
 
   @MainActor
-  private func value(_ element: XCUIElement, equals text: String) async throws {
+  func value(_ element: XCUIElement, equals text: String) async throws {
     let ready = expectation(for: NSPredicate(format: "value == %@", text), evaluatedWith: element)
     await fulfillment(of: [ready], timeout: 5)
     XCTAssertEqual(element.value as? String, text)
@@ -789,6 +880,37 @@ final class MobileWorkflowUITests: XCTestCase {
     let ready = expectation(for: NSPredicate(format: "hittable == true"), evaluatedWith: element)
     await fulfillment(of: [ready], timeout: 20)
     _ = try XCTUnwrap(element.isHittable ? element : nil)
+  }
+
+  @MainActor
+  func configureStoreReviewDemo(_ app: XCUIApplication) async throws {
+    let start = app.buttons["start-exhibition"]
+    try await exists(start)
+    let destination = app.buttons["exhibition-destination"]
+    if destination.exists {
+      destination.tap()
+      app.buttons["exhibition-destination-device"].tap()
+    }
+    let url = "https://shiftone-ai.github.io/plinth/demo/index.html"
+    let field = app.textFields["start-url"]
+    field.tap()
+    let previous = field.value as? String ?? ""
+    field.typeText(
+      String(repeating: XCUIKeyboardKey.delete.rawValue, count: previous.count + 2) + url)
+    try await value(field, equals: url)
+    field.typeText("\n")
+
+    let setup = app.secureTextFields["setup-passcode"]
+    reach(setup, app: app)
+    setup.tap()
+    setup.typeText("plinth-review-passcode")
+    try await secureValue(setup, count: "plinth-review-passcode".count)
+    setup.typeText("\n")
+    app.buttons["save-passcode"].tap()
+    let save = app.buttons["save-profile"]
+    try await enabled(save)
+    save.tap()
+    try await enabled(start)
   }
 
   @MainActor

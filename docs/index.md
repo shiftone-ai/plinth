@@ -5,7 +5,12 @@
 | 確認すること | 入口 |
 | --- | --- |
 | iPhone・iPadの署名・配布，MacのDeveloper ID配布 | [実機への配布](distribution.md) |
+| 配布物のライセンス表示 | [ライセンスの棚卸し](release/licenses.md) |
+| 公開候補のデータ取扱い | [プライバシー調査](release/privacy-facts.md) |
+| 公開ページ | [URLと更新手順](release/public-pages.md)，[サポートメールの取扱い](release/support-data.md) |
+| App Store公開の判定 | [公開準備表](release/store-readiness.md)，[掲載文](release/store-listing.md)，[審査メモ](release/review-notes.md) |
 | 閲覧先の入力・ワイルドカード・拒否時の動作 | [ドメインの入力](design-docs/navigation-input.md) |
+| 設定集・iCloud同期・暗号化ファイルの責務 | [設定集](design-docs/settings-catalog.md) |
 | アプリの機能・状態遷移・受け入れ条件 | [設計書v0.2](design-docs/macos-kiosk-design-v0.2.md) |
 | 所有関係・通信経路・モジュール境界 | [設計の入口](../ARCHITECTURE.md) |
 | 実装・Concurrency・テストの規約 | [実装規約](rules/index.md) |

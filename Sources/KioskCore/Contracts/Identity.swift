@@ -1,7 +1,7 @@
 public enum NodeID: String, CaseIterable, Codable, Sendable {
   case root, platform, exhibition, webSurface, statusOverlay, idleClock
   case administration, unlock, settings, credentials, webAdministration, persistence,
-    profileRepository, diagnostics
+    profileRepository, catalogRepository, cloudCatalog, diagnostics
   case navigationRules, interactionPolicy, resetPolicy
 
   public var parent: NodeID? {
@@ -10,7 +10,7 @@ public enum NodeID: String, CaseIterable, Codable, Sendable {
     case .platform, .exhibition, .administration, .persistence: .root
     case .webSurface, .statusOverlay, .idleClock: .exhibition
     case .unlock, .settings, .credentials, .webAdministration: .administration
-    case .profileRepository, .diagnostics: .persistence
+    case .profileRepository, .catalogRepository, .cloudCatalog, .diagnostics: .persistence
     case .navigationRules, .interactionPolicy, .resetPolicy: .settings
     }
   }
