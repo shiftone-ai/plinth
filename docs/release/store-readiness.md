@@ -1,6 +1,6 @@
 # App Store公開準備表
 
-Issue #28の提出可否を判断する表．iPhone／iPad版とMac専用版はApp Store Connectの同じアプリ記録の別プラットフォームであり，製品ページの説明・画像・候補ビルドは別に照合する．ここには公開できる確認結果だけを記録する．審査提出と一般公開は別の作業．Web管理と生体認証を含むソースから画像とビルドを作成し，両版を審査へ提出した．
+Issue #28の提出可否を判断する表．iPhone／iPad版とMac専用版はApp Store Connectの同じアプリ記録の別プラットフォームであり，製品ページの説明・画像・候補ビルドは別に照合する．ここには公開できる確認結果だけを記録する．審査提出と一般公開は別の作業．Web管理と生体認証を含むソースから画像とビルドを作成した．
 
 | 項目 | 状態 | 確認元・完了条件 | 担当 |
 | --- | --- | --- | --- |
@@ -13,20 +13,20 @@ Issue #28の提出可否を判断する表．iPhone／iPad版とMac専用版はA
 | 公開のプライバシーURL | 確認済み | [4言語のURL](public-pages.md)が未ログインで到達可能．App Store Connectにも言語別URLを保存した．アプリ内導線の残りの端末での確認は別項目 | 実装担当 |
 | 公開のサポートURL | 確認済み | [4言語のURL](public-pages.md)が未ログインで到達可能．連絡先は利用者が承認した `contact@shiftone.ai` | 実装担当 |
 | アプリ内のページとライセンス | 確認済み | iPhone SimulatorのiOS 27英語・iOS 26.4簡体字中国語と，iPad Pro 13インチ SimulatorのiOS 26.4日本語でプライバシー・サポートの遷移が成功した．iPhoneとiPadでライセンス表示が成功した．開けないURLの試験用設定では，両Simulatorで設定保存・展示開始・管理者解除が成功した．統合後のMac archiveを開発用に再署名して起動し，Safariへのプライバシー・サポート遷移，ライセンス表示，展示ページ移動と管理者解除を手元のMacで確認した．同じ環境で開けないURLを保存して展示を始めると「Exhibition stopped」が表示され，管理者パスワードで設定へ戻れた．Web管理はローカルブラウザからログイン・設定保存・展示開始を操作し，無効化後の接続拒否も確認した．基本操作の検証にはSimulatorの結果を採用する．App Store配布署名の状態での照合は別項目 | 実装担当 |
-| App Privacy | 申告済み・審査待ち | 利用者の承認を受け，App Store Connectで「アプリから収集するデータなし」を公開した．設定集のiCloud同期を含む版について[データ取扱い](privacy-facts.md)とAppleのCloudKit非公開データベースの説明を照合した．WebViewのオープンWeb例外に関する推測は残る．利用者はAppleへの個別照会を省き，審査結果を受けて必要なら修正する方針 | 公開担当 |
+| App Privacy | 申告済み | 利用者の承認を受け，App Store Connectで「アプリから収集するデータなし」を公開した．設定集のiCloud同期を含む版について[データ取扱い](privacy-facts.md)とAppleのCloudKit非公開データベースの説明を照合した．WebViewのオープンWeb例外に関する推測は残る．利用者はAppleへの個別照会を省き，審査結果を受けて必要なら修正する方針 | 公開担当 |
 | Privacy Manifest | 確認済み | `systemUptime`の35F9.1と`UserDefaults`のCA92.1をソースと照合し，統合後のiOS archiveとMacの配布用パッケージ内アプリでmanifestを検査した．配布用IPAは`check-artifact.py`でmanifestの同梱を確認した | 実装担当 |
 | 年齢制限 | 確認済み | App Store Connectで任意のWebページへのアクセスを「あり」，同梱の成熟表現などを「なし」と回答し保存した．iOS 26以降の表示は原則16+，旧OSは17+ | 実装担当 |
 | 第三者コンテンツの権利 | 確認済み | 審査用の[展示サンプル](public-pages.md)は自作．管理者が展示サイトの表示権利・許可を確認する運用を利用者が承認し，4言語の[サポートページ](public-pages.md)に記した．App Store Connectで第三者コンテンツを扱い必要な権利がある旨を保存し，再読込で確認した | 公開担当 |
-| 暗号利用 | 確認済み | iOSの配布用IPAとMacの配布用パッケージ内アプリで`ITSAppUsesNonExemptEncryption=false`を確認した．App Store Connectの提出ビルドiOS`20261019161944`とMac`20261019164800`のBuild Metadataにも`App Uses Non-Exempt Encryption: No`と表示された．設定集の暗号化はAppleのCryptoKit（AES-GCM）とCommonCrypto（PBKDF2）を使用する．[Appleの説明](https://developer.apple.com/help/app-store-connect/reference/app-information/export-compliance-documentation-for-encryption/)では，AppleのOSに含まれる暗号機能に限る場合，App Store Connectへの暗号資料は不要とされる | 実装担当 |
+| 暗号利用 | 確認済み | iOSの配布用IPAとMacの配布用パッケージ内アプリで`ITSAppUsesNonExemptEncryption=false`を確認した．App Store ConnectのBuild Metadataにも`App Uses Non-Exempt Encryption: No`と表示された．設定集の暗号化はAppleのCryptoKit（AES-GCM）とCommonCrypto（PBKDF2）を使用する．[Appleの説明](https://developer.apple.com/help/app-store-connect/reference/app-information/export-compliance-documentation-for-encryption/)では，AppleのOSに含まれる暗号機能に限る場合，App Store Connectへの暗号資料は不要とされる | 実装担当 |
 | 価格・税区分 | 確認済み | 利用者の指定に従い，App Store Connectで基本価格$0.00を保存した．税区分は「App Store software」 | 実装担当 |
 | 提供地域・公開方法 | 確認済み | 利用者の指定に従い，全175地域を「App Release後に提供」で保存した．iOS版とMac版を手動公開に設定した | 実装担当 |
 | 審査用サイト・手順 | 端末単体を確認済み | [自作の展示サンプル](public-pages.md)は公開済み．iOS・Macの審査メモをApp Store Connectへ保存した．[原稿](review-notes.md)の端末単体の操作はiPhone・iPad Simulatorと開発用署名のMac候補で確認した．配布署名のiOS候補と外部ディスプレイの操作は未確認 | 実装担当 |
 | 審査連絡先 | 確認済み | 利用者が提示した氏名・電話番号・メールアドレスをApp Store ConnectのiOS・Mac両版の審査情報へ保存し，再読込で確認した．公開文書に非公開の連絡先を置かない | 実装担当 |
-| 署名済み候補と実機 | 再提出済み・新候補の実機操作は未実施 | `main`へ統合したソースからiOS`20261019161944`とMac`20261019164800`を作成した．配布用IPAとMacパッケージ内アプリはApple Distribution署名と`check-artifact.py`の検査を通過した．Mac`20261019161944`は翻訳用bundleが開発用証明書で署名され，Appleの処理で失敗した．Macを再archiveして翻訳用bundleを前回受理されたビルドと同じ未署名に戻し，`20261019164800`はAppleの処理を通過した．App Store Connectで両版の新候補を審査へ提出し，「審査待ち」を確認した．Macの旧候補`20261018160517`は`com.apple.security.network.server`の用途が見つからないとして却下され，審査メモとSandbox情報にWeb管理の起動・停止手順を記載して再提出した．新候補の画面操作は開発用署名のMacとSimulatorで確認済み．配布署名の新候補での実機操作は未実施 | 実装担当 |
+| 署名済み候補と実機 | 配布署名を確認・実機操作は未実施 | `main`へ統合したソースからiOSとMacの候補を作成した．配布用IPAとMacパッケージ内アプリはApple Distribution署名と`check-artifact.py`の検査を通過した．Macの翻訳用bundleに開発用署名が残る問題を修正し，再archiveした．Web管理に必要な`com.apple.security.network.server`の用途と起動・停止手順を審査メモとSandbox情報に記載した．候補の画面操作は開発用署名のMacとSimulatorで確認済み．配布署名の候補での実機操作は未実施 | 実装担当 |
 
-## 現在の判定
+## 検証の判定
 
-**iOS 1.0とmacOS 0.1.0の新候補は審査待ち**．App Store ConnectでiOS`20261019161944`の提出ID`13444933-30b1-4e89-987c-6620d087c9fb`，Mac`20261019164800`の提出ID`70034de6-a022-492b-aa08-de8bb465f1e2`を確認した．承認後の公開は手動に設定している．24枚の言語別画像は登録済み．統合したソースの開発用署名Mac候補では管理・展示画面，公開ページへの導線，Web管理の起動と停止，設定集の入力と選択を操作した．iOS候補の操作はSimulatorで確認済み．配布署名の新候補の実機操作と，外部ディスプレイ・物理入力を使う経路は未確認．Macの受信権限に関する前回の却下に対し，実際のWeb管理動作を確認してAppleへ返信し，審査メモとSandbox情報に操作手順を記載した．App PrivacyのWebView通信に対する例外の適用は推測であり，利用者は個別照会を省いて審査を受ける方針を示した．サポート窓口の受信者のメールや複製の削除条件は未確認のため，公開ポリシーには保存期限を約束していない．
+**iOS 1.0とmacOS 0.1.0の候補を検証した**．承認後の公開は手動に設定している．24枚の言語別画像は登録済み．統合したソースの開発用署名Mac候補では管理・展示画面，公開ページへの導線，Web管理の起動と停止，設定集の入力と選択を操作した．iOS候補の操作はSimulatorで確認済み．配布署名の候補の実機操作と，外部ディスプレイ・物理入力を使う経路は未確認．Macの受信権限について実際のWeb管理動作を確認し，審査メモとSandbox情報に操作手順を記載した．App PrivacyのWebView通信に対する例外の適用は推測であり，利用者は個別照会を省いて審査を受ける方針を示した．サポート窓口の受信者のメールや複製の削除条件は未確認のため，公開ポリシーには保存期限を約束していない．
 
 ## 残る確認
 
