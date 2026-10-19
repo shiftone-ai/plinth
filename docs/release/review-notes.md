@@ -13,6 +13,8 @@ Plinth displays an administrator-selected website for an exhibition. No account 
 
 The sample site is maintained by the developer and requires no login. The app settings include Privacy Policy, Support and Licenses links. Web management is optional and off by default. It requires another browser on the same local network and uses HTTP, so test it only on an isolated network. Biometric unlock is optional on supported devices; the administrator passcode remains available. For an external display exhibition, a compatible iPhone or iPad, a display and a mouse are required. The available output route depends on the device and OS settings. External display and mouse behavior are outside the basic device-only path. Plinth does not prevent OS app switching.
 
+The Settings collection is optional. After saving settings, enter a name and tap Save current settings. Select the saved entry to load it into the editor or export it as an encrypted file. iCloud sync is off by default. To test it, sign in to iCloud on two devices, turn on sync in Settings collection on each, then explicitly choose Share in iCloud for an entry. The administrator passcode is never part of an entry.
+
 ## Mac版
 
 Plinth displays an administrator-selected website for an exhibition. No account or external display is required for the basic path.
@@ -23,6 +25,8 @@ Plinth displays an administrator-selected website for an exhibition. No account 
 4. Use Command–Option–Shift–K to request administrator unlock, enter the passcode you created, and return to settings. Restart the app to verify that it resumes the saved exhibition.
 
 The sample site is maintained by the developer and requires no login. The app settings include Privacy Policy, Support and Licenses links. Web management is optional and off by default. It requires another browser on the same local network and uses HTTP, so test it only on an isolated network. Biometric unlock is optional on supported Macs; the administrator passcode remains available. A second monitor is required only for external display output. Plinth does not prevent macOS app switching.
+
+The Settings collection is optional. After saving settings, enter a name and click Save current settings. Select the saved entry to load it into the editor or export it as an encrypted file. iCloud sync is off by default. To test it, sign in to iCloud on two devices, turn on sync in Settings collection on each, then explicitly choose Share in iCloud for an entry. The administrator passcode is never part of an entry.
 
 ## 提出前の照合
 
