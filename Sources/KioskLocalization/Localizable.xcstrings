@@ -3901,6 +3901,36 @@
         }
       }
     },
+    "Remove iCloud version": {
+      "comment": "Action that confirms deleting the iCloud entry after a pending deletion conflicts with a remote change.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove iCloud version"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iCloudの項目を削除"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iCloud 항목 삭제"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "删除 iCloud 项目"
+          }
+        }
+      }
+    },
     "Keep this version": {
       "comment": "Settings collection interface text.",
       "extractionState": "manual",

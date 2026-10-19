@@ -143,9 +143,11 @@ struct SettingsCatalogSection: View {
                 }
               }
               Button(
-                localCopyIsDevice(conflict.id)
-                  ? L10n.string("Share this version", locale: locale)
-                  : L10n.string("Keep this version", locale: locale)
+                props.pendingDeletionIDs.contains(conflict.id)
+                  ? L10n.string("Remove iCloud version", locale: locale)
+                  : localCopyIsDevice(conflict.id)
+                    ? L10n.string("Share this version", locale: locale)
+                    : L10n.string("Keep this version", locale: locale)
               ) {
                 send(.resolveCatalogConflict(conflict.id, useRemote: false))
               }
