@@ -92,6 +92,7 @@ extension Presenters {
         && root.catalogSaveOperation == nil,
       canShare: selection?.scope == .device && root.catalogCanShare
         && root.catalogSaveOperation == nil
+        && !conflicts.contains(where: { $0.id == selection?.id })
         && !root.catalog.pendingDeletions.contains(where: {
           $0.id == selection?.id && $0.accountIdentifier == root.catalog.accountIdentifier
         })
@@ -118,7 +119,9 @@ extension Presenters {
       canStartExport: fileIdle && !available.isEmpty
         && root.catalogExportCandidateIDs == nil && root.catalogImportSelectedURL == nil,
       canExport: fileIdle && !available.isEmpty
-        && root.catalogExportCandidateIDs != nil && root.catalogImportSelectedURL == nil
+        && root.catalogExportCandidateIDs.map({ ids in
+          ids.allSatisfy { id in available.contains(where: { $0.id == id }) }
+        }) == true && root.catalogImportSelectedURL == nil
         && passphraseValid
         && administration.catalogPassphrase.precomposedStringWithCanonicalMapping
           == administration.catalogConfirmPassphrase.precomposedStringWithCanonicalMapping,

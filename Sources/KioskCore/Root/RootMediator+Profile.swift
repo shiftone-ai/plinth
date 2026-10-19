@@ -44,6 +44,7 @@ extension RootMediator {
       guard state.saveOperation == completed, state.pendingProfile == profile else {
         return .reject(state, .staleOperation)
       }
+      if state.savedProfile != profile { next.catalogUpdateCandidateID = nil }
       next.savedProfile = profile
       next.profileCorrupt = false
       if !profile.webAdministrationEnabled { next.webSession = nil }

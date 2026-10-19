@@ -80,11 +80,11 @@ public enum RootMediator {
         }
         return result
       }
-      guard state.mode == .administration, state.credentialsConfigured else {
+      guard state.mode == .administration else {
         return .handled(
           .init(next, childControls: [.init(.administration, .invalidateWebAuthentication)]))
       }
-      next.mode = .safeHold
+      if state.credentialsConfigured { next.mode = .safeHold }
       clearCatalogAdministrationConfirmations(&next)
       next.licenseSheetPresented = false
       next.informationPageOperation = nil
@@ -227,7 +227,10 @@ public enum RootMediator {
       if succeeded {
         next.credentialsConfigured = true
         next.webSession = nil
-        if state.mobileDisplays?.deviceAvailable == false && state.mode == .administration {
+        if state.mobileDisplays != nil
+          && (state.mobileDisplays?.deviceAvailable == false || !state.mobileForeground)
+          && state.mode == .administration
+        {
           next.mode = .safeHold
           next.administratorSession = false
         }
