@@ -678,11 +678,8 @@ extension CatalogCloudSync {
         disk.serverDeletions.insert(id)
         conflicts.append(.delete(id))
         syncEngine.state.remove(pendingRecordZoneChanges: [.saveRecord(Self.recordID(id))])
-      case .networkFailure, .networkUnavailable, .zoneBusy, .serviceUnavailable,
-        .notAuthenticated, .operationCancelled:
-        failures.record(.offline)
       default:
-        failures.record(.failed)
+        failures.record(Self.isTransient(failure.error) ? .offline : .failed)
       }
     }
     if !update.failedRecordDeletes.isEmpty {
