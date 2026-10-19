@@ -6,6 +6,28 @@ import Testing
 
 @MainActor
 struct CatalogInitialFetchTests {
+  @Test func fullFetchClearsOpaqueRecordsThatDisappearedFromCloud() throws {
+    let snapshot = try #require(
+      CatalogSnapshot(
+        KioskProfile(startURL: "https://example.com", navigation: NavigationPolicy(rules: []))))
+    let stale = try #require(
+      CatalogEntry(
+        id: UUID(), name: "Stale", snapshot: snapshot, scope: .iCloud,
+        accountIdentifier: "account-a", syncedVersion: 1))
+    let retained = UUID()
+    var disk = CatalogCloudSync.DiskState(
+      accountIdentifier: "account-a", engineState: nil, entries: [stale.id: stale],
+      serverEntries: [:], serverDeletions: [], recordSystemFields: [:], conflicts: [],
+      opaqueRecordIDs: [stale.id, retained])
+    var fetch = CatalogInitialFetch(
+      entries: disk.entries, pendingDeletions: [], opaqueRecordIDs: disk.opaqueRecordIDs)
+    fetch.observe(retained)
+
+    #expect(fetch.reconcile(&disk) == [.delete(stale.id)])
+    #expect(disk.opaqueRecordIDs == [retained])
+    #expect(disk.entries[stale.id] == nil)
+  }
+
   @Test func rebuildingTheCacheRemovesARecordDeletedWhileAnotherAccountWasActive() throws {
     let fixture = RuntimeFixture()
     defer { fixture.runtime.stop() }

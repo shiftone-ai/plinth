@@ -27,6 +27,7 @@ public actor CatalogCloudSync: CKSyncEngineDelegate {
   private var disk: DiskState?
   private var active = false
   private var fetchFailed = false
+  private var persistenceFailed = false
   private var generation: UInt64 = 0
   private var session: OperationToken?
   private var lastCommandID: UInt64 = 0
@@ -67,6 +68,7 @@ public actor CatalogCloudSync: CKSyncEngineDelegate {
     lastCommandID = session.operationID
     generation &+= 1
     let startedGeneration = generation
+    persistenceFailed = false
     self.session = session
     active = false
     initializingGeneration = startedGeneration
@@ -310,7 +312,9 @@ public actor CatalogCloudSync: CKSyncEngineDelegate {
         }
         await sendEvent(
           .catalogCloudStatus(
-            session, disk.opaqueRecordIDs.isEmpty ? (pending ? .pending : .ready) : .failed))
+            session,
+            disk.opaqueRecordIDs.isEmpty && !persistenceFailed
+              ? (pending ? .pending : .ready) : .failed))
       } catch {
         await sendEvent(.catalogCloudStatus(session, .failed))
         return
@@ -411,7 +415,7 @@ extension CatalogCloudSync {
       await handleDidFetchRecordZoneChanges(update, syncEngine: syncEngine, session: session)
 
     case .didFetchChanges, .didSendChanges:
-      if !fetchFailed && initialFetch == nil
+      if !fetchFailed && !persistenceFailed && initialFetch == nil
         && syncEngine.state.pendingRecordZoneChanges.isEmpty
         && syncEngine.state.pendingDatabaseChanges.isEmpty && disk.conflicts.isEmpty
         && disk.opaqueRecordIDs.isEmpty
@@ -724,12 +728,17 @@ extension CatalogCloudSync {
 
   private func persistDisk() throws {
     guard let disk else { return }
-    let directory = stateURL.deletingLastPathComponent()
-    try FileManager.default.createDirectory(
-      at: directory, withIntermediateDirectories: true,
-      attributes: [.posixPermissions: 0o700])
-    try JSONEncoder().encode(disk).write(to: stateURL, options: .atomic)
-    try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: stateURL.path)
+    do {
+      let directory = stateURL.deletingLastPathComponent()
+      try FileManager.default.createDirectory(
+        at: directory, withIntermediateDirectories: true,
+        attributes: [.posixPermissions: 0o700])
+      try JSONEncoder().encode(disk).write(to: stateURL, options: .atomic)
+      try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: stateURL.path)
+    } catch {
+      persistenceFailed = true
+      throw error
+    }
   }
 
   private static func recordID(_ id: UUID) -> CKRecord.ID {
