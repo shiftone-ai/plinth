@@ -56,6 +56,8 @@ struct ProfileRepositoryTests {
     let second = try profile(revision: 2)
     try await repository.save(second)
     #expect(try await repository.load() == second)
+    await #expect(throws: ProfileRepository.Failure.self) { try await repository.recover(first) }
+    #expect(try await repository.load() == second)
     let files = try FileManager.default.contentsOfDirectory(atPath: directory.path)
     #expect(files == ["profile.json"])
   }

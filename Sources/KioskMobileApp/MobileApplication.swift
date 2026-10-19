@@ -12,6 +12,14 @@
 
     public func application(
       _ application: UIApplication,
+      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
+    ) -> Bool {
+      session = MobileSession()
+      return true
+    }
+
+    public func application(
+      _ application: UIApplication,
       configurationForConnecting connectingSceneSession: UISceneSession,
       options: UIScene.ConnectionOptions
     ) -> UISceneConfiguration {
@@ -30,7 +38,8 @@
 
     func disconnect(_ scene: UIWindowScene) {
       guard let session else { return }
-      if session.disconnect(scene) {
+      session.disconnect(scene)
+      if session.shouldRestartAfterBootstrapFailure {
         session.stop()
         self.session = nil
       }

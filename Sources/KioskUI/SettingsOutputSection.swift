@@ -12,6 +12,7 @@ struct SettingsOutputSection: View {
     Group {
       #if os(macOS)
         Section(L10n.string("Output", locale: locale)) {
+          unavailableCatalogOutputNotice
           Picker(
             L10n.string("Mode", locale: locale),
             selection: value(\.macOutput.mode, edit: ProfileDraftEdit.macOutputMode)
@@ -44,6 +45,7 @@ struct SettingsOutputSection: View {
       #endif
       #if os(iOS)
         Section(L10n.string("Display destination", locale: locale)) {
+          unavailableCatalogOutputNotice
           Picker(
             L10n.string("Display", locale: locale),
             selection: value(
@@ -86,16 +88,18 @@ struct SettingsOutputSection: View {
             ) {
               Text(L10n.string("Automatic", locale: locale)).tag(ExternalDisplayMode?.none)
               ForEach(props.externalDisplayModes) { mode in
-                Text(verbatim: "\(mode.width) × \(mode.height)").tag(
+                Text(verbatim: displayModeLabel(mode)).tag(
                   ExternalDisplayMode?.some(mode)
-                ).accessibilityIdentifier("external-display-mode-\(mode.width)x\(mode.height)")
+                ).accessibilityIdentifier(
+                  "external-display-mode-\(mode.width)x\(mode.height)"
+                    + (mode.pixelAspectRatio == 1 ? "" : "@\(mode.pixelAspectRatio)"))
               }
               if let mode = props.draft.profile.externalDisplayMode,
                 !props.externalDisplayModes.contains(mode)
               {
                 Text(
                   verbatim:
-                    "\(mode.width) × \(mode.height) \(L10n.string("Disconnected", locale: locale))"
+                    "\(displayModeLabel(mode)) \(L10n.string("Disconnected", locale: locale))"
                 ).tag(
                   ExternalDisplayMode?.some(mode))
               }
@@ -123,9 +127,25 @@ struct SettingsOutputSection: View {
     }
   }
 
+  @ViewBuilder
+  private var unavailableCatalogOutputNotice: some View {
+    if props.catalogOutputUnavailable {
+      Label(
+        L10n.string("Choose an available output before saving", locale: locale),
+        systemImage: "exclamationmark.circle"
+      )
+      .foregroundStyle(.orange)
+    }
+  }
+
   private func value<Value>(
     _ path: KeyPath<ProfileDraft, Value>, edit: @escaping (Value) -> ProfileDraftEdit
   ) -> Binding<Value> {
     Binding(get: { props.draft[keyPath: path] }, set: { send(.edit(edit($0))) })
+  }
+
+  private func displayModeLabel(_ mode: ExternalDisplayMode) -> String {
+    let size = "\(mode.width) × \(mode.height)"
+    return mode.pixelAspectRatio == 1 ? size : "\(size) @\(mode.pixelAspectRatio)"
   }
 }

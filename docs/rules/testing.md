@@ -18,6 +18,8 @@
 
 ## iPadの画面と入力
 
+Keychainを使うSimulatorのUI試験は，署名した試験用アプリを別のBundle IDで実行し，資格情報serviceと保存先を既存アプリから分離する．起動時に `keychain(-34018)` が出たら署名を確認する．
+
 [対応方針](../design-docs/ipad-support.md) と [Apple資料の調査](../references/ipad-external-display.md) に従い，本体展示・外部展示と管理への切替を検証する．外部画面の比率に合う独立した表示，通常のWeb操作，カーソルが本体へ移らないこと，ロック状態の変化，接続前後の管理情報の誤表示は実機で確認する．SDKの静的確認やMacのCoreテストを，iPadの入力制限の動作証明とは扱わない．
 
 Dock／メニューバーやOSジェスチャの抑制は実機試験を省略しない．

@@ -1,3 +1,4 @@
+import Foundation
 import KioskCore
 
 public enum Presenters {
@@ -44,6 +45,7 @@ public enum Presenters {
     -> SettingsProps
   {
     SettingsProps(
+      catalog: catalog(root, administration),
       draft: administration.draft
         ?? ProfileDraft(profile: KioskProfile(startURL: "", navigation: .init(rules: []))),
       passcode: administration.passcode,
@@ -68,7 +70,11 @@ public enum Presenters {
       idleTimeout: administration.draft?.idleTimeoutText ?? "",
       canSave: root.mode == .administration && !administration.saving
         && ProfileRevision.next(after: root.savedProfile?.revision) != nil
-        && administration.hasUnsavedDraft && administration.draft?.validatedProfile != nil,
+        && administration.hasUnsavedDraft && administration.draft?.validatedProfile != nil
+        && (!administration.catalogRequiresAvailableOutput
+          || administration.draft?.validatedProfile.map(root.canPresent) == true),
+      catalogOutputUnavailable: administration.catalogRequiresAvailableOutput
+        && administration.draft?.validatedProfile.map { !root.canPresent($0) } == true,
       canStart: root.mode == .administration && root.credentialsConfigured
         && root.savedProfile.map(root.canPresent) == true
         && !administration.hasUnsavedDraft && root.saveOperation == nil
@@ -86,7 +92,8 @@ public enum Presenters {
       externalDisplayModes: root.mobileDisplays?.displayModes ?? [],
       externalDisplayCurrentMode: root.mobileDisplays?.currentMode,
       webServerURL: root.webServerURL,
-      webServerFailure: root.webServerFailure
+      webServerFailure: root.webServerFailure,
+      licenseSheetPresented: root.licenseSheetPresented
     )
   }
 

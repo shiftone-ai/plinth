@@ -3,7 +3,12 @@ import LocalAuthentication
 import Security
 
 public actor CredentialStore {
-  public nonisolated enum Keychain: Sendable { case platformDefault, dataProtection }
+  public nonisolated enum Keychain: Sendable {
+    case platformDefault, dataProtection
+    #if DEBUG
+      case testDefaults
+    #endif
+  }
   public nonisolated enum Failure: Error {
     case keychain(OSStatus)
     case corruptRecord
@@ -26,6 +31,13 @@ public actor CredentialStore {
   public func configure(_ passcode: String) throws {
     let record = try PasscodeVerifier.create(passcode)
     try Task.checkCancellation()
+    #if DEBUG
+      if keychain == .testDefaults {
+        UserDefaults.standard.set(
+          try JSONEncoder().encode(record), forKey: "plinth-test-credential-\(service)")
+        return
+      }
+    #endif
     let data = try JSONEncoder().encode(record)
     let status = SecItemUpdate(
       query(service: service, keychain: keychain) as CFDictionary,
@@ -58,6 +70,15 @@ public actor CredentialStore {
   }
 
   private func read() throws -> PasscodeVerifier? {
+    #if DEBUG
+      if keychain == .testDefaults {
+        guard let data = UserDefaults.standard.data(forKey: "plinth-test-credential-\(service)")
+        else { return nil }
+        guard let record = try? JSONDecoder().decode(PasscodeVerifier.self, from: data)
+        else { throw Failure.corruptRecord }
+        return record
+      }
+    #endif
     if let record = try read(service: service, keychain: keychain) { return record }
     // Native Mac beta 1 used this separate service in the file-based keychain.
     guard let legacyService else { return nil }

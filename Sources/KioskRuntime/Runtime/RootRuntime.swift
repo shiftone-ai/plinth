@@ -104,6 +104,8 @@ public final class RootRuntime {
 
   private func isCurrent(_ effect: Effect) -> Bool {
     switch effect.kind {
+    case .openInformationPage:
+      store.root.mode == .administration && store.root.informationPageOperation == effect.token
     case .bootstrap: store.root.bootstrapOperation == effect.token
     case .prepareExternalScene: store.root.externalSceneOperation == effect.token
     case .captureExternalPointer: store.root.pointerCaptureOperation == effect.token
@@ -112,7 +114,19 @@ public final class RootRuntime {
       store.root.presentationAcquired
         && [.enteringKiosk, .exhibiting, .unlocking].contains(store.root.mode)
     case .applyPresentation, .releasePresentation: store.root.presentationOperation == effect.token
-    case .saveProfile: store.root.saveOperation == effect.token
+    case .saveProfile, .recoverProfile: store.root.saveOperation == effect.token
+    case .loadCatalog, .recoverCatalog: store.root.catalogLoadOperation == effect.token
+    case .saveCatalog: store.root.catalogSaveOperation == effect.token
+    case .checkCatalogAccount, .checkCatalogAccountAfterStopping:
+      store.root.catalogAccountCheckOperation == effect.token
+    case .startCatalogCloudSync:
+      store.root.catalogCloudSessionOperation == effect.token
+    case .publishCatalogChanges(let session, _, _, _):
+      store.root.catalogCloudSessionOperation == session
+    case .stopCatalogCloudSync:
+      store.root.epoch == effect.token.ownerEpoch
+    case .prepareCatalogExport: store.root.catalogExportOperation == effect.token
+    case .importCatalogFile: store.root.catalogImportOperation == effect.token
     case .startWebServer: store.root.webServerOperation == effect.token
     case .stopWebServer: true
     case .createSurface, .load: store.exhibition.operation == effect.token
