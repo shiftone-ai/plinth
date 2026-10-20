@@ -74,9 +74,7 @@ extension KioskWorkflowUITests {
   }
 
   @MainActor private func nextExhibitLink(_ app: XCUIApplication) -> XCUIElement {
-    app.webViews.links.matching(
-      NSPredicate(format: "label ==[c] %@", "Next exhibit")
-    ).firstMatch
+    app.webViews.links["NEXT EXHIBIT"]
   }
 
   @MainActor private func verifyInformationLinks(_ app: XCUIApplication, start: XCUIElement) async {
