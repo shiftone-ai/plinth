@@ -50,7 +50,7 @@ def shortcut_keys(root: Path) -> set[str]:
     for source in (root / "Sources").rglob("*.swift"):
         keys.update(
             re.findall(
-                r'LocalizedStringResource\("([^"\n]+)",\s*table:\s*"Shortcuts"\)',
+                r'LocalizedStringResource\("([^"\n]+)",\s*table:\s*"AppIntents"\)',
                 source.read_text(),
             )
         )
@@ -100,22 +100,22 @@ def check(root: Path) -> list[str]:
     for key in sorted(referenced_keys(root) - strings.keys()):
         errors.append(f"Unknown localization key: {key}")
 
-    shortcut_catalog_path = root / "Resources/Shortcuts.xcstrings"
+    shortcut_catalog_path = root / "Resources/AppIntents.xcstrings"
     used_shortcut_keys = shortcut_keys(root)
     if shortcut_catalog_path.exists():
         shortcut_catalog = json.loads(shortcut_catalog_path.read_text())
         if shortcut_catalog.get("sourceLanguage") != "en":
-            errors.append("Shortcuts catalog sourceLanguage must be en")
+            errors.append("AppIntents catalog sourceLanguage must be en")
         shortcut_strings = shortcut_catalog.get("strings", {})
         for key, entry in shortcut_strings.items():
             for language in sorted(languages):
                 unit = entry.get("localizations", {}).get(language, {}).get("stringUnit", {})
                 if unit.get("state") != "translated" or not unit.get("value", "").strip():
-                    errors.append(f"Shortcuts: {key}: missing {language} translation")
+                    errors.append(f"AppIntents: {key}: missing {language} translation")
         for key in sorted(used_shortcut_keys - shortcut_strings.keys()):
-            errors.append(f"Unknown Shortcuts localization key: {key}")
+            errors.append(f"Unknown AppIntents localization key: {key}")
     elif used_shortcut_keys:
-        errors.append("Missing Shortcuts localization catalog")
+        errors.append("Missing AppIntents localization catalog")
     return errors
 
 
