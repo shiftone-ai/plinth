@@ -8,13 +8,14 @@ public struct RemoteInstallation: Codable, Equatable, Sendable {
   public var approvedControllers: [UUID: RemotePeerGrant]
   public var approvedTargets: [UUID: RemotePeerGrant]
   public var processedRequestExpirations: [UUID: Int64]
+  public var mutationRevision: UInt64
 
   public init(
     id: UUID, enabledAccountIdentifier: String? = nil,
     lastAccountIdentifier: String? = nil,
     approvedControllers: [UUID: RemotePeerGrant] = [:],
     approvedTargets: [UUID: RemotePeerGrant] = [:],
-    processedRequestExpirations: [UUID: Int64] = [:]
+    processedRequestExpirations: [UUID: Int64] = [:], mutationRevision: UInt64 = 0
   ) {
     self.id = id
     self.enabledAccountIdentifier = enabledAccountIdentifier
@@ -22,12 +23,13 @@ public struct RemoteInstallation: Codable, Equatable, Sendable {
     self.approvedControllers = approvedControllers
     self.approvedTargets = approvedTargets
     self.processedRequestExpirations = processedRequestExpirations
+    self.mutationRevision = mutationRevision
   }
 
   private enum CodingKeys: String, CodingKey {
     case id, enabledAccountIdentifier
     case lastAccountIdentifier, approvedControllers, approvedTargets
-    case processedRequestExpirations
+    case processedRequestExpirations, mutationRevision
   }
 
   public init(from decoder: Decoder) throws {
@@ -46,6 +48,7 @@ public struct RemoteInstallation: Codable, Equatable, Sendable {
     processedRequestExpirations =
       try fields.decodeIfPresent(
         [UUID: Int64].self, forKey: .processedRequestExpirations) ?? [:]
+    mutationRevision = try fields.decodeIfPresent(UInt64.self, forKey: .mutationRevision) ?? 0
   }
 
   public mutating func reconcileAccount(_ availability: RemoteAccountAvailability) {
@@ -180,5 +183,16 @@ public struct RemoteManagementState: Equatable, Sendable {
   public var enabled: Bool {
     installation?.enabledAccountIdentifier != nil
       && installation?.enabledAccountIdentifier == accountIdentifier
+  }
+
+  public mutating func acceptInstallation(_ returned: RemoteInstallation) {
+    guard let current = installation else {
+      installation = returned
+      return
+    }
+    guard current.id == returned.id,
+      returned.mutationRevision >= current.mutationRevision
+    else { return }
+    installation = returned
   }
 }
