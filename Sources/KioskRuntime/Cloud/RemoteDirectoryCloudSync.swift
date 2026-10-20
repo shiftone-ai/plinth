@@ -43,6 +43,8 @@ public actor RemoteDirectoryCloudSync: RemoteDirectoryPort, CKSyncEngineDelegate
   nonisolated static let recordType = "RemoteDevice"
   nonisolated static let zoneID = CKRecordZone.ID(zoneName: zoneName)
   nonisolated static let messageRecordType = "RemoteMessage"
+  // CloudKit caps a record's inline data at 1 MB, including encrypted fields.
+  nonisolated static let maximumMessageDataBytes = 1_000_000
 
   private let stateURL: URL
   private let containerIdentifier: String
@@ -67,6 +69,7 @@ public actor RemoteDirectoryCloudSync: RemoteDirectoryPort, CKSyncEngineDelegate
   var awaitingInitialFetch = false
   var fetchFailed = false
   var sendFailed = false
+  var needsOwnRecordAfterZoneRecovery = false
   private var generation: UInt64 = 0
   private var lastCommandID: UInt64 = 0
 
@@ -129,8 +132,7 @@ public actor RemoteDirectoryCloudSync: RemoteDirectoryPort, CKSyncEngineDelegate
     var updated = current
     updated.reconcileAccount(availability)
     if updated != current {
-      try persist(updated)
-      installation = updated
+      try persistMutation(&updated)
     }
     return RemoteAccountCheck(availability: availability, installation: updated)
   }
@@ -157,10 +159,11 @@ public actor RemoteDirectoryCloudSync: RemoteDirectoryPort, CKSyncEngineDelegate
       await sendEvent(.remoteDirectoryStatusChanged(session, .failed))
       return
     }
-    guard generation == startingGeneration, lastCommandID == session.operationID else { return }
+    guard generation == startingGeneration, lastCommandID == session.operationID,
+      self.installation?.id == installation.id
+    else { return }
     generation &+= 1
     let started = generation
-    self.installation = installation
     identity = loadedIdentity
     self.accountIdentifier = accountIdentifier
     self.session = session
@@ -169,6 +172,7 @@ public actor RemoteDirectoryCloudSync: RemoteDirectoryPort, CKSyncEngineDelegate
     awaitingInitialFetch = true
     fetchFailed = false
     sendFailed = false
+    needsOwnRecordAfterZoneRecovery = false
     guard
       let created = await engineHost.attachRemote(
         self, accountIdentifier: accountIdentifier, session: session)
@@ -231,6 +235,7 @@ public actor RemoteDirectoryCloudSync: RemoteDirectoryPort, CKSyncEngineDelegate
     awaitingInitialFetch = false
     fetchFailed = false
     sendFailed = false
+    needsOwnRecordAfterZoneRecovery = false
     if let previousSession { await engineHost.detachRemote(self, session: previousSession) }
   }
 
@@ -261,6 +266,7 @@ public actor RemoteDirectoryCloudSync: RemoteDirectoryPort, CKSyncEngineDelegate
     messageExpiryTask?.cancel()
     messageExpiryTask = nil
     ownRecordSystemFields = nil
+    needsOwnRecordAfterZoneRecovery = false
     await sendEvent(.remoteAccountAvailabilityChanged)
   }
 }
@@ -291,8 +297,9 @@ extension RemoteDirectoryCloudSync {
     _ enabled: Bool, accountIdentifier requestedAccount: String
   ) async throws -> RemoteInstallation {
     guard case .available(let currentAccount) = await accountAvailability(),
-      currentAccount == requestedAccount, accountIdentifier == requestedAccount,
-      let current = installation
+      currentAccount == requestedAccount,
+      accountIdentifier == nil || accountIdentifier == requestedAccount,
+      let current = installation, current.lastAccountIdentifier == requestedAccount
     else { throw Failure.accountChanged }
     var updated = current
     if enabled {
@@ -300,8 +307,7 @@ extension RemoteDirectoryCloudSync {
     } else {
       updated.disableRemoteManagement()
     }
-    try persist(updated)
-    installation = updated
+    try persistMutation(&updated)
     if let engine {
       let change: CKSyncEngine.PendingRecordZoneChange =
         enabled
@@ -322,6 +328,16 @@ extension RemoteDirectoryCloudSync {
     try FileManager.default.setAttributes(
       [.posixPermissions: 0o600],
       ofItemAtPath: stateURL.path)
+  }
+
+  func persistMutation(_ value: inout RemoteInstallation) throws {
+    guard let current = installation, current.id == value.id,
+      current.mutationRevision == value.mutationRevision,
+      current.mutationRevision < UInt64.max
+    else { throw Failure.invalidMessage }
+    value.mutationRevision = current.mutationRevision + 1
+    try persist(value)
+    installation = value
   }
 
   nonisolated static func recordID(_ id: UUID) -> CKRecord.ID {

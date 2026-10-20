@@ -114,6 +114,7 @@ public struct RootState: Equatable, Sendable {
 
   public func remoteOutputAvailable(_ profile: KioskProfile) -> Bool {
     if let macDisplays {
+      if profile.macOutput?.mode == .projectionWindow { return canPresent(profile) }
       guard let selectedID = profile.macOutput?.displayID else { return canPresent(profile) }
       return macDisplays.contains(where: { $0.id == selectedID }) && canPresent(profile)
     }
