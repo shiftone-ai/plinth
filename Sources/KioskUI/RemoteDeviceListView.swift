@@ -110,23 +110,12 @@ struct RemoteDeviceListView: View {
               Label(
                 L10n.string("Approved", locale: locale),
                 systemImage: "checkmark.shield")
+              DisclosureGroup(L10n.string("Pair again", locale: locale)) {
+                pairingControls
+              }
             } else {
               Label(L10n.string("Approval required", locale: locale), systemImage: "lock")
-              TextField(
-                L10n.string("Registration code", locale: locale),
-                text: Binding(
-                  get: { props.pairingInput },
-                  set: { send(.remotePairingInput($0)) })
-              )
-              .accessibilityIdentifier("remote-pairing-input")
-              #if os(iOS)
-                .keyboardType(.numberPad)
-              #endif
-              Button(L10n.string("Request access", locale: locale)) {
-                send(.remotePairingRequest)
-              }
-              .disabled(!props.canRequestPairing)
-              .accessibilityIdentifier("remote-request-access")
+              pairingControls
             }
             if let status = pairingStatusKey {
               Label(
@@ -247,6 +236,26 @@ struct RemoteDeviceListView: View {
         }
         .accessibilityIdentifier("remote-devices")
       }
+    }
+  }
+
+  private var pairingControls: some View {
+    Group {
+      TextField(
+        L10n.string("Registration code", locale: locale),
+        text: Binding(
+          get: { props.pairingInput },
+          set: { send(.remotePairingInput($0)) })
+      )
+      .accessibilityIdentifier("remote-pairing-input")
+      #if os(iOS)
+        .keyboardType(.numberPad)
+      #endif
+      Button(L10n.string("Request access", locale: locale)) {
+        send(.remotePairingRequest)
+      }
+      .disabled(!props.canRequestPairing)
+      .accessibilityIdentifier("remote-request-access")
     }
   }
 

@@ -27,7 +27,8 @@ public enum Presenters {
       selectedTab: root.remote.selectedTab,
       selectedDeviceID: root.remote.selectedDeviceID,
       devices: root.remote.devices,
-      canRefresh: root.remote.sessionOperation != nil,
+      canRefresh: root.remote.sessionOperation != nil
+        || (root.remote.installation != nil && root.remote.accountOperation == nil),
       thisDeviceEnabled: root.remote.enabled,
       canChangeThisDevice: root.mode == .administration && root.credentialsConfigured
         && root.administratorSession && root.remote.accountIdentifier != nil
@@ -48,7 +49,7 @@ public enum Presenters {
         && root.remote.pairing.revocationOperation == nil,
       selectedDevicePaired: paired,
       pairingInput: root.remote.pairing.input,
-      canRequestPairing: selected != nil && !paired
+      canRequestPairing: selected != nil
         && selected?.signingPublicKey?.count == 32
         && selected?.agreementPublicKey?.count == 32
         && root.remote.pairing.input.utf8.count == 8

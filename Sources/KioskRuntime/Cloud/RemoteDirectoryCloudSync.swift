@@ -80,8 +80,13 @@ public actor RemoteDirectoryCloudSync: RemoteDirectoryPort, CKSyncEngineDelegate
   ) {
     self.stateURL = stateURL
     self.cloudAvailable = cloudAvailable
-    self.displayName = String(
-      displayName.trimmingCharacters(in: .whitespacesAndNewlines).prefix(80))
+    var boundedName = ""
+    for character in displayName.trimmingCharacters(in: .whitespacesAndNewlines).prefix(80) {
+      let segment = String(character)
+      guard boundedName.utf8.count + segment.utf8.count <= 320 else { break }
+      boundedName.append(character)
+    }
+    self.displayName = boundedName.isEmpty ? "Plinth" : boundedName
     self.platform = platform
     identityStore = RemoteIdentityKeyStore(keychain: keychain)
     self.containerIdentifier = containerIdentifier
@@ -237,9 +242,8 @@ public actor RemoteDirectoryCloudSync: RemoteDirectoryPort, CKSyncEngineDelegate
       awaitingInitialFetch = true
       fetchFailed = false
       sendFailed = false
-      if let session, let accountIdentifier {
+      if let session {
         await sendEvent(.remoteDirectoryStatusChanged(session, .checking))
-        await publishDevices(session: session, accountIdentifier: accountIdentifier)
       }
     }
   }

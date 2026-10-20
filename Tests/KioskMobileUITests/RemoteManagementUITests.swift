@@ -55,6 +55,35 @@ extension MobileWorkflowUITests {
     }
   }
 
+  @MainActor func testApprovedDeviceCanEnterANewRegistrationCode() {
+    continueAfterFailure = false
+    let app = XCUIApplication()
+    app.launchArguments = ["-AppleLanguages", "(en)"]
+    app.launchEnvironment["PLINTH_TEST_CREDENTIAL_SERVICE"] =
+      "ai.shiftone.plinth.tests.\(UUID().uuidString)"
+    app.launchEnvironment["PLINTH_TEST_ISOLATED_CREDENTIALS"] = "1"
+    app.launchEnvironment["PLINTH_TEST_REMOTE_FIXTURE"] = "1"
+    app.launch()
+    defer { app.terminate() }
+    let tabs = app.segmentedControls["management-device-tab"]
+    XCTAssertTrue(tabs.waitForExistence(timeout: 10), app.debugDescription)
+    tabs.buttons["Other devices"].tap()
+    let device = app.buttons["remote-device-00000000-0000-0000-0000-000000000060"]
+    XCTAssertTrue(device.waitForExistence(timeout: 10), app.debugDescription)
+    device.tap()
+    let pairAgain = app.buttons["Pair again"]
+    XCTAssertTrue(pairAgain.waitForExistence(timeout: 10), app.debugDescription)
+    reach(pairAgain, app: app)
+    pairAgain.tap()
+    let input = app.textFields["remote-pairing-input"]
+    XCTAssertTrue(input.waitForExistence(timeout: 10), app.debugDescription)
+    input.tap()
+    input.typeText("12345678")
+    let request = app.buttons["remote-request-access"]
+    XCTAssertTrue(request.isEnabled, app.debugDescription)
+    attach(app, "remote-pair-again")
+  }
+
   @MainActor func testRemoteStartURLEditShowsTheTargetSaveResult() async throws {
     continueAfterFailure = false
     let app = XCUIApplication()

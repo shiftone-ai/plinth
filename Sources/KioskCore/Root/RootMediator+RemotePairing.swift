@@ -15,6 +15,7 @@ extension RootMediator {
       next.remote.pairing.codeOperation = token
       next.remote.pairing.incoming = nil
       next.remote.pairing.incomingDeadline = nil
+      next.remote.pairing.incomingDeadlineOperation = nil
       return .handled(
         .init(
           next, reply: .accepted,
@@ -162,10 +163,21 @@ extension RootMediator {
       next.remote.pairing.code = nil
       next.remote.pairing.codeExpiryOperation = nil
       next.remote.pairing.incoming = proposal
-      next.remote.pairing.incomingDeadline =
+      let incomingDeadline =
         envelope.timestamp
         + Double(proposal.header.expiresAt - receivedAt)
-      return .handled(.init(next))
+      next.remote.pairing.incomingDeadline = incomingDeadline
+      let deadline = envelope.token(owner: .idleClock, epoch: state.epoch)
+      next.remote.pairing.incomingDeadlineOperation = deadline
+      return .handled(
+        .init(
+          next,
+          effects: [
+            Effect(
+              deadline,
+              .scheduleRemotePairingDeadline(
+                incomingDeadline, requestID: proposal.header.requestID))
+          ]))
 
     case .remotePairingApprovalRequested(let approved):
       guard envelope.source == .settings, state.mode == .administration,
@@ -192,6 +204,7 @@ extension RootMediator {
       next.remote.pairing.approvalOperation = nil
       next.remote.pairing.incoming = nil
       next.remote.pairing.incomingDeadline = nil
+      next.remote.pairing.incomingDeadlineOperation = nil
       return .handled(.init(next))
 
     case .remotePairingApprovalFailed(let completed):
@@ -302,26 +315,45 @@ extension RootMediator {
       return .handled(.init(next))
 
     case .remotePairingDeadlineReached(let completed, let requestID):
-      guard envelope.source == .idleClock,
-        state.remote.pairing.outgoingDeadlineOperation == completed,
+      guard envelope.source == .idleClock else { return .reject(state, .wrongSource) }
+      if state.remote.pairing.outgoingDeadlineOperation == completed,
         let outgoing = state.remote.pairing.outgoing,
         outgoing.requestID == requestID,
         [.sending, .awaitingApproval, .storingApproval].contains(outgoing.phase)
+      {
+        if envelope.timestamp < outgoing.deadline {
+          let retry = envelope.token(owner: .idleClock, epoch: state.epoch)
+          next.remote.pairing.outgoingDeadlineOperation = retry
+          return .handled(
+            .init(
+              next,
+              effects: [
+                Effect(
+                  retry,
+                  .scheduleRemotePairingDeadline(outgoing.deadline, requestID: requestID))
+              ]))
+        }
+        next.remote.pairing.outgoing?.phase = .unknown
+        next.remote.pairing.outgoingDeadlineOperation = nil
+        return .handled(.init(next))
+      }
+      guard state.remote.pairing.incomingDeadlineOperation == completed,
+        state.remote.pairing.incoming?.header.requestID == requestID,
+        let deadline = state.remote.pairing.incomingDeadline
       else { return .reject(state, .staleOperation) }
-      if envelope.timestamp < outgoing.deadline {
+      if envelope.timestamp < deadline {
         let retry = envelope.token(owner: .idleClock, epoch: state.epoch)
-        next.remote.pairing.outgoingDeadlineOperation = retry
+        next.remote.pairing.incomingDeadlineOperation = retry
         return .handled(
           .init(
             next,
             effects: [
-              Effect(
-                retry,
-                .scheduleRemotePairingDeadline(outgoing.deadline, requestID: requestID))
+              Effect(retry, .scheduleRemotePairingDeadline(deadline, requestID: requestID))
             ]))
       }
-      next.remote.pairing.outgoing?.phase = .unknown
-      next.remote.pairing.outgoingDeadlineOperation = nil
+      next.remote.pairing.incoming = nil
+      next.remote.pairing.incomingDeadline = nil
+      next.remote.pairing.incomingDeadlineOperation = nil
       return .handled(.init(next))
 
     default: return .bubble

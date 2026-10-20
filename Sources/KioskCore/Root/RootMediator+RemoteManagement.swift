@@ -174,15 +174,22 @@ extension RootMediator {
       return .handled(.init(next))
 
     case .remoteRefreshRequested:
-      guard [.settings, .platform].contains(envelope.source),
-        let session = state.remote.sessionOperation
-      else { return .reject(state, .invalidState) }
+      guard [.settings, .platform].contains(envelope.source) else {
+        return .reject(state, .wrongSource)
+      }
+      if let session = state.remote.sessionOperation {
+        return .handled(
+          .init(
+            next, reply: .accepted,
+            effects: [Effect(session, .refreshRemoteDirectory)]))
+      }
+      guard state.remote.installation != nil, state.remote.accountOperation == nil else {
+        return .reject(state, .invalidState)
+      }
+      next.remote.status = .checking
+      next.remote.accountOperation = token
       return .handled(
-        .init(
-          next, reply: .accepted,
-          effects: [
-            Effect(session, .refreshRemoteDirectory)
-          ]))
+        .init(next, reply: .accepted, effects: [Effect(token, .checkRemoteAccount)]))
 
     case .remoteEnabledRequested(let enabled):
       guard envelope.source == .settings, state.mode == .administration,
@@ -198,6 +205,7 @@ extension RootMediator {
         next.remote.pairing.codeExpiryOperation = nil
         next.remote.pairing.incoming = nil
         next.remote.pairing.incomingDeadline = nil
+        next.remote.pairing.incomingDeadlineOperation = nil
       }
       return .handled(
         .init(
@@ -218,6 +226,7 @@ extension RootMediator {
         next.remote.pairing.codeExpiryOperation = nil
         next.remote.pairing.incoming = nil
         next.remote.pairing.incomingDeadline = nil
+        next.remote.pairing.incomingDeadlineOperation = nil
       }
       return .handled(.init(next))
 
