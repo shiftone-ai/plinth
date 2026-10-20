@@ -61,6 +61,16 @@ extension MobileWorkflowUITests {
     _ shortcuts: XCUIApplication, springboard: XCUIApplication
   ) async throws {
     shortcuts.activate()
+    let saved = shortcuts.cells.matching(
+      NSPredicate(format: "label BEGINSWITH %@", "Reset Exhibition, ")
+    ).firstMatch
+    if saved.exists {
+      saved.buttons["Reset Exhibition"].tap()
+      try await exists(springboard.staticTexts["Exhibition reset started"], timeout: 20)
+      attach(shortcuts, "shortcuts-result")
+      springboard.buttons["Done"].firstMatch.tap()
+      return
+    }
     if !shortcuts.buttons["play"].exists && !shortcuts.buttons["Run Shortcut"].exists {
       if !shortcuts.searchFields["Search Actions"].exists {
         shortcuts.buttons["Create Shortcut"].tap()
