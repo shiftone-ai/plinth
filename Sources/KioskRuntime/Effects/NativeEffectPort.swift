@@ -23,13 +23,15 @@ public final class NativeEffectPort: EffectPort {
   private let clock: any ClockPort
   private let displays: any DisplayReadingPort
   private let webServer: (any WebAdministrationServerPort)?
+  private let displayModePreparationTimeout: Duration
   public init(
     web: any WebSurfacePort, presentation: any PresentationPort, repository: ProfileRepository,
     credentials: CredentialStore, biometrics: any BiometricCredentialPort, clock: any ClockPort,
     displays: any DisplayReadingPort, catalogRepository: CatalogRepository? = nil,
     catalogCloudSync: CatalogCloudSync? = nil,
     remoteDirectory: (any RemoteDirectoryPort)? = nil,
-    webServer: (any WebAdministrationServerPort)? = nil
+    webServer: (any WebAdministrationServerPort)? = nil,
+    displayModePreparationTimeout: Duration = .seconds(10)
   ) {
     self.web = web
     self.presentation = presentation
@@ -42,6 +44,7 @@ public final class NativeEffectPort: EffectPort {
     self.clock = clock
     self.displays = displays
     self.webServer = webServer
+    self.displayModePreparationTimeout = displayModePreparationTimeout
   }
 
   public func perform(_ effect: Effect) async -> Event? {
@@ -347,7 +350,9 @@ public final class NativeEffectPort: EffectPort {
       let prepared = await withTaskGroup(of: Bool.self) { group in
         group.addTask(operation: prepare)
         group.addTask {
-          do { try await Task.sleep(for: .seconds(10)) } catch { return false }
+          do { try await Task.sleep(for: self.displayModePreparationTimeout) } catch {
+            return false
+          }
           return false
         }
         let result = await group.next() ?? false
