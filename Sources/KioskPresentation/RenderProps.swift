@@ -16,6 +16,44 @@ public struct RootProps: Equatable, Sendable {
   public let webServerURL: String?
 }
 
+public struct RemoteManagementProps: Equatable, Sendable {
+  public let accountStatus: RemoteDirectoryStatus
+  public let selectedTab: RemoteManagementTab
+  public let selectedDeviceID: UUID?
+  public let devices: [RemoteDevice]
+  public let canRefresh: Bool
+  public let thisDeviceEnabled: Bool
+  public let canChangeThisDevice: Bool
+  public let changingPreference: Bool
+  public let preferenceFailed: Bool
+  public let canGeneratePairingCode: Bool
+  public let pairingCode: String?
+  public let incomingPairingName: String?
+  public let pairingApprovalPending: Bool
+  public let approvedControllers: [RemotePeerGrant]
+  public let canRevokeController: Bool
+  public let selectedDevicePaired: Bool
+  public let pairingInput: String
+  public let canRequestPairing: Bool
+  public let pairingPhase: RemotePairingPhase
+  public let pairedDeviceIDs: Set<UUID>
+  public let selectedSnapshot: RemoteStatusSnapshot?
+  public let statusPhase: RemoteCommandPhase
+  public let unknownResultBeforeRefresh: Bool
+  public let statusIsAutomaticRefresh: Bool
+  public let statusRejection: RemoteCommandRejection?
+  public let canRefreshStatus: Bool
+  public let canEditStartURL: Bool
+  public let editing: RemoteEditingState?
+  public let canReviewEdit: Bool
+  public let savingStartURL: Bool
+  public let lastCommandWasSave: Bool
+  public let lastExhibitionAction: RemoteExhibitionAction?
+  public let reviewDifferences: [CatalogDifference]
+  public let availableExhibitionActions: [RemoteExhibitionAction]
+  public let exhibitionReviewAction: RemoteExhibitionAction?
+}
+
 public struct SettingsProps: Equatable, Sendable {
   public let catalog: CatalogProps
   public let draft: ProfileDraft

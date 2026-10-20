@@ -9,6 +9,27 @@ public enum SettingsIntent: Sendable {
   case changeBiometricUnlock(Bool)
   case cancelBiometricChange
   case start, quit
+  case remoteTab(RemoteManagementTab)
+  case remoteEnabled(Bool)
+  case remoteSelectDevice(UUID?)
+  case remoteRefresh
+  case remotePairingCode
+  case remotePairingInput(String)
+  case remotePairingRequest
+  case remotePairingApproval(Bool)
+  case remoteRevokeController(UUID)
+  case remoteStatus
+  case remoteEditOpen
+  case remoteEditStartURL(String)
+  case remoteEditDraft(ProfileDraftEdit)
+  case remoteEditAddRule
+  case remoteEditRemoveRule(UInt64)
+  case remoteEditReview
+  case remoteEditCancel
+  case remoteEditSave
+  case remoteExhibitionReview(RemoteExhibitionAction)
+  case remoteExhibitionCancelReview
+  case remoteExhibitionRequest(RemoteExhibitionAction)
   case prepareExternalScene
   case addOriginRule
   case removeOriginRule(UInt64)

@@ -14,6 +14,7 @@ public final class MacApplication: NSObject, NSApplicationDelegate, NSWindowDele
   private var lifecycle: LifecycleAdapter?
   private var executor: EffectExecutor?
   private var cloudBridge: CatalogCloudEventBridge?
+  private var remoteBridge: RemoteCloudEventBridge?
   private var webServer: WebAdministrationServer?
   private let preview: Bool
   private let exhibitionInset: Double
@@ -52,14 +53,17 @@ public final class MacApplication: NSObject, NSApplicationDelegate, NSWindowDele
         L10n.string("Administrator unlock", locale: language.locale)
       })
     let cloudBridge = CatalogCloudEventBridge()
+    let remoteBridge = RemoteCloudEventBridge()
     let webServer = WebAdministrationServer()
     let port = makeEffectPort(
       web: web, presentation: presentation, clock: clock, displays: displays,
-      cloudBridge: cloudBridge, webServer: webServer)
+      cloudBridge: cloudBridge, remoteBridge: remoteBridge, webServer: webServer)
     let executor = EffectExecutor(port: port)
     let runtime = RootRuntime(clock: clock, executor: executor, diagnostics: DiagnosticLogAdapter())
     cloudBridge.runtime = runtime
+    remoteBridge.runtime = runtime
     self.cloudBridge = cloudBridge
+    self.remoteBridge = remoteBridge
     presentation.pointerEvents = { [weak runtime] in runtime?.send($0, from: .platform) }
     self.window = window
     self.executor = executor
@@ -91,6 +95,7 @@ public final class MacApplication: NSObject, NSApplicationDelegate, NSWindowDele
     NSApplication.shared.activate()
     runtime.send(.macDisplaysChanged(displays.availableDisplays), from: .platform)
     initializeCatalog(runtime)
+    runtime.send(.remoteLoadRequested, from: .root)
     runtime.send(.bootstrapRequested, from: .root)
   }
 
@@ -104,8 +109,10 @@ public final class MacApplication: NSObject, NSApplicationDelegate, NSWindowDele
   private func makeEffectPort(
     web: WebKitAdapter, presentation: PresentationAdapter, clock: MonotonicClock,
     displays: DisplayAdapter, cloudBridge: CatalogCloudEventBridge,
+    remoteBridge: RemoteCloudEventBridge,
     webServer: WebAdministrationServer
   ) -> NativeEffectPort {
+    let cloudEngineHost = CloudSyncEngineHost.shared
     let location =
       profileFileURL
       ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -146,8 +153,19 @@ public final class MacApplication: NSObject, NSApplicationDelegate, NSWindowDele
       catalogRepository: CatalogRepository(
         fileURL: location.deletingLastPathComponent().appendingPathComponent("catalog.json")),
       catalogCloudSync: CatalogCloudSync(
-        stateURL: location.deletingLastPathComponent().appendingPathComponent("catalog-cloud.json")
+        stateURL: location.deletingLastPathComponent().appendingPathComponent("catalog-cloud.json"),
+        engineHost: cloudEngineHost
       ) { [weak cloudBridge] event in cloudBridge?.send(event) },
+      remoteDirectory: RemoteDirectoryCloudSync(
+        stateURL: location.deletingLastPathComponent().appendingPathComponent(
+          "remote-management.json"),
+        displayName: Host.current().localizedName ?? ProcessInfo.processInfo.hostName,
+        platform: .mac,
+        cloudAvailable: Bundle.main.object(forInfoDictionaryKey: "PlinthCloudKitEntitled")
+          as? String == "YES",
+        keychain: credentialKeychain,
+        engineHost: cloudEngineHost
+      ) { [weak remoteBridge] event in remoteBridge?.send(event) },
       webServer: webServer)
   }
 
@@ -166,7 +184,8 @@ public final class MacApplication: NSObject, NSApplicationDelegate, NSWindowDele
   private func makeContentView(runtime: RootRuntime, web: WebKitAdapter) -> NSView {
     NSHostingView(
       rootView: KioskRootView(
-        root: runtime.rootProps, settings: runtime.settingsProps, unlock: runtime.unlockProps,
+        root: runtime.rootProps, settings: runtime.settingsProps, remote: runtime.remoteProps,
+        unlock: runtime.unlockProps,
         web: runtime.webProps, host: PassiveWebHost(host: web.host),
         biometricHost: AnyView(MacBiometricHost(display: biometricDisplay)),
         language: language,
@@ -179,6 +198,10 @@ public final class MacApplication: NSObject, NSApplicationDelegate, NSWindowDele
   }
 
   private func settings(_ intent: SettingsIntent) {
+    if let event = RemoteIntentEventMapper.event(for: intent) {
+      runtime?.send(event, from: .settings)
+      return
+    }
     if let event = CatalogIntentEventMapper.event(
       for: intent, importCount: runtime?.settingsProps.props.catalog.importPreview?.count ?? 0
     ) {
@@ -282,6 +305,7 @@ public final class MacApplication: NSObject, NSApplicationDelegate, NSWindowDele
     lifecycle = nil
     runtime = nil
     executor = nil
+    remoteBridge = nil
     webServer = nil
     window?.delegate = nil
     window?.close()
