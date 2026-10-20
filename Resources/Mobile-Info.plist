@@ -13,6 +13,7 @@
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>$(MARKETING_VERSION)</string>
   <key>CFBundleVersion</key><string>$(CURRENT_PROJECT_VERSION)</string>
+  <key>PlinthCloudKitEntitled</key><string>$(PLINTH_CLOUDKIT_ENTITLED)</string>
   <key>LSRequiresIPhoneOS</key><true/>
   <key>UIBackgroundModes</key><array><string>remote-notification</string></array>
   <key>ITSAppUsesNonExemptEncryption</key><false/>

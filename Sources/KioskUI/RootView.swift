@@ -7,6 +7,7 @@ import SwiftUI
 public struct KioskRootView<WebHost: View>: View {
   let root: RenderPropsStore<RootProps>
   let settings: RenderPropsStore<SettingsProps>
+  let remote: RenderPropsStore<RemoteManagementProps>
   let unlock: RenderPropsStore<UnlockProps>
   let web: RenderPropsStore<WebSurfaceProps>
   let host: WebHost
@@ -20,6 +21,7 @@ public struct KioskRootView<WebHost: View>: View {
 
   public init(
     root: RenderPropsStore<RootProps>, settings: RenderPropsStore<SettingsProps>,
+    remote: RenderPropsStore<RemoteManagementProps>,
     unlock: RenderPropsStore<UnlockProps>, web: RenderPropsStore<WebSurfaceProps>, host: WebHost,
     biometricHost: AnyView? = nil,
     language: LanguagePreference, selectLanguage: @escaping (InterfaceLanguage) -> Void,
@@ -29,6 +31,7 @@ public struct KioskRootView<WebHost: View>: View {
   ) {
     self.root = root
     self.settings = settings
+    self.remote = remote
     self.unlock = unlock
     self.web = web
     self.host = host
@@ -45,9 +48,28 @@ public struct KioskRootView<WebHost: View>: View {
       if !root.props.administrationAvailable {
         Color.black.ignoresSafeArea()
       } else if root.props.showsAdministration {
-        SettingsView(
-          props: settings.props, send: settingsIntent, language: language.selection,
-          selectLanguage: selectLanguage)
+        VStack(spacing: 0) {
+          Picker(
+            L10n.string("Device", locale: locale),
+            selection: Binding(
+              get: { remote.props.selectedTab },
+              set: { settingsIntent(.remoteTab($0)) })
+          ) {
+            Text(L10n.string("This device", locale: locale)).tag(RemoteManagementTab.thisDevice)
+            Text(L10n.string("Other devices", locale: locale)).tag(RemoteManagementTab.otherDevices)
+          }
+          .pickerStyle(.segmented)
+          .padding(.horizontal)
+          .padding(.top, 8)
+          .accessibilityIdentifier("management-device-tab")
+          if remote.props.selectedTab == .thisDevice {
+            SettingsView(
+              props: settings.props, remote: remote.props, send: settingsIntent,
+              language: language.selection, selectLanguage: selectLanguage)
+          } else {
+            RemoteDeviceListView(props: remote.props, send: settingsIntent)
+          }
+        }
       } else {
         ZStack {
           Color.black

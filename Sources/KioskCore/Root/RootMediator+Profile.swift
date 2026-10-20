@@ -50,6 +50,28 @@ extension RootMediator {
       if !profile.webAdministrationEnabled { next.webSession = nil }
       next.saveOperation = nil
       next.pendingProfile = nil
+      if state.remote.remoteSaveOperation == completed {
+        next.remote.remoteSaveOperation = nil
+        guard let request = state.remote.incomingCommand else {
+          return .handled(
+            .init(next, childControls: [.init(.administration, .remoteProfileSaved(profile))]))
+        }
+        let result = RemoteStatusSnapshot(
+          reportedAt: Int64(envelope.timestamp), mode: state.mode,
+          savedProfile: profile, activeRevision: state.activeProfile?.revision,
+          macDisplays: state.macDisplays, mobileDisplays: state.mobileDisplays)
+        let reply = envelope.token(owner: .cloudRemote, epoch: state.epoch)
+        next.remote.commandResultOperation = reply
+        return .handled(
+          .init(
+            next,
+            effects: [
+              Effect(
+                reply,
+                .sendRemoteCommandResult(request, .succeeded(result)))
+            ],
+            childControls: [.init(.administration, .remoteProfileSaved(profile))]))
+      }
       return .handled(
         .init(next, childControls: [.init(.administration, .draftSaveSucceeded(profile))]))
 
@@ -58,6 +80,20 @@ extension RootMediator {
       guard state.saveOperation == completed else { return .reject(state, .staleOperation) }
       next.saveOperation = nil
       next.pendingProfile = nil
+      if state.remote.remoteSaveOperation == completed {
+        next.remote.remoteSaveOperation = nil
+        guard let request = state.remote.incomingCommand else { return .handled(.init(next)) }
+        let reply = envelope.token(owner: .cloudRemote, epoch: state.epoch)
+        next.remote.commandResultOperation = reply
+        return .handled(
+          .init(
+            next,
+            effects: [
+              Effect(
+                reply,
+                .sendRemoteCommandResult(request, .rejected(.storageFailed)))
+            ]))
+      }
       return .handled(.init(next, childControls: [.init(.administration, .draftSaveFailed)]))
 
     default: return .bubble

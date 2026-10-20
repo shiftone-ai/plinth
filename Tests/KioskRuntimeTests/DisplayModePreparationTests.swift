@@ -109,7 +109,8 @@ struct DisplayModePreparationTests {
           service: "ai.shiftone.plinth.tests.\(UUID())",
           enableReason: { "Enable administrator unlock with biometrics" },
           unlockReason: { "Unlock administrator settings" }),
-        clock: FakeClock(), displays: ModeDisplay()))
+        clock: FakeClock(), displays: ModeDisplay(),
+        displayModePreparationTimeout: .seconds(30)))
   }
 
   @Test(arguments: [false, true], [false, true])

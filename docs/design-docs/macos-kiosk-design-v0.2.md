@@ -6,6 +6,8 @@
 
 v0.2では，指定されたSwiftUI Pro／Swift Concurrency Pro／Swift Testing ProのSkill本文と関連参照資料を確認し，実装・レビュー規約を追加した．Root所有ツリー，Passive View，CoR，状態機械としてのMediatorという設計原則と，機能スコープは維持する．この改訂ではSkillのインストール，リポジトリへの変更，アプリの実装・ビルド・テストは行っていない．
 
+この文書は初版の設計を記録する．後続の別端末管理は [ADR 0004](../adr/0004-remote-cloudkit-management.md) を参照する．
+
 ## 0. 目的と対象範囲
 
 任意のWebページを，来場者が操作しても展示状態を保てるMac用キオスクブラウザを作る．広告配信CMSではなく，単一のWebコンテンツを公開するための展示ランタイムとする．

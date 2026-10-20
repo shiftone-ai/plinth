@@ -19,13 +19,14 @@ extension MobileWorkflowUITests {
     let app = XCUIApplication()
     app.launchEnvironment["PLINTH_TEST_CREDENTIAL_SERVICE"] =
       "ai.shiftone.plinth.tests.shortcuts.\(UUID().uuidString)"
+    app.launchEnvironment["PLINTH_TEST_ISOLATED_CREDENTIALS"] = "1"
     app.launch()
     try await configureStoreReviewDemo(app)
     app.buttons["start-exhibition"].tap()
-    let next = app.webViews.links["Next exhibit"]
+    let next = app.webViews.links["NEXT EXHIBIT"]
     try await exists(next, timeout: 30)
     next.tap()
-    try await exists(app.webViews.staticTexts["Another view"], timeout: 20)
+    try await exists(app.webViews.links["FIRST EXHIBIT"], timeout: 20)
     attach(app, "shortcuts-before")
     if scenario == "physical" {
       shortcuts.activate()
@@ -52,8 +53,8 @@ extension MobileWorkflowUITests {
       try await runResetShortcut(shortcuts, springboard: springboard)
     }
     app.activate()
-    try await exists(app.webViews.links["Next exhibit"], timeout: 30)
-    XCTAssertFalse(app.webViews.staticTexts["Another view"].exists)
+    try await exists(app.webViews.links["NEXT EXHIBIT"], timeout: 30)
+    XCTAssertFalse(app.webViews.links["FIRST EXHIBIT"].exists)
     attach(app, "shortcuts-after")
   }
 
@@ -85,7 +86,9 @@ extension MobileWorkflowUITests {
         search.tap()
         search.typeText("\n")
       }
-      let action = shortcuts.descendants(matching: .any)["Reset Exhibition"].firstMatch
+      let tutorial = springboard.buttons["Continue"]
+      if tutorial.exists { tutorial.tap() }
+      let action = shortcuts.cells["Reset Exhibition"].firstMatch
       XCTAssertTrue(action.waitForExistence(timeout: 25))
       action.tap()
     }
