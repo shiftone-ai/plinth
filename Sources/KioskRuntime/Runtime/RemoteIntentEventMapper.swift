@@ -7,8 +7,6 @@ public enum RemoteIntentEventMapper {
     switch intent {
     case .remoteTab(let tab): .remoteTabSelected(tab)
     case .remoteEnabled(let enabled): .remoteEnabledRequested(enabled)
-    case .remoteVisibility(let id, let visible):
-      .remoteVisibilityRequested(id: id, visible: visible)
     case .remoteSelectDevice(let id): .remoteDeviceSelected(id)
     case .remoteRefresh: .remoteRefreshRequested
     case .remotePairingCode: .remotePairingCodeRequested

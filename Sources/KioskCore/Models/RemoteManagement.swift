@@ -4,7 +4,6 @@ import Foundation
 public struct RemoteInstallation: Codable, Equatable, Sendable {
   public let id: UUID
   public var enabledAccountIdentifier: String?
-  public var hiddenDeviceIDsByAccount: [String: Set<UUID>]
   public var lastAccountIdentifier: String?
   public var approvedControllers: [UUID: RemotePeerGrant]
   public var approvedTargets: [UUID: RemotePeerGrant]
@@ -12,7 +11,6 @@ public struct RemoteInstallation: Codable, Equatable, Sendable {
 
   public init(
     id: UUID, enabledAccountIdentifier: String? = nil,
-    hiddenDeviceIDsByAccount: [String: Set<UUID>] = [:],
     lastAccountIdentifier: String? = nil,
     approvedControllers: [UUID: RemotePeerGrant] = [:],
     approvedTargets: [UUID: RemotePeerGrant] = [:],
@@ -20,7 +18,6 @@ public struct RemoteInstallation: Codable, Equatable, Sendable {
   ) {
     self.id = id
     self.enabledAccountIdentifier = enabledAccountIdentifier
-    self.hiddenDeviceIDsByAccount = hiddenDeviceIDsByAccount
     self.lastAccountIdentifier = lastAccountIdentifier
     self.approvedControllers = approvedControllers
     self.approvedTargets = approvedTargets
@@ -28,7 +25,7 @@ public struct RemoteInstallation: Codable, Equatable, Sendable {
   }
 
   private enum CodingKeys: String, CodingKey {
-    case id, enabledAccountIdentifier, hiddenDeviceIDsByAccount
+    case id, enabledAccountIdentifier
     case lastAccountIdentifier, approvedControllers, approvedTargets
     case processedRequestExpirations
   }
@@ -38,9 +35,6 @@ public struct RemoteInstallation: Codable, Equatable, Sendable {
     id = try fields.decode(UUID.self, forKey: .id)
     enabledAccountIdentifier = try fields.decodeIfPresent(
       String.self, forKey: .enabledAccountIdentifier)
-    hiddenDeviceIDsByAccount =
-      try fields.decodeIfPresent(
-        [String: Set<UUID>].self, forKey: .hiddenDeviceIDsByAccount) ?? [:]
     lastAccountIdentifier = try fields.decodeIfPresent(
       String.self, forKey: .lastAccountIdentifier)
     approvedControllers =
@@ -83,10 +77,6 @@ public struct RemoteInstallation: Codable, Equatable, Sendable {
     approvedControllers = [:]
   }
 
-  public func hiddenDeviceIDs(for accountIdentifier: String?) -> Set<UUID> {
-    guard let accountIdentifier else { return [] }
-    return hiddenDeviceIDsByAccount[accountIdentifier] ?? []
-  }
 }
 
 public struct RemotePeerGrant: Codable, Equatable, Sendable, Identifiable {

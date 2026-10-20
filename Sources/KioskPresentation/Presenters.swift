@@ -3,9 +3,6 @@ import KioskCore
 
 public enum Presenters {
   public static func remoteManagement(_ root: RootState) -> RemoteManagementProps {
-    let hidden =
-      root.remote.installation?.hiddenDeviceIDs(
-        for: root.remote.accountIdentifier) ?? []
     let selected = root.remote.devices.first { $0.id == root.remote.selectedDeviceID }
     let grant = selected.flatMap { root.remote.installation?.approvedTargets[$0.id] }
     let paired =
@@ -29,8 +26,7 @@ public enum Presenters {
       accountStatus: root.remote.status,
       selectedTab: root.remote.selectedTab,
       selectedDeviceID: root.remote.selectedDeviceID,
-      visibleDevices: root.remote.devices.filter { !hidden.contains($0.id) },
-      hiddenDevices: root.remote.devices.filter { hidden.contains($0.id) },
+      devices: root.remote.devices,
       canRefresh: root.remote.sessionOperation != nil,
       thisDeviceEnabled: root.remote.enabled,
       canChangeThisDevice: root.mode == .administration && root.credentialsConfigured

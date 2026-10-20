@@ -8,7 +8,7 @@ public enum RootMediator {
       .remoteAccountCheckFailed,
       .remoteAccountAvailabilityChanged, .remoteDirectoryChanged,
       .remoteDirectoryStatusChanged, .remoteRefreshRequested, .remoteEnabledRequested,
-      .remoteVisibilityRequested, .remoteConfigurationUpdated,
+      .remoteConfigurationUpdated,
       .remotePreferenceUpdateFailed, .remoteTabSelected, .remoteDeviceSelected:
       return reduceRemoteManagement(state, envelope)
     case .remotePairingCodeRequested, .remotePairingCodeGenerated,

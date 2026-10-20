@@ -52,7 +52,7 @@ public final class EffectExecutor: EffectExecuting {
       source = .cloudCatalog
     case .loadRemoteConfiguration, .checkRemoteAccount, .startRemoteDirectory,
       .stopRemoteDirectory, .refreshRemoteDirectory, .setRemoteEnabled,
-      .setRemoteVisibility, .generateRemotePairingCode, .sendRemotePairingRequest,
+      .generateRemotePairingCode, .sendRemotePairingRequest,
       .respondToRemotePairing, .saveRemoteTargetGrant, .revokeRemoteController,
       .sendRemoteCommand, .claimRemoteCommand, .sendRemoteCommandResult,
       .rejectRemoteCommand, .reportRemoteCommandProgress:

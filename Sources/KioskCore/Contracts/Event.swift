@@ -56,7 +56,6 @@ public enum Event: Equatable, Sendable {
   case remoteDirectoryStatusChanged(OperationToken, RemoteDirectoryStatus)
   case remoteRefreshRequested
   case remoteEnabledRequested(Bool)
-  case remoteVisibilityRequested(id: UUID, visible: Bool)
   case remoteConfigurationUpdated(OperationToken, RemoteInstallation)
   case remotePreferenceUpdateFailed(OperationToken)
   case remoteTabSelected(RemoteManagementTab)
@@ -265,7 +264,7 @@ public enum Event: Equatable, Sendable {
       .catalogImportConfirmed, .catalogImportCancelled:
       true
     case .remoteLoadRequested, .remoteRefreshRequested, .remoteEnabledRequested,
-      .remoteVisibilityRequested, .remoteTabSelected, .remoteDeviceSelected,
+      .remoteTabSelected, .remoteDeviceSelected,
       .remotePairingCodeRequested, .remotePairingCodeEdited,
       .remotePairingRequestRequested, .remotePairingApprovalRequested,
       .remoteControllerRevokeRequested, .remoteStatusRequested:

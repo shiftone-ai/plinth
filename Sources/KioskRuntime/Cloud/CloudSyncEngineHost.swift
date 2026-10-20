@@ -191,7 +191,11 @@ public actor CloudSyncEngineHost: CKSyncEngineDelegate {
     accountIdentifier = nil
     await catalog?.adoptSharedEngine(nil, fullFetch: false)
     await remote?.adoptSharedEngine(nil, fullFetch: false)
-    await previous?.cancelOperations()
+    // A Root effect can be scheduled by a delegate event. Keep cancellation out
+    // of that callback's task; CKSyncEngine traps on a nested awaited call.
+    if let previous {
+      Task.detached { await previous.cancelOperations() }
+    }
   }
 
   public func handleEvent(_ event: CKSyncEngine.Event, syncEngine: CKSyncEngine) async {

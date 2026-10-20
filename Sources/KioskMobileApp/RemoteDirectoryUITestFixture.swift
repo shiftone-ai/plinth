@@ -65,16 +65,6 @@
       installation.enabledAccountIdentifier = enabled ? accountIdentifier : nil
       return installation
     }
-    func setVisibility(
-      _ id: UUID, visible: Bool,
-      accountIdentifier: String
-    ) throws -> RemoteInstallation {
-      guard accountIdentifier == self.accountIdentifier else { throw Failure.invalidRequest }
-      var hidden = installation.hiddenDeviceIDsByAccount[accountIdentifier] ?? []
-      if visible { hidden.remove(id) } else { hidden.insert(id) }
-      installation.hiddenDeviceIDsByAccount[accountIdentifier] = hidden
-      return installation
-    }
     func sendPairingRequest(
       target: RemoteDevice, code: String, requestID: UUID,
       accountIdentifier: String, command: OperationToken

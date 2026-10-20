@@ -230,6 +230,13 @@ extension RemoteDirectoryCloudSync {
   }
 
   func sendQueuedChanges(in engine: CKSyncEngine, session: OperationToken) async {
+    Task.detached { [weak self] in
+      await self?.performQueuedSend(in: engine, session: session)
+    }
+  }
+
+  private func performQueuedSend(in engine: CKSyncEngine, session: OperationToken) async {
+    guard self.session == session, self.engine === engine else { return }
     do { try await engine.sendChanges() } catch {
       guard self.session == session, self.engine === engine else { return }
       await sendEvent(.remoteDirectoryStatusChanged(session, Self.status(for: error)))

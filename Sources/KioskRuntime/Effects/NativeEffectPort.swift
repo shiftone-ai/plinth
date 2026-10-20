@@ -155,15 +155,6 @@ public final class NativeEffectPort: EffectPort {
         return try await .remoteConfigurationUpdated(
           effect.token, remoteDirectory.setEnabled(enabled, accountIdentifier: accountIdentifier))
       } catch { return .remotePreferenceUpdateFailed(effect.token) }
-    case .setRemoteVisibility(let id, let visible, let accountIdentifier):
-      guard let remoteDirectory else { return .remotePreferenceUpdateFailed(effect.token) }
-      do {
-        return try await .remoteConfigurationUpdated(
-          effect.token,
-          remoteDirectory.setVisibility(
-            id, visible: visible,
-            accountIdentifier: accountIdentifier))
-      } catch { return .remotePreferenceUpdateFailed(effect.token) }
     case .generateRemotePairingCode:
       do {
         return try .remotePairingCodeGenerated(

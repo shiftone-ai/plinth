@@ -206,25 +206,6 @@ extension RootMediator {
             Effect(token, .setRemoteEnabled(enabled, accountIdentifier: accountIdentifier))
           ]))
 
-    case .remoteVisibilityRequested(let id, let visible):
-      guard envelope.source == .settings, state.mode == .administration,
-        state.remote.devices.contains(where: { $0.id == id }),
-        let accountIdentifier = state.remote.accountIdentifier,
-        state.remote.preferenceOperation == nil
-      else { return .reject(state, .invalidState) }
-      next.remote.preferenceOperation = token
-      next.remote.preferenceFailed = false
-      return .handled(
-        .init(
-          next, reply: .accepted,
-          effects: [
-            Effect(
-              token,
-              .setRemoteVisibility(
-                id, visible: visible,
-                accountIdentifier: accountIdentifier))
-          ]))
-
     case .remoteConfigurationUpdated(let completed, let installation):
       guard envelope.source == .cloudRemote, state.remote.preferenceOperation == completed,
         state.remote.installation?.id == installation.id
@@ -237,11 +218,6 @@ extension RootMediator {
         next.remote.pairing.codeExpiryOperation = nil
         next.remote.pairing.incoming = nil
         next.remote.pairing.incomingDeadline = nil
-      }
-      if let selected = next.remote.selectedDeviceID,
-        installation.hiddenDeviceIDs(for: next.remote.accountIdentifier).contains(selected)
-      {
-        next.remote.selectedDeviceID = nil
       }
       return .handled(.init(next))
 
@@ -279,10 +255,7 @@ extension RootMediator {
         state.remote.selectedTab == .otherDevices
       else { return .reject(state, .invalidState) }
       if let id {
-        let hidden =
-          state.remote.installation?.hiddenDeviceIDs(
-            for: state.remote.accountIdentifier) ?? []
-        guard !hidden.contains(id), state.remote.devices.contains(where: { $0.id == id }) else {
+        guard state.remote.devices.contains(where: { $0.id == id }) else {
           return .reject(state, .invalidState)
         }
       }

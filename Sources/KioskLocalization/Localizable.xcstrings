@@ -6871,66 +6871,6 @@
         }
       }
     },
-    "Hidden devices": {
-      "comment": "Remote device management control or status.",
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "非表示の端末"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Hidden devices"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "숨긴 기기"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "已隐藏的设备"
-          }
-        }
-      }
-    },
-    "Hide device": {
-      "comment": "Remote device management control or status.",
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "端末を隠す"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Hide device"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "기기 숨기기"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "隐藏设备"
-          }
-        }
-      }
-    },
     "Invalid settings": {
       "comment": "Remote device status or rejection.",
       "extractionState": "manual",
@@ -7737,36 +7677,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "设备设置已更改"
-          }
-        }
-      }
-    },
-    "Show device": {
-      "comment": "Remote device management control or status.",
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "端末を表示"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Show device"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "기기 표시"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "显示设备"
           }
         }
       }

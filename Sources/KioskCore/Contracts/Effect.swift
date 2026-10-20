@@ -29,7 +29,6 @@ public struct Effect: Equatable, Sendable {
     case stopRemoteDirectory
     case refreshRemoteDirectory
     case setRemoteEnabled(Bool, accountIdentifier: String)
-    case setRemoteVisibility(UUID, visible: Bool, accountIdentifier: String)
     case generateRemotePairingCode
     case scheduleRemotePairingCodeExpiry(Double)
     case sendRemotePairingRequest(
