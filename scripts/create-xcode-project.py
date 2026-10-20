@@ -90,6 +90,8 @@ def configurations(name, settings):
     configs = []
     for configuration in ["Debug", "Release"]:
         values = dict(settings)
+        if name == "Mobile":
+            values["PLINTH_CLOUDKIT_ENTITLED"] = "NO" if configuration == "Debug" else "YES"
         values["SWIFT_OPTIMIZATION_LEVEL"] = "-Onone" if configuration == "Debug" else "-O"
         values["DEBUG_INFORMATION_FORMAT"] = (
             "dwarf" if configuration == "Debug" else "dwarf-with-dsym"
@@ -475,6 +477,20 @@ mobile_biometric_test = obj(
     path="Tests/KioskMobileUITests/MobileBiometricUITests.swift",
     sourceTree="SOURCE_ROOT",
 )
+mobile_remote_physical_test = obj(
+    "MobileRemotePhysicalTest",
+    "PBXFileReference",
+    lastKnownFileType="sourcecode.swift",
+    path="Tests/KioskMobileUITests/RemotePhysicalCloudUITests.swift",
+    sourceTree="SOURCE_ROOT",
+)
+mobile_remote_management_test = obj(
+    "MobileRemoteManagementTest",
+    "PBXFileReference",
+    lastKnownFileType="sourcecode.swift",
+    path="Tests/KioskMobileUITests/RemoteManagementUITests.swift",
+    sourceTree="SOURCE_ROOT",
+)
 objects[group]["children"] += [
     mobile_main,
     mobile_shortcut,
@@ -484,6 +500,8 @@ objects[group]["children"] += [
     mobile_information_test,
     mobile_localization_test,
     mobile_biometric_test,
+    mobile_remote_physical_test,
+    mobile_remote_management_test,
 ]
 objects[products]["children"] += [mobile_product, mobile_test_product]
 mobile_library = obj(
@@ -510,6 +528,12 @@ mobile_localization_test_build = obj(
 )
 mobile_biometric_test_build = obj(
     "MobileBiometricTestBuild", "PBXBuildFile", fileRef=mobile_biometric_test
+)
+mobile_remote_physical_test_build = obj(
+    "MobileRemotePhysicalTestBuild", "PBXBuildFile", fileRef=mobile_remote_physical_test
+)
+mobile_remote_management_test_build = obj(
+    "MobileRemoteManagementTestBuild", "PBXBuildFile", fileRef=mobile_remote_management_test
 )
 mobile_assets = obj(
     "MobileAssets",
@@ -574,6 +598,7 @@ mobile_settings = {
     **mobile_base,
     "INFOPLIST_FILE": "Resources/Mobile-Info.plist",
     "CODE_SIGN_ENTITLEMENTS": "Resources/Mobile.entitlements",
+    "PLINTH_CLOUDKIT_ENTITLED": "NO",
     "PRODUCT_BUNDLE_IDENTIFIER": "ai.shiftone.plinth.mobile",
     "PRODUCT_NAME": "PlinthMobile",
     "MARKETING_VERSION": "1.0",
@@ -651,6 +676,8 @@ mobile_test_target = obj(
                 mobile_information_test_build,
                 mobile_localization_test_build,
                 mobile_biometric_test_build,
+                mobile_remote_physical_test_build,
+                mobile_remote_management_test_build,
                 fixture_build,
             ],
         ),

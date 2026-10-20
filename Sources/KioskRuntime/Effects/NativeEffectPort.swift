@@ -15,29 +15,36 @@ public final class NativeEffectPort: EffectPort {
   private let repository: ProfileRepository
   private let catalogRepository: CatalogRepository?
   private let catalogCloudSync: CatalogCloudSync?
+  private let remoteDirectory: (any RemoteDirectoryPort)?
   private var cloudStopTask: Task<Void, Never>?
+  private var remoteStopTask: Task<Void, Never>?
   private let credentials: CredentialStore
   private let biometrics: any BiometricCredentialPort
   private let clock: any ClockPort
   private let displays: any DisplayReadingPort
   private let webServer: (any WebAdministrationServerPort)?
+  private let displayModePreparationTimeout: Duration
   public init(
     web: any WebSurfacePort, presentation: any PresentationPort, repository: ProfileRepository,
     credentials: CredentialStore, biometrics: any BiometricCredentialPort, clock: any ClockPort,
     displays: any DisplayReadingPort, catalogRepository: CatalogRepository? = nil,
     catalogCloudSync: CatalogCloudSync? = nil,
-    webServer: (any WebAdministrationServerPort)? = nil
+    remoteDirectory: (any RemoteDirectoryPort)? = nil,
+    webServer: (any WebAdministrationServerPort)? = nil,
+    displayModePreparationTimeout: Duration = .seconds(10)
   ) {
     self.web = web
     self.presentation = presentation
     self.repository = repository
     self.catalogRepository = catalogRepository
     self.catalogCloudSync = catalogCloudSync
+    self.remoteDirectory = remoteDirectory
     self.credentials = credentials
     self.biometrics = biometrics
     self.clock = clock
     self.displays = displays
     self.webServer = webServer
+    self.displayModePreparationTimeout = displayModePreparationTimeout
   }
 
   public func perform(_ effect: Effect) async -> Event? {
@@ -84,6 +91,21 @@ public final class NativeEffectPort: EffectPort {
       if case .scheduleIdle = effect.kind { return .idleDeadlineReached(effect.token) }
       if case .scheduleUnlockTimeout = effect.kind { return .unlockDeadlineReached(effect.token) }
       return .retryDeadlineReached(effect.token)
+    case .scheduleRemotePairingDeadline(let deadline, let requestID):
+      do {
+        try await Task.sleep(for: .seconds(Self.timerInterval(until: deadline, now: clock.now)))
+      } catch { return nil }
+      return Task.isCancelled ? nil : .remotePairingDeadlineReached(effect.token, requestID)
+    case .scheduleRemotePairingCodeExpiry(let deadline):
+      do {
+        try await Task.sleep(for: .seconds(Self.timerInterval(until: deadline, now: clock.now)))
+      } catch { return nil }
+      return Task.isCancelled ? nil : .remotePairingCodeExpired(effect.token)
+    case .scheduleRemoteCommandDeadline(let deadline, let requestID):
+      do {
+        try await Task.sleep(for: .seconds(Self.timerInterval(until: deadline, now: clock.now)))
+      } catch { return nil }
+      return Task.isCancelled ? nil : .remoteCommandDeadlineReached(effect.token, requestID)
     case .verifyPasscode(let passcode):
       let succeeded = (try? await credentials.verify(passcode)) ?? false
       return .credentialVerified(effect.token, succeeded: succeeded)
@@ -110,6 +132,102 @@ public final class NativeEffectPort: EffectPort {
         try await repository.recover(profile)
         return .profileSaved(effect.token, profile)
       } catch { return .profileSaveFailed(effect.token) }
+    case .loadRemoteConfiguration:
+      guard let remoteDirectory else { return .remoteLoadFailed(effect.token) }
+      do { return try await .remoteLoaded(effect.token, remoteDirectory.load()) } catch {
+        return .remoteLoadFailed(effect.token)
+      }
+    case .checkRemoteAccount:
+      guard let remoteDirectory else { return .remoteAccountCheckFailed(effect.token) }
+      do {
+        return try await .remoteAccountChecked(effect.token, remoteDirectory.checkAccount())
+      } catch { return .remoteAccountCheckFailed(effect.token) }
+    case .startRemoteDirectory(let accountIdentifier, let installation):
+      await remoteDirectory?.start(
+        accountIdentifier: accountIdentifier, installation: installation, session: effect.token)
+      return nil
+    case .stopRemoteDirectory:
+      await remoteDirectory?.stop(command: effect.token)
+      return nil
+    case .refreshRemoteDirectory:
+      await remoteDirectory?.refresh(session: effect.token)
+      return nil
+    case .setRemoteEnabled(let enabled, let accountIdentifier):
+      guard let remoteDirectory else { return .remotePreferenceUpdateFailed(effect.token) }
+      do {
+        return try await .remoteConfigurationUpdated(
+          effect.token, remoteDirectory.setEnabled(enabled, accountIdentifier: accountIdentifier))
+      } catch { return .remotePreferenceUpdateFailed(effect.token) }
+    case .generateRemotePairingCode:
+      do {
+        return try .remotePairingCodeGenerated(
+          effect.token, RemotePairingCodeGenerator.generate())
+      } catch { return .remotePairingCodeGenerationFailed(effect.token) }
+    case .sendRemotePairingRequest(
+      let target, let code, let requestID,
+      let accountIdentifier):
+      guard let remoteDirectory else {
+        return .remotePairingCloudFailed(effect.token, requestID)
+      }
+      do {
+        try await remoteDirectory.sendPairingRequest(
+          target: target, code: code, requestID: requestID,
+          accountIdentifier: accountIdentifier, command: effect.token)
+        return nil
+      } catch { return .remotePairingCloudFailed(effect.token, requestID) }
+    case .respondToRemotePairing(let proposal, let approved):
+      guard let remoteDirectory else { return .remotePairingApprovalFailed(effect.token) }
+      do {
+        return try await .remotePairingApprovalStored(
+          effect.token, remoteDirectory.respondToPairing(proposal, approved: approved))
+      } catch { return .remotePairingApprovalFailed(effect.token) }
+    case .saveRemoteTargetGrant(let grant, let requestID):
+      guard let remoteDirectory else { return .remoteTargetGrantFailed(effect.token) }
+      do {
+        return try await .remoteTargetGrantStored(
+          effect.token, remoteDirectory.saveTargetGrant(grant, requestID: requestID))
+      } catch { return .remoteTargetGrantFailed(effect.token) }
+    case .revokeRemoteController(let id, let accountIdentifier):
+      guard let remoteDirectory else { return .remoteControllerRevokeFailed(effect.token) }
+      do {
+        return try await .remoteControllerRevoked(
+          effect.token,
+          remoteDirectory.revokeController(
+            id, accountIdentifier: accountIdentifier))
+      } catch { return .remoteControllerRevokeFailed(effect.token) }
+    case .sendRemoteCommand(
+      let target, let command, let requestID,
+      let accountIdentifier):
+      guard let remoteDirectory else {
+        return .remoteCommandCloudFailed(effect.token, requestID)
+      }
+      do {
+        try await remoteDirectory.sendCommand(
+          target: target, command: command, requestID: requestID,
+          accountIdentifier: accountIdentifier, operation: effect.token)
+        return nil
+      } catch { return .remoteCommandCloudFailed(effect.token, requestID) }
+    case .claimRemoteCommand(let request):
+      guard let remoteDirectory else { return .remoteCommandClaimFailed(effect.token) }
+      do {
+        return try await .remoteCommandClaimed(
+          effect.token, remoteDirectory.claimCommand(request),
+          processedAt: Int64(Date().timeIntervalSince1970))
+      } catch { return .remoteCommandClaimFailed(effect.token) }
+    case .sendRemoteCommandResult(let request, let outcome):
+      guard let remoteDirectory else { return .remoteCommandResultFailed(effect.token) }
+      do {
+        try await remoteDirectory.sendResult(for: request, outcome: outcome)
+        return .remoteCommandResultQueued(effect.token)
+      } catch { return .remoteCommandResultFailed(effect.token) }
+    case .rejectRemoteCommand(let request, let reason):
+      if let remoteDirectory, (try? await remoteDirectory.claimCommand(request)) != nil {
+        try? await remoteDirectory.sendResult(for: request, outcome: .rejected(reason))
+      }
+      return nil
+    case .reportRemoteCommandProgress(let request, let outcome):
+      try? await remoteDirectory?.sendResult(for: request, outcome: outcome)
+      return nil
     case .loadCatalog, .recoverCatalog, .saveCatalog, .checkCatalogAccount,
       .checkCatalogAccountAfterStopping,
       .startCatalogCloudSync, .stopCatalogCloudSync, .publishCatalogChanges,
@@ -234,7 +352,9 @@ public final class NativeEffectPort: EffectPort {
       let prepared = await withTaskGroup(of: Bool.self) { group in
         group.addTask(operation: prepare)
         group.addTask {
-          do { try await Task.sleep(for: .seconds(10)) } catch { return false }
+          do { try await Task.sleep(for: self.displayModePreparationTimeout) } catch {
+            return false
+          }
           return false
         }
         let result = await group.next() ?? false
@@ -258,6 +378,9 @@ public final class NativeEffectPort: EffectPort {
   public func stop() {
     if let catalogCloudSync {
       cloudStopTask = Task { await catalogCloudSync.stop() }
+    }
+    if let remoteDirectory {
+      remoteStopTask = Task { await remoteDirectory.stop(command: nil) }
     }
     biometrics.cancelAll()
     web.stop()
