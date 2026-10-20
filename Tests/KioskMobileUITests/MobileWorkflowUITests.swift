@@ -25,12 +25,12 @@ final class MobileWorkflowUITests: XCTestCase {
     attach(app, "store-settings")
 
     start.tap()
-    let next = app.webViews.links["Next exhibit"]
+    let next = app.webViews.links["NEXT EXHIBIT"]
     try await exists(next, timeout: 30)
     try await prepared(app)
     attach(app, "store-exhibition")
     next.tap()
-    try await exists(app.webViews.links["First exhibit"], timeout: 20)
+    try await exists(app.webViews.links["FIRST EXHIBIT"], timeout: 20)
     app.buttons["request-unlock"].tap()
     let unlock = app.secureTextFields["unlock-passcode"]
     try await exists(unlock)
@@ -41,7 +41,7 @@ final class MobileWorkflowUITests: XCTestCase {
     attach(app, "store-administration-after-unlock")
     app.terminate()
     app.launch()
-    try await exists(app.webViews.links["Next exhibit"], timeout: 30)
+    try await exists(app.webViews.links["NEXT EXHIBIT"], timeout: 30)
   }
 
   @MainActor func testAdministratorCanOpenPrivacyAndSupportPages() async throws {

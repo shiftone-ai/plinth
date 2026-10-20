@@ -42,6 +42,8 @@ extension RootMediator {
       next.presentationOperation = nil
       next.presentationAcquisition = nil
       next.mode = .safeHold
+      next.mobileExhibitionResumePending = false
+      next.shortcutResetAcceptedDuringResume = false
       if state.webRestartInProgress {
         next.webRestartInProgress = false
         next.webRestartFailed = true
@@ -65,6 +67,8 @@ extension RootMediator {
         return .reject(state, .invalidState)
       }
       next.mode = .exhibiting
+      next.mobileExhibitionResumePending = false
+      next.shortcutResetAcceptedDuringResume = false
       next.webRestartInProgress = false
       next.webRestartFailed = false
       next.externalButtonDown = false

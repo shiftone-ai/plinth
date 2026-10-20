@@ -82,6 +82,36 @@ class CheckLocalizationsTests(unittest.TestCase):
         self.assertEqual(result.returncode, 1)
         self.assertIn("InfoPlist.strings: missing ja Face ID usage description", result.stdout)
 
+    def test_shortcuts_catalog_checks_action_name_and_languages(self) -> None:
+        action = self.root / "Sources/PlinthMobile/ResetExhibitionIntent.swift"
+        action.parent.mkdir(parents=True)
+        action.write_text(
+            'static let title = LocalizedStringResource("Reset Exhibition", table: "AppIntents")'
+        )
+        shortcuts = self.root / "Resources/AppIntents.xcstrings"
+        shortcuts.write_text(
+            json.dumps(
+                {
+                    "sourceLanguage": "en",
+                    "strings": {
+                        "Reset Exhibition": {
+                            "localizations": {
+                                "en": {
+                                    "stringUnit": {
+                                        "state": "translated",
+                                        "value": "Reset Exhibition",
+                                    }
+                                }
+                            }
+                        }
+                    },
+                }
+            )
+        )
+        result = self.run_check()
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("AppIntents: Reset Exhibition: missing ja translation", result.stdout)
+
 
 if __name__ == "__main__":
     unittest.main()
