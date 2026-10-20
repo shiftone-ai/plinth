@@ -50,9 +50,11 @@ struct RuntimeFixture {
     )
   }
 
-  func startExhibiting() throws {
+  func startExhibiting(resetMode: ResetMode = .newVisitorSession) throws {
+    var profile = try profile()
+    profile.resetMode = resetMode
     runtime.send(
-      .bootstrapped(profile: try profile(), credentialsConfigured: true, displayCount: 1),
+      .bootstrapped(profile: profile, credentialsConfigured: true, displayCount: 1),
       from: .root)
     let presentation = try #require(runtime.snapshot.root.presentationOperation)
     port.deliver(.presentationApplied(presentation), source: .platform)

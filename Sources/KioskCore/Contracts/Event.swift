@@ -12,6 +12,7 @@ public enum Event: Equatable, Sendable {
   case systemWillSleep
   case systemDidWake
   case startExhibitionRequested
+  case shortcutResetRequested
   case webRestartExhibitionRequested
   case webStopExhibitionRequested
   case webResumeExhibitionRequested
@@ -232,7 +233,7 @@ public enum Event: Equatable, Sendable {
 
   public var requiresReply: Bool {
     switch self {
-    case .startExhibitionRequested, .webRestartExhibitionRequested,
+    case .startExhibitionRequested, .shortcutResetRequested, .webRestartExhibitionRequested,
       .webStopExhibitionRequested, .webResumeExhibitionRequested,
       .unlockRequested, .unlockCancelled, .terminateRequested,
       .nativeInput, .externalWebControlRequested, .externalWebControlExecutionRequested,
