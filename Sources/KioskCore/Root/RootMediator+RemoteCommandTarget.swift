@@ -66,8 +66,7 @@ extension RootMediator {
         next.remote.commandClaimOperation = nil
         return .handled(.init(next))
       }
-      next.remote.installation?.processedRequestExpirations =
-        installation.processedRequestExpirations
+      next.remote.acceptInstallation(installation)
       next.remote.commandClaimOperation = nil
       if state.mobileDisplays != nil && !state.mobileForeground {
         next.remote.commandResultOperation = token

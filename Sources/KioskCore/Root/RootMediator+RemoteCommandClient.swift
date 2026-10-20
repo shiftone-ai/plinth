@@ -120,9 +120,27 @@ extension RootMediator {
         {
           next.remote.editing = nil
         }
-      case .rejected:
+      case .rejected(let reason):
+        if reason == .busy, outgoing.automaticStatusRefresh,
+          outgoing.automaticStatusAttempt < 7
+        {
+          let retry = envelope.token(owner: .idleClock, epoch: state.epoch)
+          next.remote.outgoingCommand?.phase = .waiting
+          next.remote.outgoingCommand?.busyRetryPending = true
+          next.remote.outgoingCommandDeadlineOperation = retry
+          return .handled(
+            .init(
+              next,
+              effects: [
+                Effect(
+                  retry,
+                  .scheduleRemoteCommandDeadline(
+                    envelope.timestamp + 15, requestID: outgoing.requestID))
+              ]))
+        }
         next.remote.outgoingCommandDeadlineOperation = nil
-        next.remote.outgoingCommand?.phase = .rejected
+        next.remote.outgoingCommand?.phase =
+          reason == .busy && outgoing.automaticStatusRefresh ? .unknown : .rejected
       }
       return .handled(.init(next))
 
@@ -133,6 +151,42 @@ extension RootMediator {
         outgoing.requestID == requestID,
         [.sending, .waiting, .accepted, .applying].contains(outgoing.phase)
       else { return .reject(state, .staleOperation) }
+      if outgoing.busyRetryPending {
+        guard let session = state.remote.sessionOperation,
+          let grant = state.remote.installation?.approvedTargets[outgoing.targetID],
+          grant.accountIdentifier == outgoing.accountIdentifier,
+          state.remote.selectedDeviceID == outgoing.targetID
+        else {
+          next.remote.outgoingCommand?.phase = .unknown
+          next.remote.outgoingCommandDeadlineOperation = nil
+          return .handled(.init(next))
+        }
+        let retryID = UUID()
+        next.remote.outgoingCommand = RemoteOutgoingCommand(
+          requestID: retryID, targetID: outgoing.targetID,
+          accountIdentifier: outgoing.accountIdentifier,
+          deadline: envelope.timestamp + 120,
+          automaticStatusRefresh: true,
+          automaticStatusAttempt: outgoing.automaticStatusAttempt + 1)
+        next.remote.outgoingCommandOperation = token
+        let retryDeadline = envelope.token(owner: .idleClock, epoch: state.epoch)
+        next.remote.outgoingCommandDeadlineOperation = retryDeadline
+        return .handled(
+          .init(
+            next,
+            effects: [
+              Effect(session, .refreshRemoteDirectory),
+              Effect(
+                token,
+                .sendRemoteCommand(
+                  target: grant, command: .readStatus, requestID: retryID,
+                  accountIdentifier: outgoing.accountIdentifier)),
+              Effect(
+                retryDeadline,
+                .scheduleRemoteCommandDeadline(
+                  envelope.timestamp + 120, requestID: retryID)),
+            ]))
+      }
       if envelope.timestamp < outgoing.deadline {
         let retry = envelope.token(owner: .idleClock, epoch: state.epoch)
         next.remote.outgoingCommandDeadlineOperation = retry
@@ -159,7 +213,7 @@ extension RootMediator {
         requestID: refreshID, targetID: outgoing.targetID,
         accountIdentifier: outgoing.accountIdentifier,
         deadline: envelope.timestamp + 120,
-        automaticStatusRefresh: true)
+        automaticStatusRefresh: true, automaticStatusAttempt: 1)
       next.remote.outgoingCommandOperation = token
       let refreshDeadline = envelope.token(owner: .idleClock, epoch: state.epoch)
       next.remote.outgoingCommandDeadlineOperation = refreshDeadline
