@@ -268,6 +268,10 @@
       runtime.send(.remoteStatusRequested(UUID()), from: .platform)
     }
 
+    func resetExhibitionFromShortcut() -> Bool {
+      runtime.send(.shortcutResetRequested, from: .platform).reply == .accepted
+    }
+
     func displaysChanged() {
       let availability = displayModes.availability(
         in: scenes.values.map { (scene: $0.scene, exhibition: $0.exhibition) },

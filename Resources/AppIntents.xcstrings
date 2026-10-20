@@ -1,0 +1,33 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "Reset Exhibition": {
+      "comment": "Name of the Shortcuts action that returns the exhibition to its start page.",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Reset Exhibition" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "展示をリセット" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "전시 재설정" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "重置展示" } }
+      }
+    },
+    "Exhibition reset started": {
+      "comment": "Shortcuts result after the app accepts a reset; the page may still be loading.",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Exhibition reset started" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "展示のリセットを開始しました" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "전시 재설정을 시작했습니다" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "已开始重置展示" } }
+      }
+    },
+    "Cannot reset exhibition now": {
+      "comment": "Shortcuts error when there is no active exhibition or a reset is already running.",
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Cannot reset exhibition now" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "現在、展示をリセットできません" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "지금은 전시를 재설정할 수 없습니다" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "现在无法重置展示" } }
+      }
+    }
+  },
+  "version": "1.0"
+}

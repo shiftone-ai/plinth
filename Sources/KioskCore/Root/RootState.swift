@@ -93,6 +93,8 @@ public struct RootState: Equatable, Sendable {
   public var externalPointerLocked = false
   public var pointerCaptureFailed = false
   public var foregroundResume: ForegroundResumeState = .none
+  public var mobileExhibitionResumePending = false
+  public var shortcutResetAcceptedDuringResume = false
   public var pointerCaptureOperation: OperationToken?
 
   public func canPresent(_ profile: KioskProfile) -> Bool {
