@@ -96,7 +96,7 @@ struct RemoteDeviceListView: View {
         .accessibilityIdentifier("remote-refresh")
       }
       .padding()
-      if let selected = props.visibleDevices.first(where: { $0.id == props.selectedDeviceID }) {
+      if let selected = props.devices.first(where: { $0.id == props.selectedDeviceID }) {
         Form {
           Section {
             Button(L10n.string("Back to devices", locale: locale), systemImage: "chevron.left") {
@@ -229,45 +229,20 @@ struct RemoteDeviceListView: View {
               L10n.string("Could not load devices", locale: locale),
               systemImage: "exclamationmark.triangle")
           case .ready:
-            if props.visibleDevices.isEmpty {
+            if props.devices.isEmpty {
               Text(L10n.string("No other devices", locale: locale))
                 .foregroundStyle(.secondary)
             }
           }
-          ForEach(props.visibleDevices) { device in
-            HStack {
-              Button {
-                send(.remoteSelectDevice(device.id))
-                if props.pairedDeviceIDs.contains(device.id) { send(.remoteStatus) }
-              } label: {
-                VStack(alignment: .leading, spacing: 4) {
-                  Text(device.name)
-                  Text(device.updatedAt, format: .dateTime.year().month().day().hour().minute())
-                    .font(.caption).foregroundStyle(.secondary)
-                }
-              }
-              .buttonStyle(.plain)
-              .accessibilityIdentifier("remote-device-\(device.id.uuidString)")
-              Spacer()
-              Button(L10n.string("Hide device", locale: locale), systemImage: "eye.slash") {
-                send(.remoteVisibility(device.id, false))
-              }
-              .labelStyle(.iconOnly)
+          ForEach(props.devices) { device in
+            Button {
+              send(.remoteSelectDevice(device.id))
+              if props.pairedDeviceIDs.contains(device.id) { send(.remoteStatus) }
+            } label: {
+              RemoteDeviceRow(device: device)
             }
-          }
-          if !props.hiddenDevices.isEmpty {
-            Section(L10n.string("Hidden devices", locale: locale)) {
-              ForEach(props.hiddenDevices) { device in
-                HStack {
-                  Text(device.name)
-                  Spacer()
-                  Button(L10n.string("Show device", locale: locale), systemImage: "eye") {
-                    send(.remoteVisibility(device.id, true))
-                  }
-                  .labelStyle(.iconOnly)
-                }
-              }
-            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("remote-device-\(device.id.uuidString)")
           }
         }
         .accessibilityIdentifier("remote-devices")
@@ -355,4 +330,25 @@ struct RemoteDeviceListView: View {
     return String(format: L10n.string(key, locale: locale), name)
   }
 
+}
+
+private struct RemoteDeviceRow: View {
+  let device: RemoteDevice
+
+  var body: some View {
+    HStack {
+      VStack(alignment: .leading, spacing: 4) {
+        Text(device.name)
+        Text(device.updatedAt, format: .dateTime.year().month().day().hour().minute())
+          .font(.caption).foregroundStyle(.secondary)
+      }
+      Spacer()
+      Image(systemName: "chevron.right")
+        .font(.footnote.weight(.semibold))
+        .foregroundStyle(.tertiary)
+        .accessibilityHidden(true)
+    }
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .contentShape(Rectangle())
+  }
 }

@@ -6,7 +6,12 @@ extension RemoteDirectoryCloudSync {
   public func handleEvent(_ event: CKSyncEngine.Event, syncEngine: CKSyncEngine) async {
     guard engine === syncEngine, let session, let accountIdentifier else { return }
     switch event {
-    case .accountChange:
+    case .accountChange(let change):
+      if case .signIn(let currentUser) = change.changeType,
+        currentUser.recordName == accountIdentifier
+      {
+        return
+      }
       await sendEvent(.remoteAccountAvailabilityChanged)
 
     case .fetchedDatabaseChanges(let update):

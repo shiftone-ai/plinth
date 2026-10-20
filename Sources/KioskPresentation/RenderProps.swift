@@ -20,8 +20,7 @@ public struct RemoteManagementProps: Equatable, Sendable {
   public let accountStatus: RemoteDirectoryStatus
   public let selectedTab: RemoteManagementTab
   public let selectedDeviceID: UUID?
-  public let visibleDevices: [RemoteDevice]
-  public let hiddenDevices: [RemoteDevice]
+  public let devices: [RemoteDevice]
   public let canRefresh: Bool
   public let thisDeviceEnabled: Bool
   public let canChangeThisDevice: Bool

@@ -463,6 +463,20 @@ mobile_biometric_test = obj(
     path="Tests/KioskMobileUITests/MobileBiometricUITests.swift",
     sourceTree="SOURCE_ROOT",
 )
+mobile_remote_physical_test = obj(
+    "MobileRemotePhysicalTest",
+    "PBXFileReference",
+    lastKnownFileType="sourcecode.swift",
+    path="Tests/KioskMobileUITests/RemotePhysicalCloudUITests.swift",
+    sourceTree="SOURCE_ROOT",
+)
+mobile_remote_management_test = obj(
+    "MobileRemoteManagementTest",
+    "PBXFileReference",
+    lastKnownFileType="sourcecode.swift",
+    path="Tests/KioskMobileUITests/RemoteManagementUITests.swift",
+    sourceTree="SOURCE_ROOT",
+)
 objects[group]["children"] += [
     mobile_main,
     mobile_test,
@@ -470,6 +484,8 @@ objects[group]["children"] += [
     mobile_information_test,
     mobile_localization_test,
     mobile_biometric_test,
+    mobile_remote_physical_test,
+    mobile_remote_management_test,
 ]
 objects[products]["children"] += [mobile_product, mobile_test_product]
 mobile_library = obj(
@@ -492,6 +508,12 @@ mobile_localization_test_build = obj(
 )
 mobile_biometric_test_build = obj(
     "MobileBiometricTestBuild", "PBXBuildFile", fileRef=mobile_biometric_test
+)
+mobile_remote_physical_test_build = obj(
+    "MobileRemotePhysicalTestBuild", "PBXBuildFile", fileRef=mobile_remote_physical_test
+)
+mobile_remote_management_test_build = obj(
+    "MobileRemoteManagementTestBuild", "PBXBuildFile", fileRef=mobile_remote_management_test
 )
 mobile_assets = obj(
     "MobileAssets",
@@ -617,6 +639,8 @@ mobile_test_target = obj(
                 mobile_information_test_build,
                 mobile_localization_test_build,
                 mobile_biometric_test_build,
+                mobile_remote_physical_test_build,
+                mobile_remote_management_test_build,
                 fixture_build,
             ],
         ),

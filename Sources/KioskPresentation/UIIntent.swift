@@ -11,7 +11,6 @@ public enum SettingsIntent: Sendable {
   case start, quit
   case remoteTab(RemoteManagementTab)
   case remoteEnabled(Bool)
-  case remoteVisibility(UUID, Bool)
   case remoteSelectDevice(UUID?)
   case remoteRefresh
   case remotePairingCode

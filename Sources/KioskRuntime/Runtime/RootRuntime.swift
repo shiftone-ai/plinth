@@ -122,7 +122,7 @@ public final class RootRuntime {
     case .checkRemoteAccount: store.root.remote.accountOperation == effect.token
     case .startRemoteDirectory: store.root.remote.sessionOperation == effect.token
     case .refreshRemoteDirectory: store.root.remote.sessionOperation == effect.token
-    case .setRemoteEnabled, .setRemoteVisibility:
+    case .setRemoteEnabled:
       store.root.remote.preferenceOperation == effect.token
     case .generateRemotePairingCode:
       store.root.remote.pairing.codeOperation == effect.token

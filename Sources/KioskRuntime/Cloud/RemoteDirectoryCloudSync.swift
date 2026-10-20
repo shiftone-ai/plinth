@@ -12,9 +12,6 @@ public protocol RemoteDirectoryPort: Sendable {
   func stop(command: OperationToken?) async
   func refresh(session: OperationToken) async
   func setEnabled(_ enabled: Bool, accountIdentifier: String) async throws -> RemoteInstallation
-  func setVisibility(
-    _ id: UUID, visible: Bool, accountIdentifier: String
-  ) async throws -> RemoteInstallation
   func sendPairingRequest(
     target: RemoteDevice, code: String, requestID: UUID,
     accountIdentifier: String, command: OperationToken
@@ -179,6 +176,18 @@ public actor RemoteDirectoryCloudSync: RemoteDirectoryPort, CKSyncEngineDelegate
     created.state.add(pendingDatabaseChanges: [.saveZone(CKRecordZone(zoneID: Self.zoneID))])
     await engineHost.finishRemoteRegistration(session: session)
     await sendEvent(.remoteDirectoryStatusChanged(session, .checking))
+    // CKSyncEngine may enter its delegate as soon as the zone is queued. A send or
+    // fetch awaited by that callback's task traps, so begin the initial sync in
+    // a detached task after registration completes.
+    Task.detached { [weak self] in
+      await self?.performInitialSync(engine: created, generation: started, session: session)
+    }
+  }
+
+  private func performInitialSync(
+    engine created: CKSyncEngine, generation started: UInt64, session: OperationToken
+  ) async {
+    guard generation == started, engine === created, self.session == session else { return }
     do {
       try await created.sendChanges()
       guard generation == started, engine === created else { return }
@@ -250,8 +259,16 @@ public actor RemoteDirectoryCloudSync: RemoteDirectoryPort, CKSyncEngineDelegate
     ownRecordSystemFields = nil
     await sendEvent(.remoteAccountAvailabilityChanged)
   }
+}
 
+extension RemoteDirectoryCloudSync {
   public func refresh(session requestedSession: OperationToken) async {
+    Task.detached { [weak self] in
+      await self?.performRefresh(session: requestedSession)
+    }
+  }
+
+  private func performRefresh(session requestedSession: OperationToken) async {
     guard session == requestedSession, let engine, let accountIdentifier else { return }
     guard case .available(let currentAccount) = await accountAvailability(),
       currentAccount == accountIdentifier
@@ -287,30 +304,8 @@ public actor RemoteDirectoryCloudSync: RemoteDirectoryPort, CKSyncEngineDelegate
         ? .saveRecord(Self.recordID(current.id)) : .deleteRecord(Self.recordID(current.id))
       engine.state.add(pendingRecordZoneChanges: [change])
       if let session { await sendEvent(.remoteDirectoryStatusChanged(session, .checking)) }
-      do { try await engine.sendChanges() } catch {
-        if let session {
-          await sendEvent(
-            .remoteDirectoryStatusChanged(
-              session,
-              Self.status(for: error)))
-        }
-      }
+      if let session { await sendQueuedChanges(in: engine, session: session) }
     }
-    return updated
-  }
-
-  public func setVisibility(
-    _ id: UUID, visible: Bool, accountIdentifier requestedAccount: String
-  ) throws -> RemoteInstallation {
-    guard let current = installation, accountIdentifier == requestedAccount else {
-      throw Failure.accountChanged
-    }
-    var updated = current
-    var hidden = updated.hiddenDeviceIDsByAccount[requestedAccount] ?? []
-    if visible { hidden.remove(id) } else { hidden.insert(id) }
-    updated.hiddenDeviceIDsByAccount[requestedAccount] = hidden
-    try persist(updated)
-    installation = updated
     return updated
   }
 
