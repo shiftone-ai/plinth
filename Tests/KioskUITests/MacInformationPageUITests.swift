@@ -53,8 +53,7 @@ extension KioskWorkflowUITests {
     app.buttons["save-profile"].click()
     XCTAssertTrue(start.isEnabled)
     start.click()
-    await waitFor(app.webViews.links["Next exhibit"], timeout: 25)
-    attachStoreHierarchy(app, language: language)
+    await waitFor(nextExhibitLink(app), timeout: 25)
     attachStoreWindow(app, name: "store-mac-exhibition-\(language)")
   }
 
@@ -72,6 +71,12 @@ extension KioskWorkflowUITests {
     URL(fileURLWithPath: #filePath)
       .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
       .appendingPathComponent("site/demo")
+  }
+
+  @MainActor private func nextExhibitLink(_ app: XCUIApplication) -> XCUIElement {
+    app.webViews.links.matching(
+      NSPredicate(format: "label ==[c] %@", "Next exhibit")
+    ).firstMatch
   }
 
   @MainActor private func verifyInformationLinks(_ app: XCUIApplication, start: XCUIElement) async {
@@ -93,10 +98,4 @@ extension KioskWorkflowUITests {
     add(screenshot)
   }
 
-  @MainActor private func attachStoreHierarchy(_ app: XCUIApplication, language: String) {
-    let hierarchy = XCTAttachment(string: app.debugDescription)
-    hierarchy.name = "store-mac-exhibition-hierarchy-\(language)"
-    hierarchy.lifetime = .keepAlways
-    add(hierarchy)
-  }
 }
