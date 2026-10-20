@@ -55,6 +55,7 @@ build-ios:
             -derivedDataPath .build/ios-check CODE_SIGNING_ALLOWED=NO \
             SWIFT_TREAT_WARNINGS_AS_ERRORS=YES build; \
     done
+    test "$(plutil -extract PlinthCloudKitEntitled raw -o - .build/ios-check/Build/Products/Release-iphoneos/PlinthMobile.app/Info.plist)" = YES
 
 # 実WebKit・Keychain・保存・時計を結合するNative試験も含めて実行する
 test-native:
