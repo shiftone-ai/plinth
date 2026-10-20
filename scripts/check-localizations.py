@@ -45,16 +45,23 @@ def referenced_keys(root: Path) -> set[str]:
     return keys
 
 
-def shortcut_keys(root: Path) -> set[str]:
+def shortcut_keys(root: Path) -> tuple[set[str], list[str]]:
     keys: set[str] = set()
+    errors: list[str] = []
     for source in (root / "Sources").rglob("*.swift"):
-        keys.update(
-            re.findall(
-                r'LocalizedStringResource\("([^"\n]+)",\s*table:\s*"AppIntents"\)',
-                source.read_text(),
-            )
-        )
-    return keys
+        text = source.read_text()
+        is_app_intent = bool(re.search(r":\s*AppIntent\b", text))
+        for key, table in re.findall(
+            r'LocalizedStringResource\(\s*"([^"\n]+)"\s*,\s*table:\s*"([^"\n]+)"\s*\)',
+            text,
+        ):
+            if table == "AppIntents":
+                keys.add(key)
+            elif is_app_intent:
+                errors.append(
+                    f"{source.relative_to(root)}: {key}: use AppIntents localization table"
+                )
+    return keys, errors
 
 
 def check(root: Path) -> list[str]:
@@ -101,7 +108,8 @@ def check(root: Path) -> list[str]:
         errors.append(f"Unknown localization key: {key}")
 
     shortcut_catalog_path = root / "Resources/AppIntents.xcstrings"
-    used_shortcut_keys = shortcut_keys(root)
+    used_shortcut_keys, shortcut_errors = shortcut_keys(root)
+    errors.extend(shortcut_errors)
     if shortcut_catalog_path.exists():
         shortcut_catalog = json.loads(shortcut_catalog_path.read_text())
         if shortcut_catalog.get("sourceLanguage") != "en":
