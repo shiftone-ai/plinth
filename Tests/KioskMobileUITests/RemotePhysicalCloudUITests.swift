@@ -5,7 +5,7 @@ class RemotePhysicalCloudUITests: XCTestCase {
   fileprivate let passcode = "plinth-physical-test-passcode"
   fileprivate let service = "ai.shiftone.plinth.tests.issue60remote.physical"
 
-  fileprivate func requirePhysicalRun(_ app: XCUIApplication) throws {
+  func requirePhysicalRun(_ app: XCUIApplication) throws {
     #if targetEnvironment(simulator)
       throw XCTSkip("Run on a signed physical device")
     #else
@@ -16,7 +16,7 @@ class RemotePhysicalCloudUITests: XCTestCase {
     #endif
   }
 
-  @MainActor fileprivate func reach(_ element: XCUIElement, app: XCUIApplication) {
+  @MainActor func reach(_ element: XCUIElement, app: XCUIApplication) {
     for _ in 0..<8 where !element.exists || !element.isHittable {
       app.collectionViews.firstMatch.swipeUp()
     }
@@ -36,7 +36,7 @@ class RemotePhysicalCloudUITests: XCTestCase {
     field.typeText("\n")
   }
 
-  @MainActor fileprivate func refreshUntil(
+  @MainActor func refreshUntil(
     _ element: XCUIElement, using refresh: XCUIElement, attempts: Int = 20,
     timeout: TimeInterval = 5, matches: (XCUIElement) -> Bool
   ) {
@@ -49,13 +49,13 @@ class RemotePhysicalCloudUITests: XCTestCase {
     }
   }
 
-  @MainActor fileprivate func configure(_ app: XCUIApplication) {
+  @MainActor func configure(_ app: XCUIApplication) {
     app.launchArguments = ["-AppleLanguages", "(en)"]
     app.launchEnvironment["PLINTH_TEST_CREDENTIAL_SERVICE"] = service
     app.launchEnvironment["PLINTH_TEST_ISOLATED_CREDENTIALS"] = "1"
   }
 
-  @MainActor fileprivate func openAdministration(_ app: XCUIApplication) -> Bool {
+  @MainActor func openAdministration(_ app: XCUIApplication) -> Bool {
     let credentialsExisted = app.buttons["request-unlock"].waitForExistence(timeout: 3)
     if credentialsExisted {
       app.buttons["request-unlock"].tap()
