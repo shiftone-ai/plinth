@@ -50,11 +50,15 @@ def shortcut_keys(root: Path) -> tuple[set[str], list[str]]:
     errors: list[str] = []
     for source in (root / "Sources").rglob("*.swift"):
         text = source.read_text()
-        is_app_intent = bool(re.search(r":\s*AppIntent\b", text))
-        for key, table in re.findall(
-            r'LocalizedStringResource\(\s*"([^"\n]+)"\s*,\s*table:\s*"([^"\n]+)"\s*\)',
-            text,
-        ):
+        is_app_intent = bool(
+            re.search(
+                r"\b(?:struct|class|enum|actor)\s+\w+\s*:\s*[^{}]*\b(?:AppIntents\.)?AppIntent\b",
+                text,
+            )
+        )
+        for key, arguments in re.findall(r'LocalizedStringResource\(\s*"([^"\n]+)"([^)]*)\)', text):
+            table_match = re.search(r'\btable:\s*"([^"\n]+)"', arguments)
+            table = table_match.group(1) if table_match else None
             if table == "AppIntents":
                 keys.add(key)
             elif is_app_intent:
