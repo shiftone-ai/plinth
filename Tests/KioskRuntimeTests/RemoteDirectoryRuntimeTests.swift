@@ -156,6 +156,26 @@ struct RemoteDirectoryRuntimeTests {
     #expect(try await reopened.load() == initial)
   }
 
+  @Test func installationMutationRevisionSurvivesRestartAndRejectsStaleWrites() async throws {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
+      "plinth-remote-revision-\(UUID().uuidString)", isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let url = directory.appendingPathComponent("remote-management.json")
+    let first = RemoteDirectoryCloudSync(
+      stateURL: url, displayName: "Gallery", platform: .ipad, sendEvent: { _ in })
+    let initial = try await first.load()
+    var updated = initial
+    updated.enabledAccountIdentifier = "account-a"
+    try await first.persistMutation(&updated)
+    #expect(updated.mutationRevision == 1)
+    var stale = initial
+    stale.enabledAccountIdentifier = "account-b"
+    await #expect(throws: Error.self) { try await first.persistMutation(&stale) }
+    let reopened = RemoteDirectoryCloudSync(
+      stateURL: url, displayName: "Gallery", platform: .ipad, sendEvent: { _ in })
+    #expect(try await reopened.load() == updated)
+  }
+
   @Test(arguments: [false, true])
   func accountCheckCanBeRetriedWithoutADirectorySession(failed: Bool) throws {
     let fixture = RuntimeFixture()
@@ -184,6 +204,31 @@ struct RemoteDirectoryRuntimeTests {
         retry, .init(availability: .available("account-a"), installation: installation)),
       source: .cloudRemote)
     #expect(fixture.runtime.snapshot.root.remote.sessionOperation != nil)
+  }
+
+  @Test func failedDirectoryStartupCanBeRetriedWithoutRestartingTheApp() throws {
+    let fixture = RuntimeFixture()
+    let installation = RemoteInstallation(id: UUID())
+    fixture.runtime.send(
+      .bootstrapped(profile: nil, credentialsConfigured: false, displayCount: 1), from: .root)
+    fixture.runtime.send(.remoteLoadRequested, from: .root)
+    let load = try #require(fixture.runtime.snapshot.root.remote.loadOperation)
+    fixture.port.deliver(.remoteLoaded(load, installation), source: .cloudRemote)
+    let account = try #require(fixture.runtime.snapshot.root.remote.accountOperation)
+    fixture.port.deliver(
+      .remoteAccountChecked(
+        account, .init(availability: .available("account-a"), installation: installation)),
+      source: .cloudRemote)
+    let firstSession = try #require(fixture.runtime.snapshot.root.remote.sessionOperation)
+    fixture.port.deliver(.remoteDirectoryStatusChanged(firstSession, .failed), source: .cloudRemote)
+    #expect(fixture.runtime.snapshot.root.remote.sessionOperation == nil)
+    #expect(fixture.runtime.send(.remoteRefreshRequested, from: .settings).reply == .accepted)
+    let retry = try #require(fixture.runtime.snapshot.root.remote.accountOperation)
+    fixture.port.deliver(
+      .remoteAccountChecked(
+        retry, .init(availability: .available("account-a"), installation: installation)),
+      source: .cloudRemote)
+    #expect(fixture.runtime.snapshot.root.remote.sessionOperation != firstSession)
   }
 
   @Test func unusuallyLongDeviceNamesRemainDiscoverable() async {
@@ -254,6 +299,7 @@ struct RemoteDirectoryRuntimeTests {
     await directory.publishDevices(session: session, accountIdentifier: "account-a")
     #expect(recorder.events.contains(.remoteDirectoryChanged(session, "account-a", [device])))
   }
+
 }
 
 extension RemoteDirectoryCloudSync {
@@ -267,4 +313,5 @@ extension RemoteDirectoryCloudSync {
     awaitingInitialFetch = false
     devices = [device.id: device]
   }
+
 }
