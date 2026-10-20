@@ -4,12 +4,14 @@ import Network
 @MainActor
 final class FixtureServer {
   private let listener: NWListener
+  private let demoDirectory: URL?
   private var connections: [NWConnection] = []
   private(set) var origin = ""
   var blockedURL: String {
     origin.replacingOccurrences(of: "127.0.0.1", with: "localhost") + "/blocked"
   }
-  init() throws {
+  init(demoDirectory: URL? = nil) throws {
+    self.demoDirectory = demoDirectory
     let parameters = NWParameters.tcp
     parameters.requiredLocalEndpoint = .hostPort(host: "127.0.0.1", port: .any)
     listener = try NWListener(using: parameters)
@@ -66,6 +68,10 @@ final class FixtureServer {
 
   private func reply(_ connection: NWConnection, request: String) {
     let path = request.split(separator: " ").dropFirst().first.map(String.init) ?? "/"
+    if path.hasPrefix("/demo/") {
+      replyDemo(connection, path: path)
+      return
+    }
     if path == "/video.mp4" {
       replyVideo(connection, request: request)
       return
@@ -247,6 +253,30 @@ final class FixtureServer {
 }
 
 extension FixtureServer {
+  fileprivate func replyDemo(_ connection: NWConnection, path: String) {
+    let name = String(path.dropFirst("/demo/".count).split(separator: "?").first ?? "")
+    let allowed = ["index.html", "next.html", "demo.css", "flow.js"]
+    let file = demoDirectory?.appendingPathComponent(name)
+    let content = allowed.contains(name) ? file.flatMap { try? Data(contentsOf: $0) } : nil
+    let status = content == nil ? "404 Not Found" : "200 OK"
+    let type =
+      name.hasSuffix(".css")
+      ? "text/css"
+      : name.hasSuffix(".js")
+        ? "text/javascript" : "text/html"
+    let body = content ?? Data()
+    var response = Data(
+      "HTTP/1.1 \(status)\r\nContent-Type: \(type); charset=utf-8\r\nContent-Length: \(body.count)\r\nConnection: close\r\n\r\n"
+        .utf8)
+    response.append(body)
+    connection.send(
+      content: response,
+      completion: .contentProcessed { [weak self] _ in
+        MainActor.assumeIsolated { self?.connections.removeAll { $0 === connection } }
+        connection.cancel()
+      })
+  }
+
   fileprivate static let rotationControls = """
     <style>#target:hover{outline:3px solid red}</style>
     <p id="viewport" style="position:fixed;top:30%;left:20%"></p>

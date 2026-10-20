@@ -11,6 +11,12 @@ extension KioskWorkflowUITests {
     let language = ProcessInfo.processInfo.environment["PLINTH_STORE_SCREENSHOT_LANGUAGE"] ?? "en"
     let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
       "plinth-store-ui-\(UUID())")
+    let demoDirectory = localDemoDirectory()
+    XCTAssertTrue(
+      FileManager.default.fileExists(
+        atPath: demoDirectory.appendingPathComponent("index.html").path))
+    let server = try FixtureServer(demoDirectory: demoDirectory)
+    try await server.start()
     let app = XCUIApplication()
     app.launchArguments = ["--preview", "-AppleLanguages", "(\(language))"]
     app.launchEnvironment = [
@@ -22,6 +28,7 @@ extension KioskWorkflowUITests {
     addTeardownBlock {
       await MainActor.run {
         app.terminate()
+        server.stop()
         try? FileManager.default.removeItem(at: directory)
       }
     }
@@ -41,7 +48,8 @@ extension KioskWorkflowUITests {
     }
     scroll.scroll(byDeltaX: 0, deltaY: 700)
     replace(
-      app.textFields["start-url"], with: "https://shiftone-ai.github.io/plinth/demo/index.html")
+      app.textFields["start-url"], with: server.origin + "/demo/index.html")
+    app.switches["allow-http"].click()
     scroll.scroll(byDeltaX: 0, deltaY: -700)
     attachStoreWindow(app, name: "store-mac-settings-\(language)")
 
@@ -52,6 +60,12 @@ extension KioskWorkflowUITests {
     start.click()
     await waitFor(app.webViews.links["Next exhibit"], timeout: 25)
     attachStoreWindow(app, name: "store-mac-exhibition-\(language)")
+  }
+
+  @MainActor private func localDemoDirectory() -> URL {
+    URL(fileURLWithPath: #filePath)
+      .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+      .appendingPathComponent("site/demo")
   }
 
   @MainActor private func verifyInformationLinks(_ app: XCUIApplication, start: XCUIElement) async {
