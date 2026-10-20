@@ -15,6 +15,10 @@ struct RemoteProfilePatchTests {
     root.macDisplays = [DisplayDescriptor(id: "display-2", name: "Second", builtIn: false)]
     #expect(!root.remoteOutputAvailable(profile))
 
+    profile.macOutput = .init(mode: .projectionWindow, displayID: "display-1")
+    #expect(root.remoteOutputAvailable(profile))
+    profile.macOutput = .init(mode: .fixedFullscreen, displayID: "display-1")
+
     profile.macOutput = nil
     profile.exhibitionDestination = .externalDisplay
     profile.externalDisplayMode = .init(width: 1920, height: 1080)

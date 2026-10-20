@@ -44,7 +44,7 @@ extension RootMediator {
         return .reject(state, .invalidState)
       }
       next.remote.accountOperation = nil
-      next.remote.installation = check.installation
+      next.remote.acceptInstallation(check.installation)
       next.remote.devices = []
       next.remote.selectedDeviceID = nil
       next.remote.pairing = RemotePairingState()
@@ -171,6 +171,7 @@ extension RootMediator {
         return .reject(state, .staleOperation)
       }
       next.remote.status = status
+      if status == .failed { next.remote.sessionOperation = nil }
       return .handled(.init(next))
 
     case .remoteRefreshRequested:
@@ -219,7 +220,7 @@ extension RootMediator {
         state.remote.installation?.id == installation.id
       else { return .reject(state, .staleOperation) }
       next.remote.preferenceOperation = nil
-      next.remote.installation = installation
+      next.remote.acceptInstallation(installation)
       next.remote.preferenceFailed = false
       if !next.remote.enabled {
         next.remote.pairing.code = nil
