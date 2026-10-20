@@ -11,12 +11,7 @@ extension KioskWorkflowUITests {
     let language = ProcessInfo.processInfo.environment["PLINTH_STORE_SCREENSHOT_LANGUAGE"] ?? "en"
     let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
       "plinth-store-ui-\(UUID())")
-    let demoDirectory = localDemoDirectory()
-    XCTAssertTrue(
-      FileManager.default.fileExists(
-        atPath: demoDirectory.appendingPathComponent("index.html").path))
-    let server = try FixtureServer(demoDirectory: demoDirectory)
-    try await server.start()
+    let server = try await makeDemoServer()
     let app = XCUIApplication()
     app.launchArguments = ["--preview", "-AppleLanguages", "(\(language))"]
     app.launchEnvironment = [
@@ -59,7 +54,18 @@ extension KioskWorkflowUITests {
     XCTAssertTrue(start.isEnabled)
     start.click()
     await waitFor(app.webViews.links["Next exhibit"], timeout: 25)
+    attachStoreHierarchy(app, language: language)
     attachStoreWindow(app, name: "store-mac-exhibition-\(language)")
+  }
+
+  @MainActor private func makeDemoServer() async throws -> FixtureServer {
+    let demoDirectory = localDemoDirectory()
+    XCTAssertTrue(
+      FileManager.default.fileExists(
+        atPath: demoDirectory.appendingPathComponent("index.html").path))
+    let server = try FixtureServer(demoDirectory: demoDirectory)
+    try await server.start()
+    return server
   }
 
   @MainActor private func localDemoDirectory() -> URL {
@@ -85,5 +91,12 @@ extension KioskWorkflowUITests {
     screenshot.name = name
     screenshot.lifetime = .keepAlways
     add(screenshot)
+  }
+
+  @MainActor private func attachStoreHierarchy(_ app: XCUIApplication, language: String) {
+    let hierarchy = XCTAttachment(string: app.debugDescription)
+    hierarchy.name = "store-mac-exhibition-hierarchy-\(language)"
+    hierarchy.lifetime = .keepAlways
+    add(hierarchy)
   }
 }
