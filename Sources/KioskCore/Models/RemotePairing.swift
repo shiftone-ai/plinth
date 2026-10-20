@@ -85,6 +85,7 @@ public struct RemotePairingState: Equatable, Sendable {
   public var codeExpiryOperation: OperationToken?
   public var incoming: RemotePairingProposal?
   public var incomingDeadline: Double?
+  public var incomingDeadlineOperation: OperationToken?
   public var approvalOperation: OperationToken?
   public var input = ""
   public var outgoing: RemoteOutgoingPairing?

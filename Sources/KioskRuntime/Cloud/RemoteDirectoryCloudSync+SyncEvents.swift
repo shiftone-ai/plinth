@@ -237,6 +237,7 @@ extension RemoteDirectoryCloudSync {
   }
 
   func publishDevices(session: OperationToken, accountIdentifier: String) async {
+    guard !awaitingInitialFetch else { return }
     await sendEvent(
       .remoteDirectoryChanged(
         session, accountIdentifier, Array(devices.values)))

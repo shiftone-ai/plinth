@@ -135,8 +135,10 @@ public final class RootRuntime {
     case .revokeRemoteController:
       store.root.remote.pairing.revocationOperation == effect.token
     case .scheduleRemotePairingDeadline(_, let requestID):
-      store.root.remote.pairing.outgoing?.requestID == requestID
-        && store.root.remote.pairing.outgoingDeadlineOperation == effect.token
+      (store.root.remote.pairing.outgoing?.requestID == requestID
+        && store.root.remote.pairing.outgoingDeadlineOperation == effect.token)
+        || (store.root.remote.pairing.incoming?.header.requestID == requestID
+          && store.root.remote.pairing.incomingDeadlineOperation == effect.token)
     case .scheduleRemotePairingCodeExpiry:
       store.root.remote.pairing.codeExpiryOperation == effect.token
     case .sendRemoteCommand:

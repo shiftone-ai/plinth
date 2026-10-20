@@ -44,6 +44,24 @@ struct RemotePairingMediatorTests {
       source: .cloudRemote, id: 4)
     #expect(matching.state.remote.pairing.code == nil)
     #expect(matching.state.remote.pairing.incoming == proposal)
+    let incomingExpiry = try #require(matching.state.remote.pairing.incomingDeadlineOperation)
+    #expect(
+      matching.effects == [
+        Effect(
+          incomingExpiry,
+          .scheduleRemotePairingDeadline(104, requestID: proposal.header.requestID))
+      ])
+    let expired = try transition(
+      matching.state,
+      .remotePairingDeadlineReached(incomingExpiry, proposal.header.requestID),
+      source: .idleClock, id: 6, time: 105)
+    #expect(expired.state.remote.pairing.incoming == nil)
+    #expect(expired.state.remote.pairing.incomingDeadlineOperation == nil)
+    #expect(
+      rejected(expired.state, .remotePairingApprovalRequested(true), source: .settings, id: 7))
+    #expect(
+      try transition(expired.state, .remotePairingCodeRequested, source: .settings, id: 8)
+        .state.remote.pairing.codeOperation != nil)
 
     var locked = matching.state
     locked.administratorSession = false
