@@ -22,4 +22,4 @@ CloudKit private database だけで操作を許すと，同じ Apple Account を
 
 Root は承認，要求の状態，Profile の保存，展示の遷移を裁定する．Administration は端末上の draft を所有する．Presenter は端末一覧と結果を表示用の値へ変換する．CloudKit，暗号化，Keychain は Adapter が扱う．ブラウザからの管理は [ADR 0003](0003-web-administration.md) の端末内 HTTP サーバーを使い，この通信経路とは独立している．
 
-2台の `RootRuntime` による状態取得，設定保存，展示操作の試験と，隔離した Simulator の SwiftUI 画面操作を実行した．実 CloudKit での2台間の往復，実機の出力切断，異なるネットワークでの展示操作は未確認である．
+2台の `RootRuntime` による状態取得，設定保存，展示操作の試験と，隔離した Simulator の SwiftUI 画面操作を実行した．開発用の署名付きアプリを入れた iPhone と iPad では，CloudKit を介した端末の発見，承認，状態取得，開始 URL の保存，展示開始と WebKit での表示を確認した．遅れて届く結果は，両端末で手動更新して取得した．異なるネットワークでの操作，実機の出力切断と背景復帰，Mac を含む実機間の往復は未確認である．
