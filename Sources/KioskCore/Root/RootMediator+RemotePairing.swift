@@ -200,7 +200,7 @@ extension RootMediator {
         state.remote.pairing.approvalOperation == completed,
         state.remote.installation?.id == installation.id
       else { return .reject(state, .staleOperation) }
-      next.remote.installation = installation
+      next.remote.acceptInstallation(installation)
       next.remote.pairing.approvalOperation = nil
       next.remote.pairing.incoming = nil
       next.remote.pairing.incomingDeadline = nil
@@ -259,11 +259,11 @@ extension RootMediator {
         state.remote.pairing.targetGrantOperation == completed,
         state.remote.installation?.id == installation.id
       else { return .reject(state, .staleOperation) }
-      next.remote.installation = installation
+      next.remote.acceptInstallation(installation)
       next.remote.pairing.targetGrantOperation = nil
       if let outgoing = next.remote.pairing.outgoing,
         next.remote.selectedDeviceID == outgoing.target.id,
-        installation.approvedTargets[outgoing.target.id] != nil
+        next.remote.installation?.approvedTargets[outgoing.target.id] != nil
       {
         next.remote.pairing.outgoing?.phase = .approved
         next.remote.pairing.outgoingDeadlineOperation = nil
@@ -300,7 +300,7 @@ extension RootMediator {
         state.remote.pairing.revocationOperation == completed,
         state.remote.installation?.id == installation.id
       else { return .reject(state, .staleOperation) }
-      next.remote.installation = installation
+      next.remote.acceptInstallation(installation)
       next.remote.pairing.revokingControllerID = nil
       next.remote.pairing.revocationOperation = nil
       return .handled(.init(next))
