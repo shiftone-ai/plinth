@@ -34,6 +34,10 @@
       return session!.connect(scene, exhibitionWindow: exhibitionWindow)
     }
 
+    public func resetExhibitionFromShortcut() -> Bool {
+      session?.resetExhibitionFromShortcut() == true
+    }
+
     public func applicationWillTerminate(_ application: UIApplication) { session?.stop() }
 
     func disconnect(_ scene: UIWindowScene) {

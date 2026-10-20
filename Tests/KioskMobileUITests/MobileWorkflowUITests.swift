@@ -25,12 +25,12 @@ final class MobileWorkflowUITests: XCTestCase {
     attach(app, "store-settings")
 
     start.tap()
+    let next = app.webViews.links["NEXT EXHIBIT"]
+    try await exists(next, timeout: 30)
     try await prepared(app)
-    let web = app.webViews["exhibition-web-1"]
-    try await waitForDemoScene(.flux, in: web)
     attach(app, "store-exhibition")
-    web.coordinate(withNormalizedOffset: CGVector(dx: 0.82, dy: 0.94)).tap()
-    try await waitForDemoScene(.drift, in: web)
+    next.tap()
+    try await exists(app.webViews.links["FIRST EXHIBIT"], timeout: 20)
     attach(app, "store-drift")
     app.buttons["request-unlock"].tap()
     let unlock = app.secureTextFields["unlock-passcode"]
@@ -42,7 +42,7 @@ final class MobileWorkflowUITests: XCTestCase {
     attach(app, "store-administration-after-unlock")
     app.terminate()
     app.launch()
-    try await waitForDemoScene(.flux, in: app.webViews["exhibition-web-1"])
+    try await exists(app.webViews.links["NEXT EXHIBIT"], timeout: 30)
   }
 
   @MainActor func testAdministratorCanOpenPrivacyAndSupportPages() async throws {
@@ -920,46 +920,6 @@ final class MobileWorkflowUITests: XCTestCase {
     let ready = expectation(for: NSPredicate(format: "exists == false"), evaluatedWith: indicator)
     await fulfillment(of: [ready], timeout: 20)
     XCTAssertFalse(indicator.exists)
-  }
-
-  private enum DemoScene { case flux, drift }
-
-  @MainActor
-  private func waitForDemoScene(_ scene: DemoScene, in web: XCUIElement) async throws {
-    try await exists(web, timeout: 30)
-    let deadline = Date().addingTimeInterval(20)
-    repeat {
-      if let lightness = demoBackgroundLightness(web.screenshot().image),
-        scene == .flux ? (0.75..<0.95).contains(lightness) : lightness < 0.5
-      {
-        return
-      }
-      try await Task.sleep(for: .milliseconds(300))
-    } while Date() < deadline
-    XCTFail("The \(scene) exhibition did not appear")
-  }
-
-  private func demoBackgroundLightness(_ image: UIImage) -> Double? {
-    guard let source = image.cgImage else { return nil }
-    // The upper-left background is ivory in Flux and navy in Drift, away from controls and art.
-    let sample = CGRect(x: source.width / 4, y: source.height / 10, width: 64, height: 64)
-    guard let crop = source.cropping(to: sample) else { return nil }
-    var pixel = [UInt8](repeating: 0, count: 4)
-    let drawn = pixel.withUnsafeMutableBytes { bytes in
-      guard
-        let context = CGContext(
-          data: bytes.baseAddress, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4,
-          space: CGColorSpaceCreateDeviceRGB(),
-          bitmapInfo: CGBitmapInfo.byteOrder32Big.rawValue
-            | CGImageAlphaInfo.premultipliedLast.rawValue
-        )
-      else { return false }
-      context.interpolationQuality = .high
-      context.draw(crop, in: CGRect(x: 0, y: 0, width: 1, height: 1))
-      return true
-    }
-    guard drawn else { return nil }
-    return (0.2126 * Double(pixel[0]) + 0.7152 * Double(pixel[1]) + 0.0722 * Double(pixel[2])) / 255
   }
 
   @MainActor

@@ -40,7 +40,7 @@ extension MobileWorkflowUITests {
     let start = app.buttons["start-exhibition"]
     try await enabled(start)
     start.tap()
-    try await exists(app.webViews.links["Next exhibit"], timeout: 20)
+    try await exists(app.webViews.links["NEXT EXHIBIT"], timeout: 20)
     app.buttons["request-unlock"].tap()
     let unlock = app.secureTextFields["unlock-passcode"]
     try await exists(unlock)
