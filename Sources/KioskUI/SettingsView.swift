@@ -6,6 +6,7 @@ import UniformTypeIdentifiers
 
 public struct SettingsView: View {
   let props: SettingsProps
+  let remote: RemoteManagementProps
   let send: (SettingsIntent) -> Void
   let language: InterfaceLanguage
   let selectLanguage: (InterfaceLanguage) -> Void
@@ -19,10 +20,12 @@ public struct SettingsView: View {
   }
 
   public init(
-    props: SettingsProps, send: @escaping (SettingsIntent) -> Void,
+    props: SettingsProps, remote: RemoteManagementProps,
+    send: @escaping (SettingsIntent) -> Void,
     language: InterfaceLanguage, selectLanguage: @escaping (InterfaceLanguage) -> Void
   ) {
     self.props = props
+    self.remote = remote
     self.send = send
     self.language = language
     self.selectLanguage = selectLanguage
@@ -150,6 +153,7 @@ public struct SettingsView: View {
         }
         SettingsInformationSection(licenseSheetPresented: props.licenseSheetPresented, send: send)
         SettingsWebManagementSection(props: props, send: send)
+        SettingsRemoteManagementSection(props: remote, send: send)
         if !props.validationMessages.isEmpty {
           Section {
             ForEach(props.validationMessages) { message in

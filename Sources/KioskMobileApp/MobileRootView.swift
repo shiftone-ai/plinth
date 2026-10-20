@@ -11,6 +11,7 @@ import KioskLocalization
   struct MobileRootView: View {
     let root: RenderPropsStore<RootProps>
     let settings: RenderPropsStore<SettingsProps>
+    let remote: RenderPropsStore<RemoteManagementProps>
     let unlock: RenderPropsStore<UnlockProps>
     let web: RenderPropsStore<WebSurfaceProps>
     let host: UIView
@@ -75,7 +76,7 @@ import KioskLocalization
             .allowsHitTesting(false)
         } else {
           KioskRootView(
-            root: root, settings: settings, unlock: unlock, web: web,
+            root: root, settings: settings, remote: remote, unlock: unlock, web: web,
             host: PassiveMobileWebHost(host: host),
             language: language, selectLanguage: selectLanguage,
             settingsIntent: settingsIntent, unlockIntent: unlockIntent,

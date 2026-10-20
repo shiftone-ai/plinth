@@ -2,6 +2,124 @@ import Foundation
 import KioskCore
 
 public enum Presenters {
+  public static func remoteManagement(_ root: RootState) -> RemoteManagementProps {
+    let selected = root.remote.devices.first { $0.id == root.remote.selectedDeviceID }
+    let grant = selected.flatMap { root.remote.installation?.approvedTargets[$0.id] }
+    let paired =
+      grant != nil && grant?.accountIdentifier == root.remote.accountIdentifier
+      && grant?.signingPublicKey == selected?.signingPublicKey
+      && grant?.agreementPublicKey == selected?.agreementPublicKey
+    let outgoing = root.remote.pairing.outgoing
+    let canManageAccess =
+      root.mode == .administration && root.administratorSession
+      && root.remote.enabled
+    let pairedIDs = Set(
+      root.remote.devices.compactMap { device -> UUID? in
+        guard let grant = root.remote.installation?.approvedTargets[device.id],
+          grant.accountIdentifier == root.remote.accountIdentifier,
+          grant.signingPublicKey == device.signingPublicKey,
+          grant.agreementPublicKey == device.agreementPublicKey
+        else { return nil }
+        return device.id
+      })
+    return RemoteManagementProps(
+      accountStatus: root.remote.status,
+      selectedTab: root.remote.selectedTab,
+      selectedDeviceID: root.remote.selectedDeviceID,
+      devices: root.remote.devices,
+      canRefresh: root.remote.sessionOperation != nil
+        || (root.remote.installation != nil && root.remote.accountOperation == nil),
+      thisDeviceEnabled: root.remote.enabled,
+      canChangeThisDevice: root.mode == .administration && root.credentialsConfigured
+        && root.administratorSession && root.remote.accountIdentifier != nil
+        && root.remote.installation != nil && root.remote.preferenceOperation == nil,
+      changingPreference: root.remote.preferenceOperation != nil,
+      preferenceFailed: root.remote.preferenceFailed,
+      canGeneratePairingCode: canManageAccess
+        && root.remote.pairing.codeOperation == nil,
+      pairingCode: canManageAccess ? root.remote.pairing.code?.value : nil,
+      incomingPairingName: canManageAccess ? root.remote.pairing.incoming?.name : nil,
+      pairingApprovalPending: root.remote.pairing.approvalOperation != nil,
+      approvedControllers: (root.remote.installation.map {
+        Array($0.approvedControllers.values)
+      } ?? [])
+      .filter { $0.accountIdentifier == root.remote.accountIdentifier }
+      .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending },
+      canRevokeController: canManageAccess
+        && root.remote.pairing.revocationOperation == nil,
+      selectedDevicePaired: paired,
+      pairingInput: root.remote.pairing.input,
+      canRequestPairing: selected != nil
+        && selected?.signingPublicKey?.count == 32
+        && selected?.agreementPublicKey?.count == 32
+        && root.remote.pairing.input.utf8.count == 8
+        && root.remote.status == .ready
+        && ![.sending, .awaitingApproval, .storingApproval]
+          .contains(outgoing?.phase ?? .idle),
+      pairingPhase: outgoing?.target.id == selected?.id
+        ? outgoing?.phase ?? .idle : .idle,
+      pairedDeviceIDs: pairedIDs,
+      selectedSnapshot: selected.map { pairedIDs.contains($0.id) } == true
+        ? root.remote.selectedSnapshot : nil,
+      statusPhase: root.remote.outgoingCommand?.targetID == selected?.id
+        ? root.remote.outgoingCommand?.phase ?? .idle : .idle,
+      unknownResultBeforeRefresh:
+        root.remote.lastUnknownCommand?.targetID == selected?.id,
+      statusIsAutomaticRefresh:
+        root.remote.outgoingCommand?.targetID == selected?.id
+        && root.remote.outgoingCommand?.automaticStatusRefresh == true,
+      statusRejection: root.remote.outgoingCommand?.targetID == selected?.id
+        ? root.remote.outgoingCommand?.outcome.flatMap {
+          if case .rejected(let reason) = $0 { return reason }
+          return nil
+        } : nil,
+      canRefreshStatus: paired && root.remote.sessionOperation != nil
+        && ![.sending, .waiting, .accepted, .applying].contains(
+          root.remote.outgoingCommand?.phase ?? .idle),
+      canEditStartURL: paired && root.remote.selectedSnapshot?.savedProfile != nil
+        && root.remote.outgoingCommand?.phase == .processed,
+      editing: root.remote.editing?.targetID == selected?.id ? root.remote.editing : nil,
+      canReviewEdit: root.remote.editing?.targetID == selected?.id
+        && root.remote.editing?.patch.edits.isEmpty == false
+        && root.remote.outgoingCommand?.phase == .processed,
+      savingStartURL: root.remote.outgoingCommand.map {
+        if case .saveProfile = $0.command {
+          return [.sending, .waiting, .accepted, .applying].contains($0.phase)
+        }
+        return false
+      } ?? false,
+      lastCommandWasSave: root.remote.outgoingCommand.map {
+        if case .saveProfile = $0.command { return true }
+        return false
+      } ?? false,
+      lastExhibitionAction: root.remote.outgoingCommand.flatMap {
+        if case .exhibition(let action) = $0.command { return action }
+        return nil
+      },
+      reviewDifferences: root.remote.editing.flatMap { editing -> [CatalogDifference]? in
+        guard let base = editing.baseProfile,
+          let validated = editing.draft.validatedProfile,
+          let selected = CatalogSnapshot(validated)
+        else { return nil }
+        return CatalogComparison.differences(current: base, selected: selected)
+      } ?? [],
+      availableExhibitionActions: {
+        guard paired, root.remote.status == .ready,
+          root.remote.sessionOperation != nil,
+          ![.sending, .waiting, .accepted, .applying].contains(
+            root.remote.outgoingCommand?.phase ?? .idle),
+          let mode = root.remote.selectedSnapshot?.mode
+        else { return [] }
+        switch mode {
+        case .administration: return [.start]
+        case .exhibiting: return [.restart, .stop]
+        case .paused, .safeHold: return [.resume]
+        default: return []
+        }
+      }(),
+      exhibitionReviewAction: root.remote.exhibitionReviewAction)
+  }
+
   public static func webAdministration(
     _ root: RootState, _ administration: AdministrationState
   ) -> WebAdministrationProps {

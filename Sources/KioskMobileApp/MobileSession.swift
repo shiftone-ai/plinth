@@ -30,6 +30,7 @@
     private var executor: EffectExecutor!
     private var presentation: MobilePresentationAdapter!
     private let cloudBridge = CatalogCloudEventBridge()
+    private let remoteBridge = RemoteCloudEventBridge()
 
     private struct CredentialConfiguration {
       let storageNamespace: String
@@ -39,6 +40,7 @@
 
     init() {
       let clock = MonotonicClock()
+      let cloudEngineHost = CloudSyncEngineHost.shared
       let credentials = Self.credentialConfiguration()
       language = LanguagePreference(storageNamespace: credentials.storageNamespace)
       #if DEBUG
@@ -58,6 +60,38 @@
       #endif
       presentation = MobilePresentationAdapter()
       presentation.pointer = pointer
+      let remoteDirectory: any RemoteDirectoryPort
+      #if DEBUG
+        if fixtureService != nil,
+          ProcessInfo.processInfo.environment["PLINTH_TEST_REMOTE_FIXTURE"] == "1"
+        {
+          remoteDirectory = RemoteDirectoryUITestFixture { [weak remoteBridge] event in
+            remoteBridge?.send(event)
+          }
+        } else {
+          remoteDirectory = RemoteDirectoryCloudSync(
+            stateURL: location.deletingLastPathComponent().appendingPathComponent(
+              "remote-management.json"),
+            displayName: UIDevice.current.name,
+            platform: UIDevice.current.userInterfaceIdiom == .pad ? .ipad : .iphone,
+            cloudAvailable: Bundle.main.object(forInfoDictionaryKey: "PlinthCloudKitEntitled")
+              as? String == "YES",
+            keychain: credentials.keychain,
+            engineHost: cloudEngineHost
+          ) { [weak remoteBridge] event in remoteBridge?.send(event) }
+        }
+      #else
+        remoteDirectory = RemoteDirectoryCloudSync(
+          stateURL: location.deletingLastPathComponent().appendingPathComponent(
+            "remote-management.json"),
+          displayName: UIDevice.current.name,
+          platform: UIDevice.current.userInterfaceIdiom == .pad ? .ipad : .iphone,
+          cloudAvailable: Bundle.main.object(forInfoDictionaryKey: "PlinthCloudKitEntitled")
+            as? String == "YES",
+          keychain: credentials.keychain,
+          engineHost: cloudEngineHost
+        ) { [weak remoteBridge] event in remoteBridge?.send(event) }
+      #endif
       let port = NativeEffectPort(
         web: web, presentation: presentation, repository: ProfileRepository(fileURL: location),
         credentials: CredentialStore(service: credentials.service, keychain: credentials.keychain),
@@ -68,8 +102,10 @@
           fileURL: location.deletingLastPathComponent().appendingPathComponent("catalog.json")),
         catalogCloudSync: CatalogCloudSync(
           stateURL: location.deletingLastPathComponent().appendingPathComponent(
-            "catalog-cloud.json")
+            "catalog-cloud.json"),
+          engineHost: cloudEngineHost
         ) { [weak cloudBridge] event in cloudBridge?.send(event) },
+        remoteDirectory: remoteDirectory,
         webServer: webServer)
       #if DEBUG
         if let value = ProcessInfo.processInfo.environment["PLINTH_TEST_IDLE_SECONDS"],
@@ -84,9 +120,11 @@
       #endif
       runtime = RootRuntime(clock: clock, executor: executor, diagnostics: DiagnosticLogAdapter())
       cloudBridge.runtime = runtime
+      remoteBridge.runtime = runtime
       attachWebServer()
       wireAdapters()
       runtime.send(.catalogLoadRequested, from: .root)
+      runtime.send(.remoteLoadRequested, from: .root)
     }
 
     private func attachWebServer() {
@@ -224,7 +262,11 @@
       displaysChanged()
     }
 
-    func applicationActivated() { runtime.send(.applicationActivated, from: .platform) }
+    func applicationActivated() {
+      runtime.send(.applicationActivated, from: .platform)
+      runtime.send(.remoteRefreshRequested, from: .platform)
+      runtime.send(.remoteStatusRequested(UUID()), from: .platform)
+    }
 
     func displaysChanged() {
       let availability = displayModes.availability(
@@ -257,6 +299,10 @@
     }
 
     private func settings(_ intent: SettingsIntent) {
+      if let event = RemoteIntentEventMapper.event(for: intent) {
+        runtime.send(event, from: .settings)
+        return
+      }
       if let event = CatalogIntentEventMapper.event(
         for: intent, importCount: runtime.settingsProps.props.catalog.importPreview?.count ?? 0
       ) {
@@ -358,7 +404,8 @@
 
     private func makeRootView(exhibitionWindow: Bool, displayOnly: Bool) -> MobileRootView {
       MobileRootView(
-        root: runtime.rootProps, settings: runtime.settingsProps, unlock: runtime.unlockProps,
+        root: runtime.rootProps, settings: runtime.settingsProps, remote: runtime.remoteProps,
+        unlock: runtime.unlockProps,
         web: runtime.webProps, host: web.host,
         language: language, selectLanguage: { [weak self] in self?.language.select($0) },
         exhibitionWindow: exhibitionWindow,

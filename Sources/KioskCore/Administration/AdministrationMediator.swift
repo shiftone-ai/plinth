@@ -95,6 +95,12 @@ public enum AdministrationMediator {
       next.draft = profile.map(ProfileDraft.init)
       return .handled(.init(next))
 
+    case .remoteProfileSaved(let profile):
+      guard envelope.source == .root else { return .reject(state, .wrongSource) }
+      next.savedProfile = profile
+      if !state.hasUnsavedDraft { next.draft = ProfileDraft(profile: profile) }
+      return .handled(.init(next))
+
     case .draftChanged, .draftEdited:
       guard
         [.settings, .navigationRules, .interactionPolicy, .resetPolicy, .webAdministration]
