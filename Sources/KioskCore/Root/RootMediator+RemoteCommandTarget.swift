@@ -69,6 +69,15 @@ extension RootMediator {
       next.remote.installation?.processedRequestExpirations =
         installation.processedRequestExpirations
       next.remote.commandClaimOperation = nil
+      if state.mobileDisplays != nil && !state.mobileForeground {
+        next.remote.commandResultOperation = token
+        return .handled(
+          .init(
+            next,
+            effects: [
+              Effect(token, .sendRemoteCommandResult(request, .rejected(.invalidState)))
+            ]))
+      }
       switch request.command {
       case .readStatus:
         let snapshot = RemoteStatusSnapshot(
