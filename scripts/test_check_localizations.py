@@ -86,9 +86,9 @@ class CheckLocalizationsTests(unittest.TestCase):
         action = self.root / "Sources/PlinthMobile/ResetExhibitionIntent.swift"
         action.parent.mkdir(parents=True)
         action.write_text(
-            'static let title = LocalizedStringResource("Reset Exhibition", table: "Shortcuts")'
+            'static let title = LocalizedStringResource("Reset Exhibition", table: "AppIntents")'
         )
-        shortcuts = self.root / "Resources/Shortcuts.xcstrings"
+        shortcuts = self.root / "Resources/AppIntents.xcstrings"
         shortcuts.write_text(
             json.dumps(
                 {
@@ -110,7 +110,7 @@ class CheckLocalizationsTests(unittest.TestCase):
         )
         result = self.run_check()
         self.assertEqual(result.returncode, 1)
-        self.assertIn("Shortcuts: Reset Exhibition: missing ja translation", result.stdout)
+        self.assertIn("AppIntents: Reset Exhibition: missing ja translation", result.stdout)
 
 
 if __name__ == "__main__":

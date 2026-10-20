@@ -524,7 +524,7 @@ mobile_shortcut_strings = obj(
     "MobileShortcutStrings",
     "PBXFileReference",
     lastKnownFileType="text.json.xcstrings",
-    path="Resources/Shortcuts.xcstrings",
+    path="Resources/AppIntents.xcstrings",
     sourceTree="SOURCE_ROOT",
 )
 mobile_shortcut_strings_build = obj(
