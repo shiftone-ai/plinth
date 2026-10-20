@@ -58,8 +58,7 @@ extension RemoteDirectoryCloudSync {
       $0.value >= cutoff
     }
     updated.processedRequestExpirations[request.header.requestID] = request.header.expiresAt
-    try persist(updated)
-    installation = updated
+    try persistMutation(&updated)
     return updated
   }
 
@@ -171,8 +170,7 @@ extension RemoteDirectoryCloudSync {
         accountIdentifier: accountIdentifier,
         signingPublicKey: proposal.signingPublicKey,
         agreementPublicKey: proposal.agreementPublicKey, approvedAt: .now)
-      try persist(updated)
-      installation = updated
+      try persistMutation(&updated)
     }
     try queueMessage(result, announcedSigningPublicKey: nil, command: nil, in: engine)
     await sendQueuedChanges(in: engine, session: session)
@@ -193,8 +191,7 @@ extension RemoteDirectoryCloudSync {
     else { throw Failure.accountChanged }
     var updated = current
     updated.approvedTargets[grant.id] = grant
-    try persist(updated)
-    installation = updated
+    try persistMutation(&updated)
     pairingTargets.removeValue(forKey: requestID)
     return updated
   }
@@ -210,8 +207,7 @@ extension RemoteDirectoryCloudSync {
     else { throw Failure.accountChanged }
     var updated = current
     updated.approvedControllers.removeValue(forKey: id)
-    try persist(updated)
-    installation = updated
+    try persistMutation(&updated)
     return updated
   }
 
@@ -276,7 +272,7 @@ extension RemoteDirectoryCloudSync {
     }
     guard !seenMessageIDs.contains(record.recordID),
       let data = record.encryptedValues["payload"] as? Data,
-      data.count <= 64_000,
+      data.count <= Self.maximumMessageDataBytes,
       let message = try? JSONDecoder().decode(RemoteSealedMessage.self, from: data),
       message.header.version == 1,
       message.header.accountIdentifier == accountIdentifier,

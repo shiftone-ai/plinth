@@ -229,6 +229,8 @@ public struct RemoteOutgoingCommand: Equatable, Sendable {
   public let command: RemoteCommandPayload
   public let deadline: Double
   public let automaticStatusRefresh: Bool
+  public let automaticStatusAttempt: Int
+  public var busyRetryPending: Bool
   public var phase: RemoteCommandPhase
   public var outcome: RemoteCommandOutcome?
 
@@ -236,6 +238,7 @@ public struct RemoteOutgoingCommand: Equatable, Sendable {
     requestID: UUID, targetID: UUID, accountIdentifier: String, deadline: Double,
     command: RemoteCommandPayload = .readStatus,
     automaticStatusRefresh: Bool = false,
+    automaticStatusAttempt: Int = 0, busyRetryPending: Bool = false,
     phase: RemoteCommandPhase = .sending, outcome: RemoteCommandOutcome? = nil
   ) {
     self.requestID = requestID
@@ -244,6 +247,8 @@ public struct RemoteOutgoingCommand: Equatable, Sendable {
     self.command = command
     self.deadline = deadline
     self.automaticStatusRefresh = automaticStatusRefresh
+    self.automaticStatusAttempt = automaticStatusAttempt
+    self.busyRetryPending = busyRetryPending
     self.phase = phase
     self.outcome = outcome
   }

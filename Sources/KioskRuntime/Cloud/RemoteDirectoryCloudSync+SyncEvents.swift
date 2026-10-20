@@ -18,6 +18,7 @@ extension RemoteDirectoryCloudSync {
       if update.deletions.contains(where: { $0.zoneID == Self.zoneID }) {
         devices = [:]
         ownRecordSystemFields = nil
+        needsOwnRecordAfterZoneRecovery = true
         syncEngine.state.add(pendingDatabaseChanges: [
           .saveZone(CKRecordZone(zoneID: Self.zoneID))
         ])
@@ -52,6 +53,9 @@ extension RemoteDirectoryCloudSync {
     case .sentDatabaseChanges(let update):
       if update.savedZones.contains(where: { $0.zoneID == Self.zoneID }) {
         sendFailed = false
+        if let change = recoveredOwnRecordChangeIfNeeded() {
+          syncEngine.state.add(pendingRecordZoneChanges: [change])
+        }
       }
       if update.failedZoneSaves.contains(where: { $0.zone.zoneID == Self.zoneID }) {
         sendFailed = true
@@ -223,17 +227,26 @@ extension RemoteDirectoryCloudSync {
   }
 
   private func queueOwnRecord(in engine: CKSyncEngine) {
-    guard let installation, let accountIdentifier else { return }
+    guard let change = ownRecordChange() else { return }
+    engine.state.add(pendingRecordZoneChanges: [change])
+  }
+
+  func recoveredOwnRecordChangeIfNeeded() -> CKSyncEngine.PendingRecordZoneChange? {
+    guard needsOwnRecordAfterZoneRecovery else { return nil }
+    needsOwnRecordAfterZoneRecovery = false
+    return ownRecordChange()
+  }
+
+  private func ownRecordChange() -> CKSyncEngine.PendingRecordZoneChange? {
+    guard let installation, let accountIdentifier else { return nil }
     if installation.enabledAccountIdentifier != accountIdentifier,
       ownRecordSystemFields == nil
     {
-      return
+      return nil
     }
     let id = Self.recordID(installation.id)
-    let change: CKSyncEngine.PendingRecordZoneChange =
-      installation.enabledAccountIdentifier == accountIdentifier
+    return installation.enabledAccountIdentifier == accountIdentifier
       ? .saveRecord(id) : .deleteRecord(id)
-    engine.state.add(pendingRecordZoneChanges: [change])
   }
 
   func publishDevices(session: OperationToken, accountIdentifier: String) async {
