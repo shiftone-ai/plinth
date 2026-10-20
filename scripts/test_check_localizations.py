@@ -124,6 +124,30 @@ class CheckLocalizationsTests(unittest.TestCase):
         self.assertEqual(result.returncode, 1)
         self.assertIn("Reset Exhibition: use AppIntents localization table", result.stdout)
 
+    def test_app_intent_without_table_fails(self) -> None:
+        action = self.root / "Sources/PlinthMobile/ResetExhibitionIntent.swift"
+        action.parent.mkdir(parents=True)
+        action.write_text(
+            "struct ResetExhibitionIntent: AppIntent {\n"
+            '  static let title = LocalizedStringResource("Reset Exhibition")\n'
+            "}\n"
+        )
+        result = self.run_check()
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("Reset Exhibition: use AppIntents localization table", result.stdout)
+
+    def test_app_intent_after_another_protocol_with_module_name_fails(self) -> None:
+        action = self.root / "Sources/PlinthMobile/ResetExhibitionIntent.swift"
+        action.parent.mkdir(parents=True)
+        action.write_text(
+            "struct ResetExhibitionIntent: Sendable, AppIntents.AppIntent {\n"
+            '  static let title = LocalizedStringResource("Reset Exhibition", table: "Shortcuts")\n'
+            "}\n"
+        )
+        result = self.run_check()
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("Reset Exhibition: use AppIntents localization table", result.stdout)
+
 
 if __name__ == "__main__":
     unittest.main()
