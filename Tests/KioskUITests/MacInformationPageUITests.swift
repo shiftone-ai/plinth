@@ -50,10 +50,7 @@ extension KioskWorkflowUITests {
     app.buttons["save-profile"].click()
     XCTAssertTrue(start.isEnabled)
     start.click()
-    let nextExhibit = app.webViews.links.matching(
-      NSPredicate(format: "label ==[c] %@", "Next exhibit")
-    ).firstMatch
-    await waitFor(nextExhibit, timeout: 25)
+    await waitFor(app.webViews.links["Next exhibit"], timeout: 25)
     attachStoreWindow(app, name: "store-mac-exhibition-\(language)")
   }
 
