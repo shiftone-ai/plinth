@@ -6,9 +6,9 @@
 
   const drift = document.body.dataset.scene === 'drift';
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
-  const pointer = { x: 0, y: 0, targetX: 0, targetY: 0, active: false, energy: 0 };
+  const pointer = { x: 0, y: 0, active: false };
+  const bodies = Array.from({ length: 2 }, () => ({ x: 0, y: 0, vx: 0, vy: 0 }));
   const ripples = [];
-  let lastRipple = 0;
   let width = 0;
   let height = 0;
   let time = 0;
@@ -17,23 +17,8 @@
   let manualChoice = null;
   let animationFrame = 0;
   let grain = null;
-  let glow = null;
   let rippleBand = 0;
-
-  function makeGlow() {
-    const layer = document.createElement('canvas');
-    layer.width = width;
-    layer.height = height;
-    const layerContext = layer.getContext('2d');
-    const scale = Math.min(width, height);
-    layerContext.filter = `blur(${Math.round(scale * .12)}px)`;
-    layerContext.globalAlpha = drift ? .32 : .19;
-    layerContext.fillStyle = drift ? '#db6849' : '#e29a6f';
-    layerContext.beginPath();
-    layerContext.ellipse(width * .57, height * .47, scale * .31, scale * .24, -.4, 0, Math.PI * 2);
-    layerContext.fill();
-    return layer;
-  }
+  let fluxSamples = [];
 
   function makeGrain() {
     const tile = document.createElement('canvas');
@@ -58,35 +43,39 @@
     width = window.innerWidth;
     height = window.innerHeight;
     rippleBand = Math.min(width, height) * .105;
+    const sampleCount = width < 640 ? 320 : 440;
+    fluxSamples = Array.from({ length: sampleCount + 1 }, (_, step) => {
+      const angle = step / sampleCount * Math.PI * 2;
+      const cos = Math.cos(angle);
+      const sin = Math.sin(angle);
+      return {
+        cos, sin,
+        squareX: Math.sign(cos) * Math.sqrt(Math.abs(cos)),
+        squareY: Math.sign(sin) * Math.sqrt(Math.abs(sin)),
+        sin3: Math.sin(angle * 3),
+        cos3: Math.cos(angle * 3),
+      };
+    });
     const ratio = Math.min(window.devicePixelRatio || 1, 2);
     canvas.width = Math.round(width * ratio);
     canvas.height = Math.round(height * ratio);
     context.setTransform(ratio, 0, 0, ratio, 0, 0);
-    glow = makeGlow();
     grain = makeGrain();
     draw();
   }
 
-  function repel(x, y) {
-    if (pointer.energy < .01 && !ripples.length) return [x, y];
-    const dx = x - pointer.x;
-    const dy = y - pointer.y;
-    const distance = Math.hypot(dx, dy);
+  function displace(x, y) {
+    if (!ripples.length) return [x, y];
     let offsetX = 0;
     let offsetY = 0;
-    if (pointer.energy > .01 && distance > 1) {
-      const reach = Math.min(width, height) * .22;
-      const falloff = Math.max(0, 1 - distance / reach);
-      const force = 22 * pointer.energy * falloff * falloff;
-      offsetX += dx / distance * force;
-      offsetY += dy / distance * force;
-    }
     for (const ripple of ripples) {
       const rippleX = x - ripple.x;
       const rippleY = y - ripple.y;
-      const rippleDistance = Math.hypot(rippleX, rippleY);
-      const position = (rippleDistance - ripple.age * .28) / rippleBand;
-      if (Math.abs(position) >= 1 || rippleDistance < 1) continue;
+      const squaredDistance = rippleX * rippleX + rippleY * rippleY;
+      if (squaredDistance < ripple.innerSquared || squaredDistance > ripple.outerSquared) continue;
+      const rippleDistance = Math.sqrt(squaredDistance);
+      if (rippleDistance < 1) continue;
+      const position = (rippleDistance - ripple.radius) / rippleBand;
       const envelope = 1 - position * position;
       const force = -ripple.strength * position * envelope * envelope;
       offsetX += rippleX / rippleDistance * force;
@@ -96,68 +85,100 @@
   }
 
   function addRipple(x, y, amplitude) {
-    ripples.push({ x, y, age: 0, amplitude, strength: amplitude });
+    const adjusted = drift ? amplitude : amplitude * .55;
+    ripples.push({
+      x, y, age: 0, amplitude: adjusted, strength: adjusted,
+      radius: 0, innerSquared: 0, outerSquared: rippleBand * rippleBand,
+    });
     if (ripples.length > 3) ripples.shift();
-    lastRipple = performance.now();
   }
 
   function drawFlux() {
     const scale = Math.min(width, height);
     const centerX = width * (width < 640 ? .52 : .60);
-    const centerY = height * (width < 640 ? .43 : .51);
-    const extent = scale * (width < 640 ? .43 : .59);
-    const rings = width < 640 ? 48 : 72;
-    for (let ring = rings - 1; ring >= 0; ring--) {
-      const depth = ring / (rings - 1);
-      const radius = extent * (.075 + .93 * depth);
-      const phase = ring * .035 + time * .0004;
-      context.beginPath();
-      for (let step = 0; step <= 260; step++) {
-        const angle = step / 260 * Math.PI * 2;
-        const wave = (
-          Math.sin(angle * 6 + phase) * 12 +
-          Math.sin(angle * 11 - ring * .025 - time * .00027) * 5
-        ) * (.25 + depth * .75);
-        const distance = radius + wave;
-        const x = centerX + Math.cos(angle) * distance * 1.08;
-        const y = centerY + Math.sin(angle) * distance * .88;
-        const [bentX, bentY] = repel(x, y);
-        if (step === 0) context.moveTo(bentX, bentY);
-        else context.lineTo(bentX, bentY);
+    const centerY = height * (width < 640 ? .5 : .51);
+    const extent = scale * (width < 640 ? .53 : .54);
+    const rings = width < 640 ? 50 : 74;
+    const echo = ripples.reduce((sum, ripple) =>
+      sum + ripple.strength * Math.sin(ripple.age * .006) * .008, 0);
+    for (let layer = 0; layer < 2; layer++) {
+      context.globalAlpha = layer ? .53 : 1;
+      const layerX = centerX + bodies[layer].x;
+      const layerY = centerY + bodies[layer].y;
+      for (let ring = rings - 1; ring >= 0; ring--) {
+        const depth = ring / (rings - 1);
+        const radius = extent * (.055 + .96 * depth);
+        const morph = depth;
+        const turn = depth * (layer ? -.19 : .13) + time * .00008 * (layer ? -1 : 1) +
+          (layer ? .06 + echo : 0);
+        const cosTurn = Math.cos(turn);
+        const sinTurn = Math.sin(turn);
+        const wavePhase = ring * (layer ? -.085 : .068) + time * .0002;
+        const cosWave = Math.cos(wavePhase);
+        const sinWave = Math.sin(wavePhase);
+        context.beginPath();
+        for (let step = 0; step < fluxSamples.length; step++) {
+          const sample = fluxSamples[step];
+          const wave = (sample.sin3 * cosWave + sample.cos3 * sinWave) * (2 + depth * 8);
+          const distance = radius + wave;
+          const localX = ((1 - morph) * sample.cos + morph * sample.squareX) * distance;
+          const localY = ((1 - morph) * sample.sin + morph * sample.squareY) * distance;
+          const x = layerX + localX * cosTurn - localY * sinTurn;
+          const y = layerY + localX * sinTurn + localY * cosTurn;
+          const [bentX, bentY] = displace(x, y);
+          if (step === 0) context.moveTo(bentX, bentY);
+          else context.lineTo(bentX, bentY);
+        }
+        context.closePath();
+        context.strokeStyle = layer ? '#2f4860' : ring % 10 === 0 ? '#da593c' : '#172e43';
+        context.lineWidth = layer ? .75 : ring % 10 === 0 ? 1.7 : .95;
+        context.shadowColor = !layer && ring % 10 === 0 ? 'rgba(218, 89, 60, .3)' : 'transparent';
+        context.shadowBlur = !layer && ring % 10 === 0 ? 10 : 0;
+        context.stroke();
       }
-      context.closePath();
-      context.strokeStyle = ring % 11 === 0 ? '#da593c' : '#172e43';
-      context.lineWidth = ring % 11 === 0 ? 2.3 : 1.1;
-      context.stroke();
     }
+    context.globalAlpha = 1;
   }
 
   function drawDrift() {
-    const lines = 78;
-    const gap = height / (lines - 1);
-    for (let line = 0; line < lines; line++) {
-      const base = line * gap;
-      context.beginPath();
-      for (let x = -12; x <= width + 12; x += 8) {
-        const focus = Math.exp(-(((x - width * .53) / (width * .37)) ** 2));
-        const wave = Math.sin(x * .009 + line * .16 + time * .00048) * (10 + 50 * focus);
-        const fold = Math.sin(line * .13 - time * .00017) * 28 * focus;
-        const [bentX, bentY] = repel(x, base + wave + fold);
-        if (x === -12) context.moveTo(bentX, bentY);
-        else context.lineTo(bentX, bentY);
+    // Keep moving layers and click ripples inside an oversized field so their ends stay offscreen.
+    const overscan = 192;
+    for (let layer = 0; layer < 2; layer++) {
+      const lines = layer ? 58 : 78;
+      const gap = height / (lines - 1);
+      const extraLines = Math.ceil(overscan / gap);
+      const shiftX = bodies[layer].x;
+      const shiftY = bodies[layer].y;
+      context.globalAlpha = layer ? .32 : 1;
+      for (let line = -extraLines; line < lines + extraLines; line++) {
+        const base = line * gap;
+        context.beginPath();
+        for (let x = -overscan; x <= width + overscan; x += 8) {
+          const focus = Math.exp(-(((x - width * .53) / (width * .37)) ** 2));
+          const wave = Math.sin(x * (layer ? .0085 : .009) + line * (layer ? -.17 : .16) +
+            time * (layer ? -.0004 : .00048)) * (10 + 50 * focus);
+          const fold = Math.sin(line * (layer ? -.11 : .13) - time * .00017) * 28 * focus;
+          const [bentX, bentY] = displace(x + shiftX, base + shiftY + wave + fold);
+          if (x === -overscan) context.moveTo(bentX, bentY);
+          else context.lineTo(bentX, bentY);
+        }
+        context.strokeStyle = layer ? '#8db7bd' : line % 13 === 0 ? '#e46d51' : '#e7e2d9';
+        context.lineWidth = layer ? .7 : line % 13 === 0 ? 2.1 : .95;
+        context.shadowColor = !layer && line % 13 === 0 ? 'rgba(228, 109, 81, .5)' : 'transparent';
+        context.shadowBlur = !layer && line % 13 === 0 ? 14 : 0;
+        context.stroke();
       }
-      context.strokeStyle = line % 13 === 0 ? '#e46d51' : '#e7e2d9';
-      context.lineWidth = line % 13 === 0 ? 2.1 : .95;
-      context.stroke();
     }
+    context.globalAlpha = 1;
   }
 
   function draw() {
     context.fillStyle = drift ? '#10293d' : '#f2efe7';
     context.fillRect(0, 0, width, height);
-    context.drawImage(glow, 0, 0);
     if (drift) drawDrift();
     else drawFlux();
+    context.shadowBlur = 0;
+    context.shadowColor = 'transparent';
     context.save();
     context.globalAlpha = .48;
     context.fillStyle = grain;
@@ -171,20 +192,48 @@
     }
   }
 
+  function moveBodies(elapsed) {
+    const seconds = elapsed / 1000;
+    const centerX = drift ? width * .5 : width * (width < 640 ? .52 : .60);
+    const centerY = drift ? height * .5 : height * (width < 640 ? .5 : .51);
+    for (let layer = 0; layer < bodies.length; layer++) {
+      const body = bodies[layer];
+      let accelerationX = -3.6 * body.x - 2.5 * body.vx;
+      let accelerationY = -3.6 * body.y - 2.5 * body.vy;
+      if (pointer.active) {
+        const towardX = pointer.x - centerX - body.x;
+        const towardY = pointer.y - centerY - body.y;
+        const distance = Math.hypot(towardX, towardY);
+        if (distance > 1) {
+          const direction = layer ? -1 : 1;
+          const force = 240 * Math.min(1, distance / 260);
+          accelerationX += direction * force * towardX / distance;
+          accelerationY += direction * force * towardY / distance;
+        }
+      }
+      body.vx += accelerationX * seconds;
+      body.vy += accelerationY * seconds;
+      body.x += body.vx * seconds;
+      body.y += body.vy * seconds;
+    }
+  }
+
   function tick(timestamp) {
     animationFrame = 0;
     if (!running || document.hidden) return;
     const elapsed = previousFrame ? Math.min(40, timestamp - previousFrame) : 16.7;
     time += elapsed;
     previousFrame = timestamp;
-    const follow = 1 - Math.exp(-elapsed / 105);
-    pointer.x += (pointer.targetX - pointer.x) * follow;
-    pointer.y += (pointer.targetY - pointer.y) * follow;
-    pointer.energy *= Math.exp(-elapsed / 430);
+    moveBodies(elapsed);
     for (let index = ripples.length - 1; index >= 0; index--) {
       ripples[index].age += elapsed;
       ripples[index].strength = ripples[index].amplitude * Math.exp(-ripples[index].age / 850);
-      if (ripples[index].age > 1500) ripples.splice(index, 1);
+      const radius = ripples[index].age * .28;
+      ripples[index].radius = radius;
+      ripples[index].innerSquared = Math.max(0, radius - rippleBand) ** 2;
+      ripples[index].outerSquared = (radius + rippleBand) ** 2;
+      const beyondScreen = radius > Math.hypot(width, height) + rippleBand;
+      if (ripples[index].strength < .12 || beyondScreen) ripples.splice(index, 1);
     }
     draw();
     scheduleFrame();
@@ -208,31 +257,18 @@
     setRunning(manualChoice);
   });
   window.addEventListener('pointermove', event => {
-    const distance = Math.hypot(event.clientX - pointer.targetX, event.clientY - pointer.targetY);
-    pointer.targetX = event.clientX;
-    pointer.targetY = event.clientY;
-    if (!pointer.active) {
-      pointer.x = pointer.targetX;
-      pointer.y = pointer.targetY;
-    }
-    if (distance > 8) pointer.energy = Math.min(1, pointer.energy + distance / 190);
-    if (distance > 24 && performance.now() - lastRipple > 110) {
-      addRipple(event.clientX, event.clientY, Math.min(55, 27 + distance * .12));
-    }
+    pointer.x = event.clientX;
+    pointer.y = event.clientY;
     pointer.active = true;
   });
   window.addEventListener('pointerdown', event => {
-    pointer.targetX = event.clientX;
-    pointer.targetY = event.clientY;
-    if (!pointer.active) {
-      pointer.x = pointer.targetX;
-      pointer.y = pointer.targetY;
-    }
-    pointer.energy = 1;
+    if (event.target instanceof Element && event.target.closest('button, a')) return;
+    pointer.x = event.clientX;
+    pointer.y = event.clientY;
     addRipple(event.clientX, event.clientY, 55);
     pointer.active = true;
   });
-  window.addEventListener('pointerleave', () => { pointer.active = false; });
+  document.documentElement.addEventListener('pointerleave', () => { pointer.active = false; });
   window.addEventListener('resize', resize);
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
