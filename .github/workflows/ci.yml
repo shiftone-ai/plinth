@@ -39,6 +39,8 @@ jobs:
           devenv --version
           xcodebuild -version
           swift --version
+      - name: Check public content
+        run: python3 scripts/check-public-content.py
       # 全ファイルにcommit前hookを実行してから，devenv.nixのenterTestでビルドとテストを行う．
       - name: Lint and test
         run: devenv test

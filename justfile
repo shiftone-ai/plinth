@@ -18,6 +18,7 @@ fmt:
 
 # 整形の差分と静的検査の違反を報告する．SwiftLintはbaselineにない違反だけを失敗にする
 lint:
+    python3 scripts/check-public-content.py
     xcrun swift-format lint --strict --recursive --parallel {{ swift_paths }}
     swiftlint lint --quiet --baseline {{ swiftlint_baseline }}
     ruff check scripts

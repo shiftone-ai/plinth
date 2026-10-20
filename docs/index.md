@@ -7,6 +7,7 @@
 | iPhone・iPadの署名・配布，MacのDeveloper ID配布 | [実機への配布](distribution.md) |
 | 配布物のライセンス表示 | [ライセンスの棚卸し](release/licenses.md) |
 | 公開候補のデータ取扱い | [プライバシー調査](release/privacy-facts.md) |
+| 公開ページ | [URLと更新手順](release/public-pages.md) |
 | App Store公開の判定 | [公開準備表](release/store-readiness.md)，[掲載文](release/store-listing.md)，[審査メモ](release/review-notes.md)，[画像案](release/creative-assets/README.md) |
 | 閲覧先の入力・ワイルドカード・拒否時の動作 | [ドメインの入力](design-docs/navigation-input.md) |
 | 設定集・iCloud同期・暗号化ファイルの責務 | [設定集](design-docs/settings-catalog.md) |
@@ -29,7 +30,7 @@
 2. 実装・検証の規約を変えるときは，`rules/` の該当文書を更新する．一般的な手順はSkillに任せ，プロジェクト固有の条件を残す．
 3. 資料を移動・追加するときは，この一覧と関連する参照元を同じ変更で更新する．
 4. Skillを更新するときは，取得commitと本文・reference・ライセンスをそろえる．
-5. このリポジトリは公開されている．検証の記録では，端末をOSのバージョンと方式（Touch ID・Face IDなど）で表す．開発機の機種名・ホスト名，`.build/` 配下の記録の場所，配布のbuild番号や状態は，文書・Issue・PRに書かない．
+5. このリポジトリは公開されている．検証の記録では，端末をOSのバージョンと方式（Touch ID・Face IDなど）で表す．開発機の機種名・ホスト名，`.build/` 配下の記録の場所，配布のbuild番号や状態，組織内のアカウント・メール配信・保存設定，作業メモは，文書・Issue・PRに書かない．
 
 設計書は実装前の判断と確認範囲を記録した文書であり，ビルド済み・実機検証済みであることを示すものではない．元の設計本文と参照資料は保持している．
 

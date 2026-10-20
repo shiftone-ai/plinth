@@ -62,6 +62,13 @@ in
       types = [ "markdown" ];
       excludes = [ "^\\.agents/skills/" ];
     };
+    public-content = {
+      enable = true;
+      name = "Public content";
+      entry = "${pkgs.python3}/bin/python3 scripts/check-public-content.py --staged";
+      pass_filenames = false;
+      always_run = true;
+    };
     swift-test = {
       enable = true;
       name = "swift test";
