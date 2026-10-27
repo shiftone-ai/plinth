@@ -88,7 +88,9 @@ Plinth Kioskは，管理者が選んだWebページをMacで展示するアプ�
 
 MacでWeb管理を有効にすると，同じローカルネットワークのブラウザから設定できます．通信は暗号化されないHTTPを使うため，隔離したネットワークで運用してください．
 
-外部ディスプレイを使う場合は，Macに対応する画面を接続してください．PlinthはmacOSのアプリ切り替えや端末の設定変更を禁止しません．端末を1つのアプリに限定する運用は，Mac側で別途設定してください．
+外部ディスプレイを使う場合は，Macに対応する画面を接続してください．
+
+全画面固定ではDockとメニューバーを隠し，Command–Tabによるアプリ切り替えを無効にします．ほかの画面は黒く覆い，ポインタを展示画面内に戻します．Command–Option–Shift–Kで管理者解除を開き，設定したパスワードで管理画面へ戻ると，これらの制限を解除します．ウィンドウ表示では，Dock・メニューバー・Command–Tabを制限しません．端末全体の利用制限が必要な場合は，Mac側で別途設定してください．
 
 **キーワード**：キオスク,展示,Web,Mac,ディスプレイ,デジタルサイネージ
 
@@ -102,7 +104,9 @@ Set a starting URL, allowed destinations, scrolling and dragging, idle reset, an
 
 Enable web management on the Mac to change settings from a browser on the same local network. It uses unencrypted HTTP, so use a network separated from untrusted devices.
 
-Connect a compatible display if you use external output. Plinth does not prevent macOS app switching or changes to device settings. Configure device restrictions separately if your installation needs them.
+Connect a compatible display if you use external output.
+
+Fixed full screen hides the Dock and menu bar, disables Command-Tab app switching, covers other displays in black, and keeps the pointer on the exhibition display. Press Command-Option-Shift-K and enter the administrator passcode to return to settings and release these restrictions. Window mode leaves the Dock, menu bar, and Command-Tab available. Configure any additional device restrictions separately on the Mac.
 
 **Keywords**: kiosk,exhibition,web display,Mac,digital signage
 
@@ -116,7 +120,9 @@ Plinth Kiosk는 관리자가 선택한 웹페이지를 Mac에 전시하는 앱�
 
 Mac에서 웹 관리를 켜면 같은 로컬 네트워크의 브라우저에서 설정을 변경할 수 있습니다. 암호화되지 않은 HTTP를 사용하므로 신뢰할 수 없는 기기와 네트워크를 분리하세요.
 
-외부 화면을 사용하려면 Mac과 호환되는 디스플레이를 연결하세요. Plinth는 macOS의 앱 전환이나 기기 설정 변경을 막지 않습니다. 기기를 한 앱으로 제한하려면 Mac에서 별도로 설정하세요.
+외부 화면을 사용하려면 Mac과 호환되는 디스플레이를 연결하세요.
+
+전체 화면 고정 모드에서는 Dock과 메뉴 막대를 숨기고 Command–Tab을 통한 앱 전환을 비활성화합니다. 다른 화면은 검게 가리고 포인터는 전시 화면 안에 유지합니다. Command–Option–Shift–K를 누르고 관리자 암호를 입력해 설정으로 돌아가면 이러한 제한이 해제됩니다. 창 모드에서는 Dock, 메뉴 막대, Command–Tab을 사용할 수 있습니다. 기기 전체에 추가 제한이 필요하면 Mac에서 별도로 설정하세요.
 
 **키워드**: 키오스크,전시,웹,Mac,디스플레이,디지털 사이니지
 
@@ -131,7 +137,9 @@ Plinth Kiosk 可以在 Mac 上展示管理员选择的网页。你可以选择�
 
 在 Mac 上启用网页管理后，可以从同一局域网内的浏览器更改设置。该功能使用未加密的 HTTP，请将展示网络与不可信的设备隔离。
 
-如需使用外接屏幕，请连接与 Mac 兼容的显示器。Plinth 不会阻止 macOS 的应用切换或设备设置更改；如需将设备限定在一个应用中，请另行配置 Mac 限制。
+如需使用外接屏幕，请连接与 Mac 兼容的显示器。
+
+固定全屏模式会隐藏程序坞和菜单栏，禁用 Command–Tab 应用切换，将其他屏幕遮为黑色，并将指针限制在展示屏幕内。按 Command–Option–Shift–K 并输入管理员密码，返回设置后即可解除这些限制。窗口模式下仍可使用程序坞、菜单栏和 Command–Tab。如需对整台设备施加其他限制，请在 Mac 上另行配置。
 ```
 
 **关键词**：信息亭,展览,网页,Mac,显示器,数字标牌
