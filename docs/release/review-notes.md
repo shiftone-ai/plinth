@@ -6,6 +6,8 @@ App Store Connectの各プラットフォームの「Notes」に入力する原�
 
 Plinth displays an administrator-selected website for an exhibition. No account or external hardware is required for the basic path.
 
+Business model: Plinth is free. It has no store, checkout, paid content, subscriptions, license keys, or paid feature unlocks. The administrator passcode protects local settings and is created in the app at no charge. There is no Plinth account registration. Optional iCloud sync uses the user's existing Apple account. Administrators choose their own websites; Plinth does not sell or unlock access to them. The sample below is free and requires no login.
+
 1. On the first settings screen, enter `https://shiftone-ai.github.io/plinth/demo/index.html` as the Start URL. Leave the exhibition destination set to this device.
 2. Create an administrator passcode of at least eight characters, save the passcode and settings, then tap Start Exhibition.
 3. The artwork fills the page. Tap “Next exhibit” to test navigation within the allowed origin; the link changes to “First exhibit” on the second page.
@@ -19,16 +21,24 @@ The Settings collection is optional. After saving settings, enter a name and tap
 
 Plinth displays an administrator-selected website for an exhibition. No account or external display is required for the basic path.
 
-1. Launch the app and enter `https://shiftone-ai.github.io/plinth/demo/index.html` as the Start URL. Choose the Mac's built-in display for the basic path.
-2. Create an administrator passcode of at least eight characters, save the passcode and settings, then start the exhibition.
-3. The artwork fills the page. Click “Next exhibit” to test navigation within the allowed origin; the link changes to “First exhibit” on the second page.
-4. Use Command–Option–Shift–K to request administrator unlock, enter the passcode you created, and return to settings. Restart the app to verify that it resumes the saved exhibition.
+Business model: Plinth is free. It has no store, checkout, paid content, subscriptions, license keys, or paid feature unlocks. The administrator passcode protects local settings and is created in the app at no charge. There is no Plinth account registration. Optional iCloud sync uses the user's existing Apple account. Administrators choose their own websites; Plinth does not sell or unlock access to them. The sample below is free and requires no login.
 
-The sample site is maintained by the developer and requires no login. The app settings include Privacy Policy, Support and Licenses links. Web management is optional and off by default. It requires another browser on the same local network and uses HTTP, so test it only on an isolated network. Biometric unlock is optional on supported Macs; the administrator passcode remains available. A second monitor is required only for external display output. Plinth does not prevent macOS app switching.
+1. Launch the app and enter `https://shiftone-ai.github.io/plinth/demo/index.html` as the Start URL. In Output, choose Fixed full screen and the built-in display, or your single display. Create a passcode of at least eight characters, save the passcode and settings, then start the exhibition.
+2. Click Next exhibit to navigate within the allowed origin; First exhibit returns to the starting page. The animation can be paused with its on-page control.
+3. Press Command-Option-Shift-K, enter the passcode you created, and return to settings. Restart the app to verify that it resumes the saved exhibition. Use the same shortcut and passcode to leave it again.
+4. To compare output modes, choose Window in Output, save settings, and start the exhibition. The window can be moved and resized. Use Command-Option-Shift-K and your passcode to return to settings.
 
-The macOS app needs `com.apple.security.network.server` for optional Web management. After creating the administrator passcode, turn on Allow web management in the Mac settings and save. The app listens for incoming TCP connections on port 47623 and shows its local network URL and QR code. Open that URL in a browser on the same isolated network and sign in with the administrator passcode to manage the exhibition. Turning off Allow web management and saving stops the listener. The app does not listen while this option is off.
+Fixed full screen intentionally hides the Dock and menu bar, disables Command-Tab app switching, covers other displays in black, and confines the pointer to the exhibition display. Successful administrator unlock releases these restrictions. Window mode leaves the Dock, menu bar, and Command-Tab available. Quit and window-close requests are refused during an exhibition; unlock first to exit. Launch normally for review. The documented --preview command-line option disables kiosk OS presentation for development/testing; it does not unlock additional features or depend on a reviewer account.
 
-The Settings collection is optional. After saving settings, enter a name and click Save current settings. Select the saved entry, then click Load into editor or Export this setting. iCloud sync is off by default. To test it, sign in to iCloud on two devices, turn on sync in Settings collection on each, then explicitly choose Share in iCloud for an entry. The administrator passcode is never part of an entry.
+Web management is optional and off by default. After saving a passcode, turn on Allow web management and save settings. The app uses `com.apple.security.network.server` to listen on TCP port 47623 and displays a local network URL and QR code. From another browser on the same isolated network, open that URL and sign in with your administrator passcode. You can edit and save settings, start, restart, stop, and resume the exhibition. Disable Allow web management on the Mac and save to stop the listener. This feature uses unencrypted HTTP.
+
+Biometric unlock is optional on supported Macs. Enable it in Administrator, complete the system authentication, start an exhibition, then press Command-Option-Shift-K and choose the biometric control. The passcode remains available on Macs without biometrics.
+
+Settings collection is optional. After saving settings, enter a name and click Save current settings. Select the entry and choose Load into editor or Export this setting. Export collection and Import file transfer encrypted settings files using a file passphrase. This passphrase does not unlock paid features. The administrator passcode is never included in an entry or exported file.
+
+iCloud sync is off by default. Sign in to iCloud on two devices, choose Turn on sync in Settings collection on each, then choose Share in iCloud for an entry. This synchronizes settings, not a paid content catalog.
+
+The settings screen also exposes allowed destinations, HTTP permission, scrolling and dragging, idle return, and cookie/site-data retention. Privacy Policy, Support, and Licenses are available in settings. A second monitor is required only to test external display output.
 
 ## 提出前の照合
 
